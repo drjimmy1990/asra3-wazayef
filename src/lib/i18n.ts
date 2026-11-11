@@ -1,0 +1,151 @@
+// ==============================================================================
+// ASRA3.COM ("أسرع") — Bilingual Translation Dictionary (Arabic RTL & English LTR)
+// Brand Positioning: "توظَّف أسرع" / "Get Hired Faster"
+// ==============================================================================
+
+import { Language } from "@/lib/types";
+
+export const translations = {
+  ar: {
+    brandName: "أسرع",
+    brandTagline: "توظَّف أسرع — التوزيع الذكي للسيرة الذاتية في الخليج",
+    navHowItWorks: "كيف يعمل أسرع؟",
+    navCountries: "دول الخليج",
+    navPricing: "الباقات والأسعار",
+    navTrackOrder: "تتبع حملتك",
+    navAdmin: "الإدارة",
+    navStartNow: "توظَّف أسرع — ابدأ الآن",
+    heroPreTitle: "⚡ منصة أسرع (Asra3.com) — أسرع مسار ذكي للتوظيف في الخليج",
+    heroTitlePart1: "توظَّف أسرع.. نوصل سيرتك الذاتية مباشرة لمديري الـ HR في",
+    heroSubtitle:
+      "اختصر شهور الانتظار في طوابير مواقع التوظيف التقليدية. في 3 دقائق فقط، يحلّل الذكاء الاصطناعي في «أسرع» سيرتك الذاتية، يصيغ خطاب تقديم تنفيذي مخصص، ويرسل ملفك مباشرة لبريد مسؤولي التوظيف الموثقين في تخصصك.",
+    heroCtaPrimary: "توظَّف أسرع — افحص سيرتك مجاناً",
+    heroCtaSecondary: "استعرض لوحة التتبع الحية",
+    statVerifiedCompanies: "جهة توظيف وشركة موثقة",
+    statCvsDistributed: "إرسال مباشر لصنّاع القرار",
+    statGCCCountries: "أسواق خليجية بتغطية محلية",
+    statAvgInterviewRate: "أسرع في الوصول للمقابلة الوظيفية",
+    countrySwitcherTitle: "اختر الدولة المستهدفة للتوظيف السريع (تخصيص محلي فوري):",
+    wizardBadge: "⚡ محرك أسرع الذكي — أطلق حملتك في أقل من 3 دقائق",
+    wizardTitle: "أطلق حملة توظيفك السريعة الآن",
+    wizardSubtitle:
+      "حدد الدولة والمدن المستهدفة، ارفع سيرتك الذاتية للفحص الحقيقي بالذكاء الاصطناعي، واختر مسار الوصول الأنسب لك.",
+    step1Title: "1. الدولة والمدن",
+    step2Title: "2. فحص ورفع الـ CV",
+    step3Title: "3. باقة أسرع",
+    step4Title: "4. الإطلاق الفوري",
+    selectCountryLabel: "اختر الدولة الأساسية التي تبحث عن عمل فيها:",
+    selectCitiesLabel: "حدد المدن / المناطق المستهدفة داخل الدولة:",
+    selectAllCities: "تحديد كل المدن",
+    companiesAvailableLabel: "شركة موثقة جاهزة لاستقبال سيرتك الذاتية",
+    nextStepBtn: "الخطوة التالية",
+    prevStepBtn: "السابق",
+    uploadBoxTitle: "اسحب وأفلت ملف السيرة الذاتية هنا أو اضغط للاختيار",
+    uploadBoxSubtitle: "فحص حقيقي لنص الملف — يدعم PDF و Word (DOCX) حتى 10 ميجابايت",
+    scanningCvTitle: "يقوم محرك أسرع بقراءة سيرتك الذاتية ومطابقتها مع شركات الخليج...",
+    scanCompleteBadge: "اكتمل الفحص الذكي (Asra3 AI Ready)",
+    candidateNameLabel: "الاسم الكامل للمرشح",
+    candidateEmailLabel: "البريد الإلكتروني الشخصي (تصلك دعوات المقابلات عليه مباشرة)",
+    candidatePhoneLabel: "رقم الجوال / واتساب",
+    detectedIndustryLabel: "القطاع الوظيفي المطابق",
+    jobTitleLabel: "المسمى الوظيفي المستهدف",
+    yearsExpLabel: "سنوات الخبرة",
+    atsScoreLabel: "تقييم توافق الـ ATS الفعلي",
+    matchedCompaniesBanner: "شركة موثقة مطابقة لتخصصك في",
+    choosePackageTitle: "اختر مسار «أسرع» المناسب لأهدافك الوظيفية",
+    multiCountryBumpTitle: "ضاعف مقابلاتك 3×: أضف دول خليجية إضافية بخصم حصري!",
+    multiCountryBumpDesc:
+      "أرسل سيرتك الذاتية في نفس الحملة لشركات دول خليجية إضافية بضغطة واحدة:",
+    orderSummaryTitle: "ملخص الحملة والدفع الآمن عبر EasyKash",
+    promoCodePlaceholder: "لديك كود خصم؟ أدخله هنا",
+    applyPromoBtn: "تطبيق",
+    payWithEasyKashBtn: "ادفع الآن وأطلق حملتك عبر أسرع",
+    securePaymentNote:
+      "دفع آمن ومشفر 100% عبر بوابة EasyKash المعتمدة (بطاقات بنكية، مدى، Apple Pay، فوري، محافظ إلكترونية)",
+    howItWorksTitle: "قاعدة الـ 3 من «أسرع»: كيف نختصر شهور البحث في دقائق؟",
+    howItWorksStep1Title: "1. استهداف خليجي دقيق",
+    howItWorksStep1Desc:
+      "اختر الإمارات أو السعودية أو قطر أو الكويت وحدد مدنك المستهدفة لفرز الشركات النشطة في مجالك.",
+    howItWorksStep2Title: "2. قراءة فعلية وتحسين ATS بالذكاء الاصطناعي",
+    howItWorksStep2Desc:
+      "يقرأ النظام نص سيرتك الذاتية فعلياً، يستخرج مهاراتك، ويجهز خطاب تقديم تنفيذي وملف ATS محسّن.",
+    howItWorksStep3Title: "3. وصول مباشر لصندوق الـ HR وتتبع حي",
+    howItWorksStep3Desc:
+      "يرسل الخادم سيرتك الذاتية المرفقة مباشرة لإيميلات التوظيف الموثقة مع توجيه الردود لبريدك الشخصي.",
+    faqTitle: "الأسئلة الشائعة حول منصة أسرع (Asra3.com)",
+    footerRights: "جميع الحقوق محفوظة © 2026 منصة أسرع للتوظيف الذكي (Asra3.com) — توظَّف أسرع.",
+  },
+  en: {
+    brandName: "Asra3",
+    brandTagline: "Get Hired Faster — AI Direct-to-HR CV Outreach Across the GCC",
+    navHowItWorks: "How Asra3 Works",
+    navCountries: "GCC Markets",
+    navPricing: "Fast-Track Plans",
+    navTrackOrder: "Track Campaign",
+    navAdmin: "Admin",
+    navStartNow: "Get Hired Faster",
+    heroPreTitle: "⚡ Asra3.com — The Fastest AI Track to GCC HR Inboxes",
+    heroTitlePart1: "Get Hired Faster. Your CV Delivered Direct to Verified HR in",
+    heroSubtitle:
+      "Stop waiting months in 1,000-applicant job board queues. In under 3 minutes, Asra3 parses your real CV, crafts a tailored executive cover letter, and delivers your resume directly to verified hiring managers across top Gulf companies.",
+    heroCtaPrimary: "Get Hired Faster — Scan My CV Free",
+    heroCtaSecondary: "Preview Live Tracking Portal",
+    statVerifiedCompanies: "Verified GCC Employers",
+    statCvsDistributed: "Direct HR Inbox Deliveries",
+    statGCCCountries: "Localized Gulf Markets",
+    statAvgInterviewRate: "Faster Path to HR Interviews",
+    countrySwitcherTitle: "Select Target Hiring Country (Instant Local Mode):",
+    wizardBadge: "⚡ Asra3 Fast-Track Engine — Launch in Under 3 Minutes",
+    wizardTitle: "Launch Your Fast-Track Recruitment Campaign",
+    wizardSubtitle:
+      "Pick your target country and cities, upload your CV for real AI text analysis, and choose your outreach speed tier.",
+    step1Title: "1. Country & Cities",
+    step2Title: "2. Real CV AI Scan",
+    step3Title: "3. Asra3 Plan",
+    step4Title: "4. Instant Launch",
+    selectCountryLabel: "Select Primary Target Country:",
+    selectCitiesLabel: "Select Target Cities / Regions:",
+    selectAllCities: "Select All Cities",
+    companiesAvailableLabel: "verified companies ready to receive your CV",
+    nextStepBtn: "Continue to Next Step",
+    prevStepBtn: "Back",
+    uploadBoxTitle: "Drag & Drop your CV file here or click to browse",
+    uploadBoxSubtitle: "Real text extraction — Supports PDF & Word (DOCX) up to 10 MB",
+    scanningCvTitle: "Asra3 AI is reading your CV text and matching GCC employers...",
+    scanCompleteBadge: "Asra3 AI Match Ready",
+    candidateNameLabel: "Candidate Full Name",
+    candidateEmailLabel: "Personal Email Address (HR replies route directly here)",
+    candidatePhoneLabel: "Mobile / WhatsApp Number",
+    detectedIndustryLabel: "Matched Industry Sector",
+    jobTitleLabel: "Target Job Title / Role",
+    yearsExpLabel: "Years of Experience",
+    atsScoreLabel: "Measured ATS Readiness Score",
+    matchedCompaniesBanner: "verified companies matched for your field in",
+    choosePackageTitle: "Choose Your Asra3 Fast-Track Distribution Plan",
+    multiCountryBumpTitle: "3x Your Reach: Add Extra GCC Countries at ~50% Off!",
+    multiCountryBumpDesc:
+      "Expand your CV campaign to verified employers in additional Gulf countries in one click:",
+    orderSummaryTitle: "Campaign Summary & Secure EasyKash Checkout",
+    promoCodePlaceholder: "Have a promo code? Enter here",
+    applyPromoBtn: "Apply",
+    payWithEasyKashBtn: "Pay Now & Launch Asra3 Campaign",
+    securePaymentNote:
+      "100% Encrypted Checkout via EasyKash DirectPayV1 (Visa, Mastercard, Mada, Apple Pay, Fawry, Wallets)",
+    howItWorksTitle: "The Asra3 Rule of 3: Months of Job Hunting in 3 Minutes",
+    howItWorksStep1Title: "1. Precision Gulf Targeting",
+    howItWorksStep1Desc:
+      "Select UAE, Saudi Arabia, Qatar, or Kuwait and filter exact cities where you want to interview.",
+    howItWorksStep2Title: "2. Real AI Parsing & ATS Upgrade",
+    howItWorksStep2Desc:
+      "Asra3 extracts your actual skills & experience, builds a tailored cover letter, and upgrades ATS keywords.",
+    howItWorksStep3Title: "3. Direct HR Inbox Delivery & Live Tracking",
+    howItWorksStep3Desc:
+      "Our servers drip-dispatch your attached CV directly to verified HR emails with Reply-To routed to you.",
+    faqTitle: "Frequently Asked Questions About Asra3.com",
+    footerRights: "All Rights Reserved © 2026 Asra3.com (أسرع) — Get Hired Faster Across the GCC.",
+  },
+} as const;
+
+export function getTranslation(lang: Language) {
+  return translations[lang] || translations.ar;
+}

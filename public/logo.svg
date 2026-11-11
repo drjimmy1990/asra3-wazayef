@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 290 72" width="290" height="72" fill="none">
+  <g transform="translate(4, 4)">
+    <rect x="1" y="1" width="62" height="62" rx="14" fill="#09090B" stroke="#27272A" stroke-width="1.5"/>
+    <rect x="5" y="5" width="54" height="54" rx="10" stroke="#D4AF37" stroke-opacity="0.3" stroke-width="1"/>
+    <path d="M14 21H36L53 32L36 43H14L25.5 32L14 21Z" fill="#D4AF37"/>
+    <path d="M12 27.2H26.5L33 32L26.5 36.8H12L17.5 32L12 27.2Z" fill="#09090B"/>
+    <circle cx="51" cy="16.5" r="3" fill="#FAFAFA"/>
+    <path d="M42.5 16.5H46.5" stroke="#D4AF37" stroke-width="1.8" stroke-linecap="round"/>
+  </g>
+  <text x="82" y="38" fill="#09090B" font-family="Plus Jakarta Sans, Segoe UI, system-ui, sans-serif" font-size="27" font-weight="800" letter-spacing="1">ASRA<tspan fill="#D4AF37">3</tspan><tspan font-size="14" fill="#71717A" font-weight="600" letter-spacing="0">.com</tspan></text>
+  <text x="83" y="58" fill="#52525B" font-family="IBM Plex Sans Arabic, Segoe UI, Tahoma, sans-serif" font-size="13.5" font-weight="700">أسرع — توظَّف أسرع في الخليج</text>
+</svg>

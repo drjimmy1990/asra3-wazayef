@@ -1,0 +1,44 @@
+{
+  "name": "WAZAYEF GCC — Multi-Country CV Distribution & Bilingual Email Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wazayef-campaign-start",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook-campaign-start",
+      "name": "Webhook: Campaign Paid via EasyKash",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [220, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body || $input.first().json;\nconst isAr = (body.preferredLang || 'ar') === 'ar';\n\nconst confirmationSubject = isAr\n  ? `تأكيد استلام الدفع وبدء توزيع سيرتك الذاتية (${body.customerReference})`\n  : `Payment Confirmed — Starting Your CV Distribution (${body.customerReference})`;\n\nconst confirmationHtml = isAr\n  ? `<div dir=\"rtl\" style=\"font-family: Tahoma, Arial, sans-serif; line-height: 1.7;\">\n      <h2>مرحباً ${body.candidateName}،</h2>\n      <p>شكراً لاختيارك منصة <strong>وظائف الخليج (WAZAYEF GCC)</strong>. تم تأكيد دفعتك بنجاح عبر EasyKash.</p>\n      <p>بدأ نظامنا الآن في توزيع سيرتك الذاتية على <strong>${body.totalTargetCompanies} شركة موثقة</strong> في (${body.primaryCountry}).</p>\n      <p>يمكنك متابعة حالة الإرسال لحظة بلحظة عبر لوحة التتبع الخاصة بك، وسنرسل لك إشعاراً آخر فور اكتمال العملية بالكامل.</p>\n    </div>`\n  : `<div style=\"font-family: Arial, sans-serif; line-height: 1.7;\">\n      <h2>Hello ${body.candidateName},</h2>\n      <p>Thank you for choosing <strong>Wazayef GCC</strong>. Your EasyKash payment has been confirmed.</p>\n      <p>Our engine has started distributing your CV to <strong>${body.totalTargetCompanies} verified companies</strong> in (${body.primaryCountry}).</p>\n      <p>We will notify you via email as soon as the entire distribution batch is complete.</p>\n    </div>`;\n\nreturn [{\n  json: {\n    ...body,\n    confirmationSubject,\n    confirmationHtml\n  }\n}];"
+      },
+      "id": "code-prepare-bilingual-emails",
+      "name": "Code: Prepare Bilingual AR/EN Emails",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 300]
+    }
+  ],
+  "connections": {
+    "Webhook: Campaign Paid via EasyKash": {
+      "main": [
+        [
+          {
+            "node": "Code: Prepare Bilingual AR/EN Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

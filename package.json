@@ -1,0 +1,38 @@
+{
+  "name": "asra3-platform",
+  "version": "2.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "harvest": "node scripts/harvest-companies.mjs",
+    "import:csv": "node scripts/import-csv.mjs",
+    "import:airtable": "node scripts/import-airtable.mjs",
+    "import:apollo": "node scripts/import-apollo.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.16.0",
+    "mammoth": "^1.13.0",
+    "next": "^15.2.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwind-merge": "^3.0.2",
+    "unpdf": "^2.1.0"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.0",
+    "@tailwindcss/postcss": "^4.0.9",
+    "@types/node": "^22.13.5",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "eslint": "^9.21.0",
+    "eslint-config-next": "^15.2.0",
+    "tailwindcss": "^4.0.9",
+    "typescript": "^5.8.2"
+  }
+}

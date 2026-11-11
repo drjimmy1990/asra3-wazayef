@@ -1,0 +1,62 @@
+{
+  "name": "WAZAYEF GCC — Automated 12h Telegram Job Channels & MX Harvester",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 12
+            }
+          ]
+        }
+      },
+      "id": "harvester-schedule-12h",
+      "name": "Every 12 Hours Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.WAZAYEF_APP_URL || 'http://localhost:3000' }}/api/admin/companies/seed-pack",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"pagesPerChannel\": 8 }",
+        "options": {}
+      },
+      "id": "harvester-trigger-api",
+      "name": "Trigger Live Telegram & DNS MX Harvester",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [520, 300]
+    }
+  ],
+  "connections": {
+    "Every 12 Hours Schedule": {
+      "main": [
+        [
+          {
+            "node": "Trigger Live Telegram & DNS MX Harvester",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

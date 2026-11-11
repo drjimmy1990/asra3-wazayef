@@ -1,0 +1,106 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  /* Light Mode Default — Pure White, Cool Neutral Grey & Jet Black + Flat Gold */
+  --bg-canvas: #fafafa;
+  --bg-surface: #ffffff;
+  --bg-muted: #f4f4f5;
+  --bg-elevated: #ffffff;
+  --border-subtle: #e4e4e7;
+  --border-strong: #d4d4d8;
+
+  --text-primary: #09090b;
+  --text-secondary: #52525b;
+  --text-muted: #71717a;
+
+  /* Pure Carbon Black & Graphite Anchors */
+  --carbon-black: #09090b;
+  --carbon-surface: #121215;
+  --carbon-elevated: #18181b;
+  --carbon-border: #27272a;
+
+  /* Solid Flat Gold (Zero Gradients, Zero Brown) */
+  --gold-solid: #d4af37;
+  --gold-hover: #c59f27;
+  --gold-ink-on-light: #9a7b1c;
+}
+
+html.dark {
+  /* Dark Mode — Pure Black, Charcoal Neutral Grey & Crisp White + Flat Gold */
+  --bg-canvas: #09090b;
+  --bg-surface: #121215;
+  --bg-muted: #18181b;
+  --bg-elevated: #1c1c21;
+  --border-subtle: #27272a;
+  --border-strong: #3f3f46;
+
+  --text-primary: #fafafa;
+  --text-secondary: #a1a1aa;
+  --text-muted: #71717a;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+  font-family: var(--font-arabic), var(--font-jakarta), sans-serif;
+  overflow-x: hidden;
+  transition: background-color 180ms ease, color 180ms ease;
+}
+
+.font-editorial {
+  font-family: var(--font-editorial), Georgia, serif;
+}
+
+/* 100% Solid Flat Gold Action Button (Zero Gradients) */
+.btn-gold {
+  background-color: #d4af37;
+  color: #09090b;
+  border: 1px solid #d4af37;
+  transition: background-color 160ms ease, border-color 160ms ease,
+    transform 160ms ease;
+}
+
+.btn-gold:hover {
+  background-color: #c59f27;
+  border-color: #c59f27;
+}
+
+/* 100% Solid Pure Black Action Button (Adapts cleanly in Dark Mode) */
+.btn-carbon {
+  background-color: #09090b;
+  color: #fafafa;
+  border: 1px solid #27272a;
+  transition: background-color 160ms ease, border-color 160ms ease;
+}
+
+.btn-carbon:hover {
+  background-color: #18181b;
+  border-color: #d4af37;
+}
+
+html.dark .btn-carbon {
+  background-color: #18181b;
+  color: #fafafa;
+  border: 1px solid #3f3f46;
+}
+
+html.dark .btn-carbon:hover {
+  background-color: #27272a;
+  border-color: #d4af37;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
