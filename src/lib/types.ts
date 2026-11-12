@@ -190,3 +190,21 @@ export interface EasyKashCallbackPayload {
   customerReference?: string;
   signatureHash?: string;
 }
+
+export interface SmtpAccountConfig {
+  id: string;
+  label: string;
+  host: string;
+  port: number;
+  secure: boolean;
+  user: string;
+  pass: string;
+  from_email: string;
+  from_name: string;
+  daily_limit: number;
+  sent_today: number;
+  last_reset_date: string;
+  is_active: boolean;
+  created_at: string;
+}
+

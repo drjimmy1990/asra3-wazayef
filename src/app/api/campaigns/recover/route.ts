@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { findCampaignsByEmail } from "@/lib/store";
+import { sendTrackingRecoveryEmail } from "@/lib/smtp-mailer";
 
 export async function POST(req: NextRequest) {
   try {
@@ -29,7 +30,20 @@ export async function POST(req: NextRequest) {
         process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
       const trackingUrl = `${appBaseUrl}/track/${latest.tracking_token}`;
 
-      // Trigger n8n email webhook to dispatch the tracking code to the candidate's inbox
+      // 1. Built-in Multi-SMTP direct email recovery (works natively inside Docker)
+      await sendTrackingRecoveryEmail({
+        candidateName: latest.candidate_name,
+        candidateEmail: latest.candidate_email,
+        customerReference: latest.customer_reference,
+        trackingUrl,
+        lang,
+        allCodes: matches.map((m) => ({
+          reference: m.customer_reference,
+          country: m.primary_country_code,
+        })),
+      });
+
+      // 2. Optional secondary n8n email webhook if configured
       const n8nWebhook =
         process.env.N8N_RECOVER_CODE_WEBHOOK ||
         process.env.N8N_CAMPAIGN_START_WEBHOOK;

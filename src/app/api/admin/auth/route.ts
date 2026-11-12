@@ -6,6 +6,17 @@ import {
   verifyAdminPasscode,
 } from "@/lib/admin-auth";
 
+function isHttpsRequest(req: NextRequest): boolean {
+  const forwardedProto = (req.headers.get("x-forwarded-proto") || "")
+    .split(",")[0]
+    .trim()
+    .toLowerCase();
+  if (forwardedProto) {
+    return forwardedProto === "https";
+  }
+  return req.nextUrl.protocol === "https:";
+}
+
 export async function GET(req: NextRequest) {
   return NextResponse.json({
     authenticated: isAdminAuthorized(req),
@@ -32,7 +43,7 @@ export async function POST(req: NextRequest) {
       value: sessionToken,
       httpOnly: true,
       sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
+      secure: isHttpsRequest(req),
       path: "/",
       maxAge: 60 * 60 * 24, // 24h
     });
@@ -46,14 +57,14 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function DELETE() {
+export async function DELETE(req: NextRequest) {
   const res = NextResponse.json({ authenticated: false });
   res.cookies.set({
     name: ADMIN_COOKIE_NAME,
     value: "",
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: isHttpsRequest(req),
     path: "/",
     maxAge: 0,
   });

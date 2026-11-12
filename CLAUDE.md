@@ -1,7 +1,7 @@
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **WAZAYEF** (499 symbols, 1061 relationships, 39 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **asra3-wazayef** (563 symbols, 1281 relationships, 45 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 
@@ -25,10 +25,10 @@ This project is indexed by GitNexus as **WAZAYEF** (499 symbols, 1061 relationsh
 
 | Resource | Use for |
 |----------|---------|
-| `gitnexus://repo/WAZAYEF/context` | Codebase overview, check index freshness |
-| `gitnexus://repo/WAZAYEF/clusters` | All functional areas |
-| `gitnexus://repo/WAZAYEF/processes` | All execution flows |
-| `gitnexus://repo/WAZAYEF/process/{name}` | Step-by-step execution trace |
+| `gitnexus://repo/asra3-wazayef/context` | Codebase overview, check index freshness |
+| `gitnexus://repo/asra3-wazayef/clusters` | All functional areas |
+| `gitnexus://repo/asra3-wazayef/processes` | All execution flows |
+| `gitnexus://repo/asra3-wazayef/process/{name}` | Step-by-step execution trace |
 
 ## CLI
 

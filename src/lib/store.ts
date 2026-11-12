@@ -32,6 +32,11 @@ import {
   scrapeLiveTelegramJobChannels,
 } from "@/lib/telegram-harvester";
 import { GCC_ENTERPRISES_EXPANDED } from "@/lib/gcc-enterprises-expanded";
+import {
+  hasActiveSmtpAccounts,
+  sendCandidateConfirmationEmail,
+  startBackgroundCampaignSmtpDrip,
+} from "@/lib/smtp-mailer";
 
 interface LocalStoreData {
   countries: CountryConfig[];
@@ -850,8 +855,208 @@ export async function createCampaignOrder(input: {
 }
 
 /**
- * Synchronizes server-side drip progress based on elapsed wall-clock time since `paid_at`
- * so campaigns complete reliably on the server even when the candidate's browser tab is closed.
+ * Persists real SMTP delivery result (sent / failed + hard-bounce hygiene)
+ * for an individual campaign recipient.
+ */
+export async function recordSmtpRecipientDispatch(params: {
+  campaignId: string;
+  recipientId: string;
+  companyId: string;
+  status: "sent" | "failed";
+  isHardBounce: boolean;
+}): Promise<void> {
+  const nowIso = new Date().toISOString();
+
+  // 1. Update local store atomically
+  const store = readLocalStore();
+  const camp = store.campaigns.find((c) => c.id === params.campaignId);
+  let sentCount = 0;
+  let openedCount = 0;
+  let remainingQueued = 0;
+
+  if (camp && camp.recipients) {
+    const rec = camp.recipients.find((r) => r.id === params.recipientId);
+    if (rec && rec.status !== "opened") {
+      rec.status = params.status;
+      rec.sent_at = nowIso;
+    }
+
+    sentCount = camp.recipients.filter(
+      (r) => r.status === "sent" || r.status === "opened"
+    ).length;
+    openedCount = camp.recipients.filter((r) => r.status === "opened").length;
+    remainingQueued = camp.recipients.filter((r) => r.status === "queued").length;
+
+    camp.emails_sent_count = sentCount;
+    camp.emails_opened_count = openedCount;
+
+    if (remainingQueued === 0) {
+      camp.campaign_status = "completed";
+      camp.completed_at = camp.completed_at || nowIso;
+    }
+  }
+
+  const comp = store.companies.find((c) => c.id === params.companyId);
+  if (comp) {
+    if (params.isHardBounce) {
+      comp.is_active = false;
+      comp.is_verified = false;
+    } else if (params.status === "sent") {
+      comp.last_contacted_at = nowIso;
+      comp.total_emails_received = (comp.total_emails_received || 0) + 1;
+    }
+  }
+
+  writeLocalStore(store);
+
+  // 2. Sync to Supabase if configured
+  if (isSupabaseConfigured()) {
+    try {
+      const sb = getSupabaseAdmin();
+      await sb
+        .from("campaign_recipients")
+        .update({ status: params.status, sent_at: nowIso })
+        .eq("id", params.recipientId)
+        .neq("status", "opened");
+
+      if (camp) {
+        await sb
+          .from("campaigns")
+          .update({
+            emails_sent_count: camp.emails_sent_count,
+            emails_opened_count: camp.emails_opened_count,
+            campaign_status: camp.campaign_status,
+            completed_at: camp.completed_at,
+          })
+          .eq("id", params.campaignId);
+      }
+
+      if (params.isHardBounce) {
+        await sb
+          .from("companies")
+          .update({ is_active: false, is_verified: false })
+          .eq("id", params.companyId);
+      } else if (params.status === "sent") {
+        await sb
+          .from("companies")
+          .update({ last_contacted_at: nowIso, is_verified: true })
+          .eq("id", params.companyId);
+      }
+    } catch (err) {
+      console.warn("Supabase recordSmtpRecipientDispatch warning:", err);
+    }
+  }
+}
+
+/**
+ * Marks a specific recipient email as opened when the 1x1 tracking pixel loads.
+ */
+export async function markCampaignRecipientOpened(
+  campaignId: string,
+  recipientId: string
+): Promise<void> {
+  const safeCid = (campaignId || "").replace(/[^A-Za-z0-9_-]/g, "");
+  const safeRid = (recipientId || "").replace(/[^A-Za-z0-9_-]/g, "");
+  if (safeCid.length < 6 || safeRid.length < 6) return;
+
+  const nowIso = new Date().toISOString();
+  const store = readLocalStore();
+  const camp = store.campaigns.find((c) => c.id === safeCid);
+
+  if (camp && camp.recipients) {
+    const rec = camp.recipients.find((r) => r.id === safeRid);
+    if (rec && rec.status !== "opened") {
+      rec.status = "opened";
+      rec.sent_at = rec.sent_at || nowIso;
+
+      camp.emails_opened_count = camp.recipients.filter(
+        (r) => r.status === "opened"
+      ).length;
+      camp.emails_sent_count = Math.max(
+        camp.emails_sent_count,
+        camp.recipients.filter(
+          (r) => r.status === "sent" || r.status === "opened"
+        ).length
+      );
+      writeLocalStore(store);
+    }
+  }
+
+  if (isSupabaseConfigured()) {
+    try {
+      const sb = getSupabaseAdmin();
+      await sb
+        .from("campaign_recipients")
+        .update({ status: "opened" })
+        .eq("id", safeRid)
+        .eq("campaign_id", safeCid);
+
+      const { count } = await sb
+        .from("campaign_recipients")
+        .select("id", { count: "exact", head: true })
+        .eq("campaign_id", safeCid)
+        .eq("status", "opened");
+
+      if (typeof count === "number") {
+        await sb
+          .from("campaigns")
+          .update({ emails_opened_count: count })
+          .eq("id", safeCid);
+      }
+    } catch {
+      // Non-fatal pixel update
+    }
+  }
+}
+
+/**
+ * Ensures the background real-SMTP drip worker is active for any paid campaign
+ * that still has `"queued"` recipients (including automatic resume after container restart).
+ */
+async function ensureRealSmtpDripRunning(
+  campaign: CampaignRecord
+): Promise<void> {
+  if (!hasActiveSmtpAccounts()) return;
+  if (
+    campaign.tracking_token.startsWith("demo-") ||
+    campaign.payment_status !== "paid" ||
+    campaign.campaign_status === "completed"
+  ) {
+    return;
+  }
+
+  const hasQueued = (campaign.recipients || []).some(
+    (r) => r.status === "queued"
+  );
+  if (!hasQueued) return;
+
+  try {
+    const allCompanies = await listCompanies();
+    const companyEmailMap = new Map(
+      allCompanies.map((c) => [c.id, c.hr_email])
+    );
+
+    startBackgroundCampaignSmtpDrip({
+      campaign,
+      companyEmailMap,
+      onRecipientDispatched: (recipientId, companyId, status, isHardBounce) =>
+        recordSmtpRecipientDispatch({
+          campaignId: campaign.id,
+          recipientId,
+          companyId,
+          status,
+          isHardBounce,
+        }),
+    });
+  } catch (err) {
+    console.warn("Failed starting background SMTP drip:", err);
+  }
+}
+
+/**
+ * Synchronizes server-side drip progress:
+ * - When active SMTP accounts exist: reports exact real delivery counts and resumes any queued real SMTP worker.
+ * - When no SMTP accounts exist yet: falls back to wall-clock simulation for local/sandbox preview.
  */
 async function syncElapsedServerDrip(
   campaign: CampaignRecord
@@ -862,6 +1067,19 @@ async function syncElapsedServerDrip(
     campaign.campaign_status === "completed" ||
     !campaign.paid_at
   ) {
+    return campaign;
+  }
+
+  if (hasActiveSmtpAccounts()) {
+    if (campaign.recipients && campaign.recipients.length > 0) {
+      campaign.emails_sent_count = campaign.recipients.filter(
+        (r) => r.status === "sent" || r.status === "opened"
+      ).length;
+      campaign.emails_opened_count = campaign.recipients.filter(
+        (r) => r.status === "opened"
+      ).length;
+    }
+    void ensureRealSmtpDripRunning(campaign);
     return campaign;
   }
 
@@ -918,6 +1136,13 @@ async function syncElapsedServerDrip(
     } catch {
       // Non-fatal sync update
     }
+  }
+
+  const store = readLocalStore();
+  const idx = store.campaigns.findIndex((c) => c.id === campaign.id);
+  if (idx !== -1) {
+    store.campaigns[idx] = campaign;
+    writeLocalStore(store);
   }
 
   return campaign;
@@ -1067,14 +1292,23 @@ export async function markCampaignPaidAndStart(params: {
   existing.payment_method = params.paymentMethod || "EasyKash DirectPayV1";
   existing.easykash_voucher = params.voucher || null;
 
+  const realSmtpActive = hasActiveSmtpAccounts();
+
   if (existing.recipients && existing.recipients.length > 0) {
-    const initialBatchCount = Math.min(10, existing.recipients.length);
-    for (let i = 0; i < initialBatchCount; i++) {
-      existing.recipients[i].status = "sent";
-      existing.recipients[i].sent_at = nowIso;
+    if (realSmtpActive) {
+      // Real Multi-SMTP mode: keep all recipients "queued" so every HR inbox receives an actual email
+      existing.emails_sent_count = 0;
+      existing.emails_opened_count = 0;
+    } else {
+      // Sandbox / preview fallback when no SMTP account is configured yet
+      const initialBatchCount = Math.min(10, existing.recipients.length);
+      for (let i = 0; i < initialBatchCount; i++) {
+        existing.recipients[i].status = "sent";
+        existing.recipients[i].sent_at = nowIso;
+      }
+      existing.emails_sent_count = initialBatchCount;
+      existing.emails_opened_count = 0;
     }
-    existing.emails_sent_count = initialBatchCount;
-    existing.emails_opened_count = 0;
   }
 
   if (isSupabaseConfigured()) {
@@ -1095,7 +1329,7 @@ export async function markCampaignPaidAndStart(params: {
         })
         .eq("id", existing.id);
 
-      if (existing.recipients?.length) {
+      if (existing.recipients?.length && !realSmtpActive) {
         const CHUNK = 100;
         for (let i = 0; i < existing.recipients.length; i += CHUNK) {
           await sb
@@ -1115,7 +1349,13 @@ export async function markCampaignPaidAndStart(params: {
     writeLocalStore(store);
   }
 
-  // Trigger n8n Campaign Drip Dispatcher Webhook with full recipient list + stored CV URL
+  // 1. Built-In Multi-SMTP Pool: send candidate payment confirmation + start round-robin HR CV drip
+  if (realSmtpActive) {
+    void sendCandidateConfirmationEmail(existing);
+    void ensureRealSmtpDripRunning(existing);
+  }
+
+  // 2. Optional secondary n8n Campaign Webhook if configured alongside SMTP
   const n8nWebhook = process.env.N8N_CAMPAIGN_START_WEBHOOK;
   if (n8nWebhook && !n8nWebhook.includes("your-")) {
     try {
@@ -1184,6 +1424,12 @@ export async function advanceCampaignProgress(
   if (!campaign) return null;
   if (campaign.payment_status !== "paid") return campaign;
   if (campaign.campaign_status === "completed") return campaign;
+
+  // When active SMTP accounts exist, real nodemailer dispatch drives progress (never fake counts)
+  if (hasActiveSmtpAccounts()) {
+    await ensureRealSmtpDripRunning(campaign);
+    return campaign;
+  }
 
   const step = Math.max(5, Math.ceil(campaign.total_target_companies * 0.06));
   campaign.emails_sent_count = Math.min(
