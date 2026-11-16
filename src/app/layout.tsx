@@ -1,30 +1,7 @@
 import type { Metadata } from "next";
-import {
-  IBM_Plex_Sans_Arabic,
-  Plus_Jakarta_Sans,
-  Cormorant_Garamond,
-} from "next/font/google";
+import "./fonts.css";
 import "./globals.css";
 import { AppProvider } from "@/context/AppContext";
-
-const plexArabic = IBM_Plex_Sans_Arabic({
-  subsets: ["arabic", "latin"],
-  weight: ["300", "400", "500", "600", "700"],
-  variable: "--font-arabic",
-});
-
-const jakarta = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
-  variable: "--font-jakarta",
-});
-
-const cormorant = Cormorant_Garamond({
-  subsets: ["latin"],
-  weight: ["600", "700"],
-  style: ["normal", "italic"],
-  variable: "--font-editorial",
-});
 
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ||
@@ -153,9 +130,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ar" dir="rtl" suppressHydrationWarning>
-      <body
-        className={`${plexArabic.variable} ${jakarta.variable} ${cormorant.variable} antialiased selection:bg-[#D4AF37] selection:text-[#09090B]`}
-      >
+      <body className="antialiased selection:bg-[#D4AF37] selection:text-[#09090B]">
         <script
           dangerouslySetInnerHTML={{
             __html: `try{var t=localStorage.getItem('asra3_theme');if(t==='dark'){document.documentElement.classList.add('dark');document.documentElement.dataset.theme='dark';}else{document.documentElement.classList.remove('dark');document.documentElement.dataset.theme='light';}}catch(e){}`,
