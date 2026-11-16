@@ -165,7 +165,7 @@ export interface CampaignRecord {
 export interface EasyKashDirectPayRequest {
   amount: number;
   currency: CurrencyCode;
-  paymentOptions: number[];
+  paymentOptions?: number[];
   cashExpiry: number;
   name: string;
   email: string;

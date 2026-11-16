@@ -68,7 +68,19 @@ export async function initiateEasyKashPayment(params: {
   appBaseUrl: string;
 }): Promise<InitiateEasyKashResult> {
   const apiKey = (process.env.EASYKASH_API_KEY || "").trim();
-  const cashExpiry = Number(process.env.EASYKASH_CASH_EXPIRY_DAYS || 3);
+  const rawCashExpiry = Number(
+    process.env.EASYKASH_CASH_EXPIRY_HOURS ||
+      process.env.EASYKASH_CASH_EXPIRY_DAYS ||
+      24
+  );
+  const cashExpiry =
+    Number.isFinite(rawCashExpiry) && rawCashExpiry > 0
+      ? Math.round(rawCashExpiry)
+      : 24;
+  const parsedPaymentOptions = (process.env.EASYKASH_PAYMENT_OPTIONS || "")
+    .split(",")
+    .map((v) => Number(v.trim()))
+    .filter((n) => Number.isInteger(n) && n > 0);
   const cleanBaseUrl = (params.appBaseUrl || "https://asra3.com").replace(
     /\/+$/,
     ""
@@ -81,10 +93,13 @@ export async function initiateEasyKashPayment(params: {
     params.mobile.replace(/[^\d+]/g, "") || "01000000000";
 
   if (isEasyKashLiveConfigured() && apiKey) {
+    // Per EasyKash Hosted Docs: omitting paymentOptions enables ALL payment methods configured on the merchant account (Card, Apple Pay, Wallets, Fawry, Meeza, etc.)
     const payload: EasyKashDirectPayRequest = {
       amount: Number(params.amount.toFixed(2)),
       currency: params.currency,
-      paymentOptions: [2, 3, 4, 5, 6],
+      ...(parsedPaymentOptions.length > 0
+        ? { paymentOptions: parsedPaymentOptions }
+        : {}),
       cashExpiry,
       name: params.name,
       email: params.email,

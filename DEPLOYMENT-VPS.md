@@ -46,7 +46,9 @@ EASYKASH_API_KEY=your-live-easykash-directpay-api-key
 EASYKASH_HMAC_SECRET=your-live-easykash-hmac-sha512-secret
 EASYKASH_API_URL=https://back.easykash.net/api/directpayv1/pay
 EASYKASH_INQUIRE_URL=https://back.easykash.net/api/cash-api/inquire
-EASYKASH_CASH_EXPIRY_DAYS=3
+EASYKASH_CASH_EXPIRY_HOURS=24
+# Leave blank to display ALL payment methods enabled on your EasyKash merchant account
+EASYKASH_PAYMENT_OPTIONS=
 
 # Currency Mode:
 # Leave blank to bill each Gulf market in local currency (AED / SAR / QAR / KWD).
