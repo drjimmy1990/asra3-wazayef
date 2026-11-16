@@ -1298,7 +1298,7 @@ export function DistributionWizard({
                     </button>
                   </div>
                   {appliedPromo && (
-                    <p className="text-xs font-bold text-green-700 dark:text-green-400">
+                    <p className="text-xs font-bold text-[#9A7B1C] dark:text-[#D4AF37]">
                       ✓{" "}
                       {lang === "ar"
                         ? `تم تطبيق كود الخصم (${appliedPromo.code}) بنجاح — خصم ${appliedPromo.percent}%!`
@@ -1344,7 +1344,7 @@ export function DistributionWizard({
                   )}
 
                   {appliedPromo && (
-                    <div className="flex justify-between text-sm text-green-400">
+                    <div className="flex justify-between text-sm text-[#D4AF37] font-bold">
                       <span>Discount ({appliedPromo.code})</span>
                       <span>
                         -{discountAmount} {currencySymbol}

@@ -237,14 +237,14 @@ export async function storeUploadedCvBuffer(params: {
     }
   }
 
-  // 3. HMAC-signed local download route URL for n8n & Admin
+  // 3. Portable HMAC-signed local download route URL for n8n, SMTP mailer & Admin
   const sig = signCvAccessKey(relativeKey);
-  const signedLocalUrl = `${params.appBaseUrl}/api/cv/file?key=${encodeURIComponent(
+  const signedLocalPath = `/api/cv/file?key=${encodeURIComponent(
     relativeKey
   )}&sig=${sig}`;
 
   return {
-    storedCvUrl: signedLocalUrl,
+    storedCvUrl: signedLocalPath,
     storedFileKey: relativeKey,
   };
 }

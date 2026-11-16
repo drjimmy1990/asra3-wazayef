@@ -5,10 +5,16 @@ import {
 } from "@/lib/admin-auth";
 import {
   getCatalogData,
+  isSupabaseConfigured,
   listAllCampaigns,
   listCompanies,
   updatePackagePricing,
 } from "@/lib/store";
+import {
+  isEasyKashHmacConfigured,
+  isEasyKashLiveConfigured,
+} from "@/lib/easykash";
+import { listSmtpAccounts } from "@/lib/smtp-mailer";
 
 export async function GET(req: NextRequest) {
   if (!isAdminAuthorized(req)) {
@@ -43,6 +49,9 @@ export async function GET(req: NextRequest) {
       (revenueByCurrency[camp.currency] || 0) + (camp.amount_paid || 0);
   }
 
+  const smtpAccounts = listSmtpAccounts(true);
+  const smtpActiveCount = smtpAccounts.filter((a) => a.is_active).length;
+
   return NextResponse.json({
     campaigns,
     stats: {
@@ -54,6 +63,23 @@ export async function GET(req: NextRequest) {
       inventoryByCountry,
       inventoryByIndustry,
       revenueByCurrency,
+    },
+    systemHealth: {
+      easykashLive: isEasyKashLiveConfigured(),
+      hmacConfigured: isEasyKashHmacConfigured(),
+      currencyOverride:
+        process.env.EASYKASH_CURRENCY_OVERRIDE?.trim().toUpperCase() || null,
+      smtpActiveCount,
+      customAdminPasscode: Boolean(
+        process.env.ADMIN_PASSCODE &&
+          process.env.ADMIN_PASSCODE.trim() !== "asra3@2026" &&
+          !process.env.ADMIN_PASSCODE.startsWith("your-")
+      ),
+      storageMode: isSupabaseConfigured() ? "supabase" : "local_docker_volume",
+      appUrl: (process.env.NEXT_PUBLIC_APP_URL || "https://asra3.com").replace(
+        /\/+$/,
+        ""
+      ),
     },
     packages: catalog.packages,
     countries: catalog.countries,

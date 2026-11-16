@@ -2,13 +2,13 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  /* Light Mode Default — Pure White, Cool Neutral Grey & Jet Black + Flat Gold */
-  --bg-canvas: #fafafa;
+  /* Light Mode Default — Crisp Platinum-Zinc Canvas & Architectural White Cards */
+  --bg-canvas: #eef0f4;
   --bg-surface: #ffffff;
-  --bg-muted: #f4f4f5;
+  --bg-muted: #f4f5f8;
   --bg-elevated: #ffffff;
-  --border-subtle: #e4e4e7;
-  --border-strong: #d4d4d8;
+  --border-subtle: #dcdfe6;
+  --border-strong: #c8cbd3;
 
   --text-primary: #09090b;
   --text-secondary: #52525b;
@@ -54,6 +54,91 @@ body {
 
 .font-editorial {
   font-family: var(--font-editorial), Georgia, serif;
+}
+
+/* ============================================================================
+   Architectural Surface Primitives (Light Mode Crisp Depth + Pure Dark Mode)
+   Strictly ZERO gradients, ZERO brown/emerald classes
+   ============================================================================ */
+
+.exec-card {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 1px 2px rgba(9, 9, 11, 0.05), 0 12px 28px -8px rgba(9, 9, 11, 0.06);
+}
+
+html.dark .exec-card {
+  box-shadow: none;
+}
+
+.exec-card-gold-top {
+  border-top: 3px solid #d4af37;
+}
+
+.exec-card-carbon-top {
+  border-top: 3px solid #09090b;
+}
+
+html.dark .exec-card-carbon-top {
+  border-top-color: #d4af37;
+}
+
+.exec-card-header {
+  background-color: #f6f7f9;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+html.dark .exec-card-header {
+  background-color: #16161a;
+  border-bottom-color: #27272a;
+}
+
+.exec-well {
+  background-color: #f4f5f8;
+  border: 1px solid #dfe2e8;
+}
+
+html.dark .exec-well {
+  background-color: #09090b;
+  border-color: #27272a;
+}
+
+.exec-input {
+  background-color: #ffffff;
+  border: 1px solid #c8cbd3;
+  color: #09090b;
+  box-shadow: inset 0 1px 2px rgba(9, 9, 11, 0.03);
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.exec-input:focus {
+  border-color: #09090b;
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.22);
+  outline: none;
+}
+
+html.dark .exec-input {
+  background-color: #09090b;
+  border-color: #3f3f46;
+  color: #fafafa;
+  box-shadow: none;
+}
+
+html.dark .exec-input:focus {
+  border-color: #d4af37;
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.16);
+}
+
+.exec-table-head {
+  background-color: #f1f2f6;
+  border-bottom: 1px solid #dcdfe6;
+  color: #3f3f46;
+}
+
+html.dark .exec-table-head {
+  background-color: #18181c;
+  border-bottom-color: #27272a;
+  color: #a1a1aa;
 }
 
 /* 100% Solid Flat Gold Action Button (Zero Gradients) */

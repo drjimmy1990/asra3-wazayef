@@ -70,8 +70,8 @@ function SimulatorContent() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] dark:bg-[#09090B] flex items-center justify-center p-4 transition-colors">
-      <div className="w-full max-w-md rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#121215] p-6 sm:p-8 text-zinc-950 dark:text-zinc-50 shadow-xl">
+    <div className="min-h-screen bg-[#EEF0F4] dark:bg-[#09090B] flex items-center justify-center p-4 transition-colors">
+      <div className="exec-card exec-card-gold-top w-full max-w-md rounded-2xl p-6 sm:p-8 text-zinc-950 dark:text-zinc-50">
         <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-4">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#09090B] border border-zinc-800 text-[#D4AF37] font-extrabold text-sm">

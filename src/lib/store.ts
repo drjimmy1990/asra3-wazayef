@@ -12,6 +12,7 @@ import {
   CompanyRecord,
   CountryCode,
   CountryConfig,
+  CurrencyCode,
   Industry,
   PackageTier,
 } from "@/lib/types";
@@ -650,7 +651,20 @@ export async function createCampaignOrder(input: {
     industries.find((i) => i.id === input.industry_id) ||
     industries[0];
 
-  const currency = primaryCountry.currency_code;
+  const allowedCurrencies = new Set([
+    "AED",
+    "SAR",
+    "QAR",
+    "KWD",
+    "EGP",
+    "USD",
+  ]);
+  const overrideRaw = (process.env.EASYKASH_CURRENCY_OVERRIDE || "")
+    .trim()
+    .toUpperCase();
+  const currency = allowedCurrencies.has(overrideRaw)
+    ? (overrideRaw as CurrencyCode)
+    : primaryCountry.currency_code;
   const basePrice = pkg.prices_by_currency[currency] ?? pkg.prices_by_currency.AED;
   const addonUnit =
     pkg.addon_country_price_by_currency[currency] ??
@@ -1269,15 +1283,15 @@ export async function markCampaignPaidAndStart(params: {
     return existing;
   }
 
-  // Verify webhook paid amount matches order amount (within 1 unit rounding tolerance)
+  // Verify webhook paid amount covers order amount (allow gateway convenience fees; strictly block underpayments)
   if (
     params.paidAmount !== undefined &&
     Number.isFinite(params.paidAmount) &&
     params.paidAmount > 0 &&
-    Math.abs(params.paidAmount - existing.amount_paid) > 1.5
+    params.paidAmount < existing.amount_paid - 1.5
   ) {
     console.error(
-      `[Security] EasyKash amount mismatch for ${existing.customer_reference}: expected ${existing.amount_paid}, got ${params.paidAmount}`
+      `[Security] EasyKash underpayment rejected for ${existing.customer_reference}: expected >= ${existing.amount_paid}, got ${params.paidAmount}`
     );
     return null;
   }
@@ -1374,6 +1388,13 @@ export async function markCampaignPaidAndStart(params: {
         }))
         .filter((r) => r.hrEmail.includes("@"));
 
+      const appBase = (
+        process.env.NEXT_PUBLIC_APP_URL || "https://asra3.com"
+      ).replace(/\/+$/, "");
+      const absoluteCvUrl = existing.original_cv_url?.startsWith("/")
+        ? `${appBase}${existing.original_cv_url}`
+        : existing.original_cv_url;
+
       fetch(n8nWebhook, {
         method: "POST",
         headers: {
@@ -1396,7 +1417,7 @@ export async function markCampaignPaidAndStart(params: {
           jobTitle: existing.job_title,
           packageId: existing.package_id,
           cvFileName: existing.cv_file_name,
-          originalCvUrl: existing.original_cv_url,
+          originalCvUrl: absoluteCvUrl,
           optimizedCvText: existing.optimized_cv_text,
           coverLetter: existing.generated_cover_letter,
           totalTargetCompanies: existing.total_target_companies,

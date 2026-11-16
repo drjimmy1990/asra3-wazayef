@@ -13,15 +13,48 @@ const EASYKASH_API_URL =
   process.env.EASYKASH_API_URL ||
   "https://back.easykash.net/api/directpayv1/pay";
 
+const EASYKASH_INQUIRE_URL =
+  process.env.EASYKASH_INQUIRE_URL ||
+  "https://back.easykash.net/api/cash-api/inquire";
+
 export interface InitiateEasyKashResult {
   redirectUrl: string;
   isLiveGateway: boolean;
   customerReference: string;
 }
 
+export interface InquireEasyKashResult {
+  ok: boolean;
+  isPaid: boolean;
+  statusUpper: string;
+  paidAmount?: number;
+  easykashRef?: string;
+  paymentMethod?: string;
+  voucher?: string;
+  reason?: string;
+}
+
+export function isEasyKashLiveConfigured(): boolean {
+  const apiKey = (process.env.EASYKASH_API_KEY || "").trim();
+  return (
+    Boolean(apiKey) &&
+    !apiKey.startsWith("your-") &&
+    !apiKey.startsWith("your_")
+  );
+}
+
+export function isEasyKashHmacConfigured(): boolean {
+  const hmacSecret = (process.env.EASYKASH_HMAC_SECRET || "").trim();
+  return (
+    Boolean(hmacSecret) &&
+    !hmacSecret.startsWith("your-") &&
+    !hmacSecret.startsWith("your_")
+  );
+}
+
 /**
  * Initiates a hosted payment session via EasyKash DirectPayV1 API.
- * If EASYKASH_API_KEY is not configured yet, returns a realistic interactive
+ * If EASYKASH_API_KEY is not configured yet, returns an interactive
  * EasyKash Checkout Simulator URL so the full end-to-end flow can be tested.
  */
 export async function initiateEasyKashPayment(params: {
@@ -34,20 +67,20 @@ export async function initiateEasyKashPayment(params: {
   trackingToken: string;
   appBaseUrl: string;
 }): Promise<InitiateEasyKashResult> {
-  const apiKey = process.env.EASYKASH_API_KEY;
+  const apiKey = (process.env.EASYKASH_API_KEY || "").trim();
   const cashExpiry = Number(process.env.EASYKASH_CASH_EXPIRY_DAYS || 3);
-  const redirectUrl = `${params.appBaseUrl}/track/${params.trackingToken}?payment=callback`;
+  const cleanBaseUrl = (params.appBaseUrl || "https://asra3.com").replace(
+    /\/+$/,
+    ""
+  );
+  // Keep redirectUrl free of query params so EasyKash appends ?status=...&customerReference=... cleanly
+  const redirectUrl = `${cleanBaseUrl}/track/${params.trackingToken}`;
 
   // Normalize phone number for EasyKash (expects digits/standard format)
   const cleanMobile =
     params.mobile.replace(/[^\d+]/g, "") || "01000000000";
 
-  const isConfiguredApiKey =
-    Boolean(apiKey) &&
-    !apiKey!.startsWith("your-") &&
-    !apiKey!.startsWith("your_");
-
-  if (isConfiguredApiKey && apiKey) {
+  if (isEasyKashLiveConfigured() && apiKey) {
     const payload: EasyKashDirectPayRequest = {
       amount: Number(params.amount.toFixed(2)),
       currency: params.currency,
@@ -67,6 +100,7 @@ export async function initiateEasyKashPayment(params: {
         authorization: apiKey,
       },
       body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(15000),
     });
 
     if (!response.ok) {
@@ -103,6 +137,81 @@ export async function initiateEasyKashPayment(params: {
     isLiveGateway: false,
     customerReference: params.customerReference,
   };
+}
+
+/**
+ * Queries EasyKash directly for authoritative transaction status when a user
+ * returns from hosted checkout before an asynchronous webhook arrives.
+ */
+export async function inquireEasyKashPayment(
+  customerReference: string
+): Promise<InquireEasyKashResult> {
+  const apiKey = (process.env.EASYKASH_API_KEY || "").trim();
+  if (!isEasyKashLiveConfigured() || !apiKey) {
+    return {
+      ok: false,
+      isPaid: false,
+      statusUpper: "NOT_CONFIGURED",
+      reason: "EASYKASH_API_KEY is not configured",
+    };
+  }
+
+  try {
+    const response = await fetch(EASYKASH_INQUIRE_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        authorization: apiKey,
+      },
+      body: JSON.stringify({ customerReference }),
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!response.ok) {
+      return {
+        ok: false,
+        isPaid: false,
+        statusUpper: "HTTP_ERROR",
+        reason: `EasyKash inquire returned ${response.status}`,
+      };
+    }
+
+    const data = (await response.json()) as {
+      status?: string;
+      Amount?: string | number;
+      easykashRef?: string | number;
+      PaymentMethod?: string;
+      voucher?: string;
+    };
+
+    const statusUpper = String(data.status || "").toUpperCase();
+    const isPaid =
+      statusUpper === "PAID" ||
+      statusUpper === "SUCCESS" ||
+      statusUpper === "DELIVERED";
+
+    const parsedAmount =
+      data.Amount !== undefined && Number.isFinite(Number(data.Amount))
+        ? Number(data.Amount)
+        : undefined;
+
+    return {
+      ok: true,
+      isPaid,
+      statusUpper,
+      paidAmount: parsedAmount,
+      easykashRef: data.easykashRef ? String(data.easykashRef) : undefined,
+      paymentMethod: data.PaymentMethod ? String(data.PaymentMethod) : undefined,
+      voucher: data.voucher ? String(data.voucher) : undefined,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      isPaid: false,
+      statusUpper: "NETWORK_ERROR",
+      reason: err instanceof Error ? err.message : "Inquiry failed",
+    };
+  }
 }
 
 /**
