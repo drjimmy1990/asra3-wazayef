@@ -23,7 +23,7 @@ export function Navbar() {
     t,
     countries,
     selectedCountryCode,
-    setSelectedCountryCode,
+    selectCountry,
   } = useApp();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -102,7 +102,7 @@ export function Navbar() {
                   key={c.code}
                   type="button"
                   aria-pressed={active}
-                  onClick={() => setSelectedCountryCode(c.code)}
+                  onClick={() => selectCountry(c.code)}
                   className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-bold transition-colors cursor-pointer ${
                     active
                       ? "bg-[#09090B] text-[#D4AF37] dark:bg-[#D4AF37] dark:text-[#09090B]"
@@ -214,7 +214,7 @@ export function Navbar() {
                     key={c.code}
                     type="button"
                     aria-pressed={active}
-                    onClick={() => setSelectedCountryCode(c.code)}
+                    onClick={() => selectCountry(c.code)}
                     className={`flex flex-col items-center justify-center rounded-lg py-2 text-xs font-bold border transition-colors cursor-pointer ${
                       active
                         ? "bg-[#09090B] text-[#D4AF37] border-[#09090B] dark:bg-[#D4AF37] dark:text-[#09090B] dark:border-[#D4AF37]"

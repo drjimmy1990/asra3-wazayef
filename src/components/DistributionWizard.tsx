@@ -40,7 +40,7 @@ export function DistributionWizard({
     industries,
     packages,
     selectedCountryCode,
-    setSelectedCountryCode,
+    selectCountry,
     selectedCountry,
   } = useApp();
 
@@ -457,7 +457,11 @@ export function DistributionWizard({
                     <button
                       key={c.code}
                       type="button"
-                      onClick={() => setSelectedCountryCode(c.code)}
+                      onClick={() =>
+                        selectCountry(c.code, {
+                          shallow: Boolean(cvFile || cvFileName),
+                        })
+                      }
                       className={`exec-card-interactive flex flex-col justify-between rounded-xl border p-5 text-start cursor-pointer ${
                         active
                           ? "border-[#09090B] bg-[#09090B] text-white dark:border-[#D4AF37] dark:bg-[#18181C]"

@@ -6,6 +6,7 @@ import {
   SeoGeoKnowledgeSection,
   SeoSectionVariant,
 } from "@/components/SeoGeoKnowledgeSection";
+import { COUNTRY_HUB_BANNERS } from "@/lib/country-hubs";
 import { CountryCode } from "@/lib/types";
 
 const SITE_URL =
@@ -26,10 +27,6 @@ interface CountrySeoProfile {
   titleAr: string;
   descriptionAr: string;
   keywords: string[];
-  bannerTitleAr: string;
-  bannerTitleEn: string;
-  bannerSubtitleAr: string;
-  bannerSubtitleEn: string;
 }
 
 const COUNTRY_SEO_PROFILES: Record<string, CountrySeoProfile> = {
@@ -54,12 +51,6 @@ const COUNTRY_SEO_PROFILES: Record<string, CountrySeoProfile> = {
       "Send CV to Dubai companies",
       "Asra3 UAE",
     ],
-    bannerTitleAr: "AE · بوابة الإمارات التنفيذية — Asra3 UAE",
-    bannerTitleEn: "AE · Official UAE Hub — Asra3.com/ae",
-    bannerSubtitleAr:
-      "توزيع فوري ومباشر لأقسام الموارد البشرية في دبي، أبوظبي، الشارقة، عجمان، ورأس الخيمة بالدرهم الإماراتي (AED).",
-    bannerSubtitleEn:
-      "Direct HR inbox distribution across Dubai, Abu Dhabi, Sharjah, Ajman & RAK priced in AED.",
   },
   sa: {
     code: "SA",
@@ -82,12 +73,6 @@ const COUNTRY_SEO_PROFILES: Record<string, CountrySeoProfile> = {
       "Send CV to Riyadh HR",
       "Asra3 KSA",
     ],
-    bannerTitleAr: "SA · بوابة السعودية التنفيذية — Asra3 KSA",
-    bannerTitleEn: "SA · Official Saudi Hub — Asra3.com/sa",
-    bannerSubtitleAr:
-      "استهدف كبرى الشركات ومشاريع رؤية 2030 في الرياض، جدة، المنطقة الشرقية، ونيوم بالريال السعودي (SAR).",
-    bannerSubtitleEn:
-      "Direct HR outreach across Riyadh, Jeddah, Dammam/Khobar & Vision 2030 employers priced in SAR.",
   },
   qa: {
     code: "QA",
@@ -108,12 +93,6 @@ const COUNTRY_SEO_PROFILES: Record<string, CountrySeoProfile> = {
       "Doha HR email outreach",
       "Asra3 Qatar",
     ],
-    bannerTitleAr: "QA · بوابة قطر التنفيذية — Asra3 Qatar",
-    bannerTitleEn: "QA · Official Qatar Hub — Asra3.com/qa",
-    bannerSubtitleAr:
-      "وصول مباشر لصناديق بريد التوظيف في الدوحة، لوسيل، الوكرة، والخور بالريال القطري (QAR).",
-    bannerSubtitleEn:
-      "Direct HR inbox outreach across Doha, Lusail, Al Wakrah & Al Khor priced in QAR.",
   },
   kw: {
     code: "KW",
@@ -134,12 +113,6 @@ const COUNTRY_SEO_PROFILES: Record<string, CountrySeoProfile> = {
       "Kuwait HR email distribution",
       "Asra3 Kuwait",
     ],
-    bannerTitleAr: "KW · بوابة الكويت التنفيذية — Asra3 Kuwait",
-    bannerTitleEn: "KW · Official Kuwait Hub — Asra3.com/kw",
-    bannerSubtitleAr:
-      "توزيع ذكي ومباشر لكبرى المجموعات والشركات في مدينة الكويت، حولي، السالمية، والفروانية بالدينار الكويتي (KWD).",
-    bannerSubtitleEn:
-      "Direct HR inbox outreach across Kuwait City, Hawalli, Salmiya & Farwaniya priced in KWD.",
   },
 };
 
@@ -347,12 +320,7 @@ export default async function CountryHubPage({
       />
       <HomeLandingClient
         initialCountryCode={profile.code}
-        countryHubBanner={{
-          titleAr: profile.bannerTitleAr,
-          titleEn: profile.bannerTitleEn,
-          subtitleAr: profile.bannerSubtitleAr,
-          subtitleEn: profile.bannerSubtitleEn,
-        }}
+        countryHubBanner={COUNTRY_HUB_BANNERS[profile.code]}
         seoSection={
           <SeoGeoKnowledgeSection variant={profile.slug as SeoSectionVariant} />
         }

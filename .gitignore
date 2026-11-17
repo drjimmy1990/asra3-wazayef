@@ -11,4 +11,8 @@ next-env.d.ts
 .data/
 .claude/
 .gemini/
+.agents/
 .gitnexus/
+skills-lock.json
+video-studio/node_modules/
+video-studio/out/

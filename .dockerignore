@@ -6,7 +6,9 @@ dist
 .gitignore
 .claude
 .gemini
+.agents
 .gitnexus
+skills-lock.json
 .data
 .env
 .env.*
@@ -20,3 +22,4 @@ AGENTS.md
 CLAUDE.md
 n8n-workflows
 supabase
+video-studio

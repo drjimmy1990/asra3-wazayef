@@ -5,7 +5,12 @@ import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { Asra3Logo } from "@/components/Asra3Logo";
 import { DistributionWizard } from "@/components/DistributionWizard";
+import {
+  SeoGeoKnowledgeSection,
+  SeoSectionVariant,
+} from "@/components/SeoGeoKnowledgeSection";
 import { useApp } from "@/context/AppContext";
+import { COUNTRY_HUB_BANNERS } from "@/lib/country-hubs";
 import { getTranslation } from "@/lib/i18n";
 import { CountryCode, Language, PackageId } from "@/lib/types";
 import {
@@ -284,9 +289,10 @@ export function HomeLandingClient({
     t: ctxT,
     countries,
     packages,
-    selectedCountryCode,
+    selectedCountryCode: ctxCountryCode,
     setSelectedCountryCode,
-    selectedCountry,
+    selectCountry,
+    selectedCountry: ctxSelectedCountry,
   } = useApp();
 
   const [hasMounted, setHasMounted] = useState(false);
@@ -294,6 +300,22 @@ export function HomeLandingClient({
 
   const lang: Language = !hasMounted && initialLang ? initialLang : ctxLang;
   const t = !hasMounted && initialLang ? getTranslation(initialLang) : ctxT;
+  const selectedCountryCode: CountryCode =
+    !hasMounted && initialCountryCode ? initialCountryCode : ctxCountryCode;
+  const selectedCountry =
+    countries.find((c) => c.code === selectedCountryCode) || ctxSelectedCountry;
+
+  const activeHubBanner = countryHubBanner
+    ? COUNTRY_HUB_BANNERS[selectedCountryCode] ?? countryHubBanner
+    : undefined;
+
+  const activeSeoSection = countryHubBanner ? (
+    <SeoGeoKnowledgeSection
+      variant={selectedCountryCode.toLowerCase() as SeoSectionVariant}
+    />
+  ) : (
+    seoSection
+  );
 
   const [wizardExternalPkg, setWizardExternalPkg] =
     useState<PackageId | null>(null);
@@ -454,18 +476,18 @@ export function HomeLandingClient({
       )}
 
       {/* Optional Country Hub Dedicated Context Strip */}
-      {countryHubBanner && (
+      {activeHubBanner && (
         <div className="bg-zinc-100 dark:bg-[#121215] border-b border-zinc-200 dark:border-zinc-800 px-4 py-2.5 text-center text-xs text-zinc-700 dark:text-zinc-300">
           <div className="mx-auto max-w-6xl flex flex-wrap items-center justify-center gap-2.5">
             <span className="rounded bg-[#09090B] px-2.5 py-0.5 font-bold text-[#D4AF37]">
               {lang === "ar"
-                ? countryHubBanner.titleAr
-                : countryHubBanner.titleEn}
+                ? activeHubBanner.titleAr
+                : activeHubBanner.titleEn}
             </span>
             <span>
               {lang === "ar"
-                ? countryHubBanner.subtitleAr
-                : countryHubBanner.subtitleEn}
+                ? activeHubBanner.subtitleAr
+                : activeHubBanner.subtitleEn}
             </span>
           </div>
         </div>
@@ -533,7 +555,7 @@ export function HomeLandingClient({
                     <button
                       key={c.code}
                       type="button"
-                      onClick={() => setSelectedCountryCode(c.code)}
+                      onClick={() => selectCountry(c.code)}
                       aria-pressed={active}
                       className={`inline-flex items-center gap-2 rounded-lg border px-3.5 py-2 text-xs font-bold transition-colors cursor-pointer ${
                         active
@@ -869,7 +891,7 @@ export function HomeLandingClient({
                   className="flex"
                 >
                   <div
-                    onClick={() => setSelectedCountryCode(c.code)}
+                    onClick={() => selectCountry(c.code)}
                     className={`exec-card-interactive w-full flex flex-col justify-between rounded-2xl border p-6 cursor-pointer ${
                       isSelected
                         ? "border-2 border-[#09090B] dark:border-[#D4AF37] bg-zinc-50 dark:bg-[#141418]"
@@ -1397,7 +1419,7 @@ export function HomeLandingClient({
         </div>
       </section>
 
-      {seoSection}
+      {activeSeoSection}
       </main>
 
       {/* ================= PURE CARBON BLACK EXECUTIVE FOOTER ================= */}

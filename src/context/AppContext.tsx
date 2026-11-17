@@ -1,6 +1,14 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { usePathname, useRouter } from "next/navigation";
 import {
   CountryCode,
   CountryConfig,
@@ -13,9 +21,14 @@ import {
   INITIAL_INDUSTRIES,
   INITIAL_PACKAGES,
 } from "@/lib/seed-data";
+import { getCountryCodeFromPathname } from "@/lib/country-hubs";
 import { getTranslation } from "@/lib/i18n";
 
 export type ThemeMode = "light" | "dark";
+
+export interface SelectCountryOptions {
+  shallow?: boolean;
+}
 
 interface AppContextValue {
   lang: Language;
@@ -27,6 +40,7 @@ interface AppContextValue {
   t: ReturnType<typeof getTranslation>;
   selectedCountryCode: CountryCode;
   setSelectedCountryCode: (code: CountryCode) => void;
+  selectCountry: (code: CountryCode, options?: SelectCountryOptions) => void;
   selectedCountry: CountryConfig;
   countries: CountryConfig[];
   industries: Industry[];
@@ -36,14 +50,51 @@ interface AppContextValue {
 const AppContext = createContext<AppContextValue | undefined>(undefined);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const pathnameRef = useRef(pathname);
+  pathnameRef.current = pathname;
+
+  const routeCountry = getCountryCodeFromPathname(pathname);
+
   const [lang, setLangState] = useState<Language>("ar");
   const [theme, setThemeState] = useState<ThemeMode>("light");
-  const [selectedCountryCode, setSelectedCountryCode] =
-    useState<CountryCode>("AE");
+  const [selectedCountryCode, setSelectedCountryCode] = useState<CountryCode>(
+    () => routeCountry ?? "AE"
+  );
   const [countries, setCountries] =
     useState<CountryConfig[]>(INITIAL_COUNTRIES);
   const [industries, setIndustries] = useState<Industry[]>(INITIAL_INDUSTRIES);
   const [packages, setPackages] = useState<PackageTier[]>(INITIAL_PACKAGES);
+
+  useEffect(() => {
+    if (routeCountry) {
+      setSelectedCountryCode(routeCountry);
+    }
+  }, [routeCountry]);
+
+  const selectCountry = useCallback(
+    (code: CountryCode, options?: SelectCountryOptions) => {
+      setSelectedCountryCode(code);
+
+      const livePath =
+        typeof window !== "undefined"
+          ? window.location.pathname
+          : pathnameRef.current;
+      const currentRouteCountry = getCountryCodeFromPathname(livePath);
+
+      if (currentRouteCountry && currentRouteCountry !== code) {
+        const hash = typeof window !== "undefined" ? window.location.hash : "";
+        const nextUrl = `/${code.toLowerCase()}${hash}`;
+        if (options?.shallow && typeof window !== "undefined") {
+          window.history.pushState(null, "", nextUrl);
+        } else {
+          router.push(nextUrl, { scroll: false });
+        }
+      }
+    },
+    [router]
+  );
 
   // Hydrate saved language & theme preferences on client mount (Light Mode default)
   useEffect(() => {
@@ -154,6 +205,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         t: getTranslation(lang),
         selectedCountryCode,
         setSelectedCountryCode,
+        selectCountry,
         selectedCountry,
         countries,
         industries,
