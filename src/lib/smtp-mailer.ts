@@ -254,8 +254,29 @@ function incrementSmtpSentCounter(accountId: string): void {
   }
 }
 
+function extractSenderDomain(emailOrHost: string): string {
+  const raw = (emailOrHost || "").trim().toLowerCase();
+  const atIdx = raw.lastIndexOf("@");
+  const candidate = atIdx !== -1 ? raw.slice(atIdx + 1) : raw;
+  const clean = candidate.replace(/[^a-z0-9.-]/g, "");
+  return clean && clean.includes(".") ? clean : "asra3.com";
+}
+
+function resolveEhloHostname(acc: SmtpAccountConfig): string {
+  const host = (acc.host || "").trim().toLowerCase();
+  if (host.includes(".") && !/^\d+\.\d+\.\d+\.\d+$/.test(host)) {
+    return host;
+  }
+  return `mail.${extractSenderDomain(acc.from_email || acc.user)}`;
+}
+
+function buildMessageId(domain: string): string {
+  return `<${crypto.randomUUID()}@${domain}>`;
+}
+
 function createTransport(acc: SmtpAccountConfig) {
   return nodemailer.createTransport({
+    name: resolveEhloHostname(acc),
     host: acc.host,
     port: acc.port,
     secure: acc.secure,
@@ -289,20 +310,36 @@ export async function testSmtpConnectionAndSend(params: {
     const transporter = createTransport(acc);
     await transporter.verify();
 
+    const senderDomain = extractSenderDomain(acc.from_email || acc.user);
+    const subject = "Asra3.com — Mail Server Verification & Delivery Check";
+    const text = [
+      "Asra3.com SMTP Verification",
+      "",
+      `Your mailer "${acc.label}" (${acc.host}:${acc.port}) authenticated cleanly and delivered this verification message.`,
+      `Sender: ${acc.from_name} <${acc.from_email}>`,
+      `Daily Quota: ${acc.sent_today}/${acc.daily_limit}`,
+    ].join("\n");
+
     const info = await transporter.sendMail({
       from: `"${acc.from_name}" <${acc.from_email}>`,
+      replyTo: acc.from_email,
       to: params.toEmail.trim(),
-      subject: "✓ Asra3.com SMTP Verification — Ready for Direct HR Dispatch",
+      subject,
+      text,
+      messageId: buildMessageId(senderDomain),
+      headers: {
+        "X-Entity-Ref-ID": crypto.randomUUID(),
+      },
       html: `
-        <div style="font-family: Segoe UI, Tahoma, Arial, sans-serif; max-width: 580px; margin: 0 auto; background: #09090B; color: #FAFAFA; padding: 32px; border-radius: 16px; border: 1px solid #27272A;">
-          <div style="display: inline-block; background: #121215; border: 1px solid #27272A; color: #D4AF37; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; padding: 5px 12px; border-radius: 6px;">
+        <div style="font-family: Segoe UI, Tahoma, Arial, sans-serif; max-width: 580px; margin: 0 auto; background: #FFFFFF; color: #18181B; padding: 32px; border-radius: 16px; border: 1px solid #E4E4E7;">
+          <div style="display: inline-block; background: #09090B; border: 1px solid #27272A; color: #D4AF37; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; padding: 5px 12px; border-radius: 6px;">
             ASRA3.COM • SMTP VERIFIED
           </div>
-          <h2 style="margin: 18px 0 8px; color: #FAFAFA; font-size: 22px;">SMTP Connection Successful ✓</h2>
-          <p style="color: #A1A1AA; font-size: 14px; line-height: 1.7;">
-            Your mailer <strong style="color: #D4AF37;">${escapeHtml(acc.label)}</strong> (<code>${escapeHtml(acc.host)}:${acc.port}</code>) authenticated cleanly and delivered this test message.
+          <h2 style="margin: 18px 0 8px; color: #09090B; font-size: 22px;">SMTP Connection Verified</h2>
+          <p style="color: #3F3F46; font-size: 14px; line-height: 1.7;">
+            Your mailer <strong style="color: #9A7B1C;">${escapeHtml(acc.label)}</strong> (<code>${escapeHtml(acc.host)}:${acc.port}</code>) authenticated cleanly and delivered this test message.
           </p>
-          <p style="color: #71717A; font-size: 12px; margin-top: 20px; border-top: 1px solid #27272A; padding-top: 14px;">
+          <p style="color: #71717A; font-size: 12px; margin-top: 20px; border-top: 1px solid #E4E4E7; padding-top: 14px;">
             Sender: ${escapeHtml(acc.from_name)} &lt;${escapeHtml(acc.from_email)}&gt; • Daily Quota: ${acc.sent_today}/${acc.daily_limit}
           </p>
         </div>
@@ -339,50 +376,71 @@ export async function sendCandidateConfirmationEmail(
   ).replace(/\/$/, "");
   const trackingUrl = `${baseUrl}/track/${campaign.tracking_token}`;
   const isAr = campaign.preferred_lang === "ar";
+  const senderDomain = extractSenderDomain(acc.from_email || acc.user);
 
   const subject = isAr
     ? `تأكيد السداد وبدء توزيع سيرتك الذاتية — رمز التتبع (${campaign.customer_reference})`
     : `Payment Verified & CV Dispatch Active — Code (${campaign.customer_reference})`;
 
+  const text = isAr
+    ? [
+        `مرحباً ${campaign.candidate_name}،`,
+        "",
+        `تم تأكيد عملية الدفع بنجاح وبدأ محرك أسرع (Asra3.com) توزيع سيرتك الذاتية إلى ${campaign.total_target_companies} جهة توظيف موثقة في (${campaign.primary_country_code}).`,
+        `رمز التتبع: ${campaign.customer_reference}`,
+        `رابط لوحة التتبع المباشرة: ${trackingUrl}`,
+        "",
+        `جميع ردود مسؤولي الموارد البشرية (Reply-To) موجهة مباشرة إلى: ${campaign.candidate_email}`,
+      ].join("\n")
+    : [
+        `Hello ${campaign.candidate_name},`,
+        "",
+        `Your payment is verified and Asra3.com is now placing your CV and cover letter into ${campaign.total_target_companies} verified HR inboxes across (${campaign.primary_country_code}).`,
+        `Tracking Code: ${campaign.customer_reference}`,
+        `Live Tracking Portal: ${trackingUrl}`,
+        "",
+        `All HR replies (Reply-To) route directly to: ${campaign.candidate_email}`,
+      ].join("\n");
+
   const html = isAr
     ? `
-      <div dir="rtl" style="font-family: Tahoma, Segoe UI, Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #09090B; color: #FAFAFA; padding: 32px; border-radius: 16px; border: 1px solid #27272A;">
-        <span style="display: inline-block; background: #D4AF37; color: #09090B; font-size: 11px; font-weight: 800; padding: 4px 12px; border-radius: 6px;">
-          أسرع | Asra3.com — تم تفعيل الحملة ✓
+      <div dir="rtl" style="font-family: Tahoma, Segoe UI, Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #FFFFFF; color: #18181B; padding: 32px; border-radius: 16px; border: 1px solid #E4E4E7;">
+        <span style="display: inline-block; background: #09090B; color: #D4AF37; font-size: 11px; font-weight: 800; padding: 5px 12px; border-radius: 6px; border: 1px solid #27272A;">
+          أسرع | Asra3.com — تم تفعيل الحملة
         </span>
-        <h2 style="margin: 18px 0 10px; color: #FAFAFA;">مرحباً ${escapeHtml(campaign.candidate_name)}،</h2>
-        <p style="color: #D4D4D8; font-size: 14px; line-height: 1.8;">
+        <h2 style="margin: 18px 0 10px; color: #09090B;">مرحباً ${escapeHtml(campaign.candidate_name)}،</h2>
+        <p style="color: #3F3F46; font-size: 14px; line-height: 1.8;">
           تم تأكيد عملية الدفع بنجاح، وبدأ محرك <strong>أسرع (Asra3.com)</strong> الآن بإيداع سيرتك الذاتية وخطاب التقديم التنفيذي مباشرة لدى <strong>${campaign.total_target_companies} جهة توظيف موثقة</strong> في (${campaign.primary_country_code}).
         </p>
-        <div style="background: #121215; border: 1px solid #27272A; border-radius: 12px; padding: 16px; margin: 20px 0;">
-          <p style="margin: 0 0 6px; font-size: 12px; color: #A1A1AA;">رمز التتبع الخاص بك (احتفظ به):</p>
-          <p style="margin: 0; font-family: monospace; font-size: 20px; font-weight: 800; color: #D4AF37;">${escapeHtml(campaign.customer_reference)}</p>
+        <div style="background: #F4F4F5; border: 1px solid #E4E4E7; border-radius: 12px; padding: 16px; margin: 20px 0;">
+          <p style="margin: 0 0 6px; font-size: 12px; color: #52525B;">رمز التتبع الخاص بك (احتفظ به):</p>
+          <p style="margin: 0; font-family: monospace; font-size: 20px; font-weight: 800; color: #09090B;">${escapeHtml(campaign.customer_reference)}</p>
         </div>
-        <a href="${trackingUrl}" style="display: inline-block; background: #D4AF37; color: #09090B; text-decoration: none; font-weight: 800; font-size: 14px; padding: 12px 24px; border-radius: 10px;">
+        <a href="${trackingUrl}" style="display: inline-block; background: #09090B; color: #D4AF37; text-decoration: none; font-weight: 800; font-size: 14px; padding: 12px 24px; border-radius: 10px;">
           فتح لوحة التتبع المباشرة ←
         </a>
-        <p style="color: #71717A; font-size: 12px; margin-top: 24px;">
+        <p style="color: #71717A; font-size: 12px; margin-top: 24px; border-top: 1px solid #E4E4E7; padding-top: 14px;">
           جميع ردود مسؤولي الموارد البشرية (Reply-To) موجهة مباشرة إلى بريدك الشخصي: ${escapeHtml(campaign.candidate_email)}
         </p>
       </div>
     `
     : `
-      <div style="font-family: Segoe UI, Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #09090B; color: #FAFAFA; padding: 32px; border-radius: 16px; border: 1px solid #27272A;">
-        <span style="display: inline-block; background: #D4AF37; color: #09090B; font-size: 11px; font-weight: 800; padding: 4px 12px; border-radius: 6px;">
-          ASRA3.COM — DISPATCH ACTIVE ✓
+      <div style="font-family: Segoe UI, Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #FFFFFF; color: #18181B; padding: 32px; border-radius: 16px; border: 1px solid #E4E4E7;">
+        <span style="display: inline-block; background: #09090B; color: #D4AF37; font-size: 11px; font-weight: 800; padding: 5px 12px; border-radius: 6px; border: 1px solid #27272A;">
+          ASRA3.COM — DISPATCH ACTIVE
         </span>
-        <h2 style="margin: 18px 0 10px; color: #FAFAFA;">Hello ${escapeHtml(campaign.candidate_name)},</h2>
-        <p style="color: #D4D4D8; font-size: 14px; line-height: 1.8;">
+        <h2 style="margin: 18px 0 10px; color: #09090B;">Hello ${escapeHtml(campaign.candidate_name)},</h2>
+        <p style="color: #3F3F46; font-size: 14px; line-height: 1.8;">
           Your payment has been verified and <strong>Asra3.com</strong> is now placing your CV and executive cover letter into <strong>${campaign.total_target_companies} verified HR inboxes</strong> across (${campaign.primary_country_code}).
         </p>
-        <div style="background: #121215; border: 1px solid #27272A; border-radius: 12px; padding: 16px; margin: 20px 0;">
-          <p style="margin: 0 0 6px; font-size: 12px; color: #A1A1AA;">Your Private Tracking Code:</p>
-          <p style="margin: 0; font-family: monospace; font-size: 20px; font-weight: 800; color: #D4AF37;">${escapeHtml(campaign.customer_reference)}</p>
+        <div style="background: #F4F4F5; border: 1px solid #E4E4E7; border-radius: 12px; padding: 16px; margin: 20px 0;">
+          <p style="margin: 0 0 6px; font-size: 12px; color: #52525B;">Your Private Tracking Code:</p>
+          <p style="margin: 0; font-family: monospace; font-size: 20px; font-weight: 800; color: #09090B;">${escapeHtml(campaign.customer_reference)}</p>
         </div>
-        <a href="${trackingUrl}" style="display: inline-block; background: #D4AF37; color: #09090B; text-decoration: none; font-weight: 800; font-size: 14px; padding: 12px 24px; border-radius: 10px;">
+        <a href="${trackingUrl}" style="display: inline-block; background: #09090B; color: #D4AF37; text-decoration: none; font-weight: 800; font-size: 14px; padding: 12px 24px; border-radius: 10px;">
           Open Live Tracking Ledger →
         </a>
-        <p style="color: #71717A; font-size: 12px; margin-top: 24px;">
+        <p style="color: #71717A; font-size: 12px; margin-top: 24px; border-top: 1px solid #E4E4E7; padding-top: 14px;">
           All HR replies (Reply-To) are routed directly to your inbox: ${escapeHtml(campaign.candidate_email)}
         </p>
       </div>
@@ -392,9 +450,15 @@ export async function sendCandidateConfirmationEmail(
     const transporter = createTransport(acc);
     await transporter.sendMail({
       from: `"${acc.from_name}" <${acc.from_email}>`,
+      replyTo: acc.from_email,
       to: campaign.candidate_email,
       subject,
+      text,
       html,
+      messageId: buildMessageId(senderDomain),
+      headers: {
+        "X-Entity-Ref-ID": campaign.id,
+      },
     });
     incrementSmtpSentCounter(acc.id);
     return true;
@@ -416,34 +480,57 @@ export async function sendTrackingRecoveryEmail(params: {
   if (!acc) return false;
 
   const isAr = params.lang === "ar";
+  const senderDomain = extractSenderDomain(acc.from_email || acc.user);
   const subject = isAr
     ? `رمز تتبع حملتك في أسرع (Asra3.com): ${params.customerReference}`
     : `Your Asra3.com Tracking Code: ${params.customerReference}`;
 
+  const codesText = params.allCodes
+    .map((c) => `- ${c.reference} (${c.country})`)
+    .join("\n");
+
+  const text = isAr
+    ? [
+        `مرحباً ${params.candidateName}،`,
+        "",
+        "بناءً على طلبك، إليك رمز تتبع حملتك المسجلة على منصة أسرع (Asra3.com):",
+        codesText,
+        "",
+        `رابط التتبع: ${params.trackingUrl}`,
+      ].join("\n")
+    : [
+        `Hello ${params.candidateName},`,
+        "",
+        "Here is your active Tracking Code on Asra3.com:",
+        codesText,
+        "",
+        `Open Tracking Portal: ${params.trackingUrl}`,
+      ].join("\n");
+
   const codesHtml = params.allCodes
     .map(
       (c) =>
-        `<li style="margin-bottom: 6px; font-family: monospace; color: #D4AF37;"><strong>${escapeHtml(c.reference)}</strong> (${escapeHtml(c.country)})</li>`
+        `<li style="margin-bottom: 6px; font-family: monospace; color: #09090B;"><strong>${escapeHtml(c.reference)}</strong> (${escapeHtml(c.country)})</li>`
     )
     .join("");
 
   const html = isAr
     ? `
-      <div dir="rtl" style="font-family: Tahoma, Segoe UI, Arial, sans-serif; max-width: 580px; margin: 0 auto; background: #09090B; color: #FAFAFA; padding: 30px; border-radius: 16px; border: 1px solid #27272A;">
-        <h2 style="color: #FAFAFA; margin-top: 0;">مرحباً ${escapeHtml(params.candidateName)}،</h2>
-        <p style="color: #D4D4D8; font-size: 14px; line-height: 1.7;">بناءً على طلبك، إليك رمز تتبع حملتك المسجلة على منصة أسرع (Asra3.com):</p>
-        <ul style="background: #121215; border: 1px solid #27272A; border-radius: 12px; padding: 16px 32px;">${codesHtml}</ul>
-        <a href="${params.trackingUrl}" style="display: inline-block; margin-top: 12px; background: #D4AF37; color: #09090B; text-decoration: none; font-weight: 800; font-size: 14px; padding: 12px 22px; border-radius: 10px;">
+      <div dir="rtl" style="font-family: Tahoma, Segoe UI, Arial, sans-serif; max-width: 580px; margin: 0 auto; background: #FFFFFF; color: #18181B; padding: 30px; border-radius: 16px; border: 1px solid #E4E4E7;">
+        <h2 style="color: #09090B; margin-top: 0;">مرحباً ${escapeHtml(params.candidateName)}،</h2>
+        <p style="color: #3F3F46; font-size: 14px; line-height: 1.7;">بناءً على طلبك، إليك رمز تتبع حملتك المسجلة على منصة أسرع (Asra3.com):</p>
+        <ul style="background: #F4F4F5; border: 1px solid #E4E4E7; border-radius: 12px; padding: 16px 32px;">${codesHtml}</ul>
+        <a href="${params.trackingUrl}" style="display: inline-block; margin-top: 12px; background: #09090B; color: #D4AF37; text-decoration: none; font-weight: 800; font-size: 14px; padding: 12px 22px; border-radius: 10px;">
           فتح سجل التتبع الآن ←
         </a>
       </div>
     `
     : `
-      <div style="font-family: Segoe UI, Arial, sans-serif; max-width: 580px; margin: 0 auto; background: #09090B; color: #FAFAFA; padding: 30px; border-radius: 16px; border: 1px solid #27272A;">
-        <h2 style="color: #FAFAFA; margin-top: 0;">Hello ${escapeHtml(params.candidateName)},</h2>
-        <p style="color: #D4D4D8; font-size: 14px; line-height: 1.7;">Here is your active Tracking Code on Asra3.com:</p>
-        <ul style="background: #121215; border: 1px solid #27272A; border-radius: 12px; padding: 16px 32px;">${codesHtml}</ul>
-        <a href="${params.trackingUrl}" style="display: inline-block; margin-top: 12px; background: #D4AF37; color: #09090B; text-decoration: none; font-weight: 800; font-size: 14px; padding: 12px 22px; border-radius: 10px;">
+      <div style="font-family: Segoe UI, Arial, sans-serif; max-width: 580px; margin: 0 auto; background: #FFFFFF; color: #18181B; padding: 30px; border-radius: 16px; border: 1px solid #E4E4E7;">
+        <h2 style="color: #09090B; margin-top: 0;">Hello ${escapeHtml(params.candidateName)},</h2>
+        <p style="color: #3F3F46; font-size: 14px; line-height: 1.7;">Here is your active Tracking Code on Asra3.com:</p>
+        <ul style="background: #F4F4F5; border: 1px solid #E4E4E7; border-radius: 12px; padding: 16px 32px;">${codesHtml}</ul>
+        <a href="${params.trackingUrl}" style="display: inline-block; margin-top: 12px; background: #09090B; color: #D4AF37; text-decoration: none; font-weight: 800; font-size: 14px; padding: 12px 22px; border-radius: 10px;">
           Open Tracking Portal →
         </a>
       </div>
@@ -453,9 +540,15 @@ export async function sendTrackingRecoveryEmail(params: {
     const transporter = createTransport(acc);
     await transporter.sendMail({
       from: `"${acc.from_name}" <${acc.from_email}>`,
+      replyTo: acc.from_email,
       to: params.candidateEmail,
       subject,
+      text,
       html,
+      messageId: buildMessageId(senderDomain),
+      headers: {
+        "X-Entity-Ref-ID": crypto.randomUUID(),
+      },
     });
     incrementSmtpSentCounter(acc.id);
     return true;
@@ -615,6 +708,7 @@ export function startBackgroundCampaignSmtpDrip(params: {
         `;
 
         try {
+          const senderDomain = extractSenderDomain(acc.from_email || acc.user);
           const transporter = createTransport(acc);
           await transporter.sendMail({
             from: `"${campaign.candidate_name} (${acc.from_name})" <${acc.from_email}>`,
@@ -623,6 +717,11 @@ export function startBackgroundCampaignSmtpDrip(params: {
             subject: `Application: ${campaign.job_title} — ${campaign.candidate_name} (${campaign.years_experience}+ yrs exp)`,
             text: coverBody,
             html,
+            messageId: buildMessageId(senderDomain),
+            headers: {
+              "X-Entity-Ref-ID": `${campaign.id}-${rec.id}`,
+              "List-Unsubscribe": `<mailto:${acc.from_email}?subject=unsubscribe>`,
+            },
             attachments: cvAttachment ? [cvAttachment] : undefined,
           });
 

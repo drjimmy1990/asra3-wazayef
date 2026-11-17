@@ -6,7 +6,8 @@ import { Navbar } from "@/components/Navbar";
 import { Asra3Logo } from "@/components/Asra3Logo";
 import { DistributionWizard } from "@/components/DistributionWizard";
 import { useApp } from "@/context/AppContext";
-import { CountryCode, PackageId } from "@/lib/types";
+import { getTranslation } from "@/lib/i18n";
+import { CountryCode, Language, PackageId } from "@/lib/types";
 import {
   ArrowLeft,
   ArrowRight,
@@ -159,21 +160,26 @@ const COUNTRY_HIGHLIGHTS: Record<
 
 export interface HomeLandingClientProps {
   initialCountryCode?: CountryCode;
+  initialLang?: Language;
   countryHubBanner?: {
     titleAr: string;
     titleEn: string;
     subtitleAr: string;
     subtitleEn: string;
   };
+  seoSection?: React.ReactNode;
 }
 
 export function HomeLandingClient({
   initialCountryCode,
+  initialLang,
   countryHubBanner,
+  seoSection,
 }: HomeLandingClientProps) {
   const {
-    lang,
-    t,
+    lang: ctxLang,
+    setLang,
+    t: ctxT,
     countries,
     packages,
     selectedCountryCode,
@@ -181,10 +187,25 @@ export function HomeLandingClient({
     selectedCountry,
   } = useApp();
 
+  const [hasMounted, setHasMounted] = useState(false);
+  const initializedLangRef = React.useRef(false);
+
+  const lang: Language = !hasMounted && initialLang ? initialLang : ctxLang;
+  const t = !hasMounted && initialLang ? getTranslation(initialLang) : ctxT;
+
   const [wizardExternalPkg, setWizardExternalPkg] =
     useState<PackageId | null>(null);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
   const [lastToken, setLastToken] = useState<string | null>(null);
+
+  useEffect(() => {
+    setHasMounted(true);
+    if (initialLang && !initializedLangRef.current) {
+      initializedLangRef.current = true;
+      setLang(initialLang);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialLang]);
 
   useEffect(() => {
     if (initialCountryCode) {
@@ -259,7 +280,10 @@ export function HomeLandingClient({
         ];
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#FAFAFA] dark:bg-[#09090B] text-zinc-950 dark:text-zinc-50 transition-colors">
+    <div
+      dir={lang === "ar" ? "rtl" : "ltr"}
+      className="min-h-screen flex flex-col bg-[#FAFAFA] dark:bg-[#09090B] text-zinc-950 dark:text-zinc-50 transition-colors"
+    >
       <Navbar />
 
       {/* Returning Candidate Active Campaign Strip */}
@@ -1121,6 +1145,8 @@ export function HomeLandingClient({
         </div>
       </section>
 
+      {seoSection}
+
       {/* ================= PURE CARBON BLACK EXECUTIVE FOOTER ================= */}
       <footer className="mt-auto bg-[#09090B] pt-16 pb-24 sm:pb-14 text-zinc-400 border-t border-zinc-800">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -1197,6 +1223,22 @@ export function HomeLandingClient({
                 </li>
                 <li>
                   <Link
+                    href="/about"
+                    className="hover:text-white transition-colors"
+                  >
+                    {lang === "ar" ? "عن المنصة والمنهجية" : "About & Methodology"}
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href={lang === "ar" ? "/en" : "/"}
+                    className="hover:text-white transition-colors"
+                  >
+                    {lang === "ar" ? "النسخة الإنجليزية (/en)" : "Arabic Version (/)"}
+                  </Link>
+                </li>
+                <li>
+                  <Link
                     href="/privacy"
                     className="hover:text-white transition-colors"
                   >
@@ -1221,10 +1263,10 @@ export function HomeLandingClient({
               <ul className="space-y-2.5 text-xs">
                 <li>
                   <a
-                    href="mailto:support@asra3.com"
+                    href="mailto:hello@asra3.com"
                     className="text-zinc-200 hover:text-[#D4AF37] transition-colors"
                   >
-                    support@asra3.com
+                    hello@asra3.com
                   </a>
                 </li>
                 <li dir="ltr" className="text-zinc-300">

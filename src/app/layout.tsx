@@ -47,7 +47,7 @@ export const metadata: Metadata = {
     canonical: "/",
     languages: {
       ar: "/",
-      en: "/?lang=en",
+      en: "/en",
       "x-default": "/",
     },
   },
@@ -87,13 +87,24 @@ const globalJsonLd = {
       "@type": "Organization",
       "@id": `${SITE_URL}/#organization`,
       name: "أسرع | Asra3",
-      alternateName: ["Asra3.com", "منصة أسرع للتوظيف الذكي"],
+      alternateName: ["Asra3.com", "منصة أسرع للتوظيف الذكي", "Asra3 GCC Careers"],
       url: SITE_URL,
       logo: {
         "@type": "ImageObject",
-        url: `${SITE_URL}/logo.svg`,
+        url: `${SITE_URL}/icon.svg`,
       },
       slogan: "توظَّف أسرع — Get Hired Faster",
+      disambiguatingDescription:
+        "GCC AI ATS CV Optimization and Direct Verified HR Email Distribution Platform across the UAE, Saudi Arabia, Qatar, and Kuwait (distinct from any retired legacy social-media CRM software formerly hosted on asra3.com).",
+      knowsAbout: [
+        "ATS CV Optimization",
+        "GCC Recruitment",
+        "UAE Jobs",
+        "Saudi Vision 2030 Careers",
+        "Qatar Jobs",
+        "Kuwait Jobs",
+        "Direct HR Email Outreach",
+      ],
       areaServed: [
         { "@type": "Country", name: "United Arab Emirates" },
         { "@type": "Country", name: "Saudi Arabia" },
@@ -103,7 +114,7 @@ const globalJsonLd = {
       contactPoint: [
         {
           "@type": "ContactPoint",
-          email: "support@asra3.com",
+          email: "hello@asra3.com",
           telephone: "+971-50-408-1478",
           contactType: "customer support",
           availableLanguage: ["Arabic", "English"],
@@ -116,9 +127,25 @@ const globalJsonLd = {
       url: SITE_URL,
       name: "أسرع | Asra3.com",
       description:
-        "منصة التوزيع المباشر للسيرة الذاتية لصناديق بريد الموارد البشرية (HR) في دول الخليج.",
+        "منصة التوزيع المباشر للسيرة الذاتية وتحسين التوافق مع أنظمة ATS لصناديق بريد الموارد البشرية (HR) في دول الخليج.",
       publisher: { "@id": `${SITE_URL}/#organization` },
       inLanguage: ["ar", "en"],
+    },
+    {
+      "@type": "WebApplication",
+      "@id": `${SITE_URL}/#webapp`,
+      name: "Asra3 AI ATS CV Scanner & Direct HR Distribution",
+      url: SITE_URL,
+      applicationCategory: "BusinessApplication",
+      operatingSystem: "All",
+      provider: { "@id": `${SITE_URL}/#organization` },
+      offers: {
+        "@type": "AggregateOffer",
+        priceCurrency: "AED",
+        lowPrice: "149",
+        highPrice: "399",
+        offerCount: "3",
+      },
     },
   ],
 };

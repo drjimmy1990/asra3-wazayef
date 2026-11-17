@@ -1,5 +1,6 @@
 import React from "react";
 import { HomeLandingClient } from "@/components/HomeLandingClient";
+import { SeoGeoKnowledgeSection } from "@/components/SeoGeoKnowledgeSection";
 
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ||
@@ -57,6 +58,39 @@ const homeStructuredData = {
       },
     },
     {
+      "@type": "HowTo",
+      "@id": `${SITE_URL}/#howto`,
+      name: "كيفية إرسال سيرتك الذاتية مباشرة إلى شركات الخليج عبر منصة أسرع (Asra3.com)",
+      description:
+        "أربع خطوات لتمرير سيرتك الذاتية عبر أنظمة الفرز ATS وإيداعها مباشرة في صناديق بريد مسؤولي الموارد البشرية في الإمارات والسعودية وقطر والكويت.",
+      step: [
+        {
+          "@type": "HowToStep",
+          position: 1,
+          name: "فحص السيرة الذاتية بتقنية ATS مجاناً",
+          text: "ارفع ملف سيرتك الذاتية (PDF أو DOCX) لتحليل المهارات، المسمى الوظيفي، ودرجة التوافق مع أنظمة ATS فوراً.",
+        },
+        {
+          "@type": "HowToStep",
+          position: 2,
+          name: "اختيار الدولة الخليجية والمدن المستهدفة",
+          text: "حدد دولتك المستهدفة (الإمارات، السعودية، قطر، أو الكويت) والمدن والتخصص الوظيفي المناسب.",
+        },
+        {
+          "@type": "HowToStep",
+          position: 3,
+          name: "تفعيل درع استثناء جهة العمل الحالية واختيار الباقة",
+          text: "اختر باقة التوزيع لمرة واحدة وأضف نطاق بريد شركتك الحالية لاستبعاده تماماً بنسبة 100%.",
+        },
+        {
+          "@type": "HowToStep",
+          position: 4,
+          name: "الدفع الآمن ومتابعة التتبع المباشر",
+          text: "أتمم الدفع عبر بوابة EasyKash وافتح لوحة التتبع الحية (/track) لمشاهدة الإيداع المباشر وتلقي الردود على بريدك الشخصي.",
+        },
+      ],
+    },
+    {
       "@type": "FAQPage",
       "@id": `${SITE_URL}/#faq`,
       mainEntity: [
@@ -97,7 +131,7 @@ const homeStructuredData = {
           name: "كيف أتابع الشركات التي استلمت سيرتي الذاتية بعد الدفع؟",
           acceptedAnswer: {
             "@type": "Answer",
-            text: "فور الدفع تحصل على رمز تتبع خاص يبدأ بـ ASR- للوصول الفوري إلى لوحة التتبع الحية (/track) ومشاهدة تقدم الإرسال وجدول الشركات المستلمة وخطاب التقديم الذكي.",
+            text: "فور الدفع تحصل على رمز تتبع خاص ورابط مباشر للوصول الفوري إلى لوحة التتبع الحية (/track) ومشاهدة تقدم الإرسال وجدول الشركات المستلمة وخطاب التقديم الذكي.",
           },
         },
       ],
@@ -112,7 +146,9 @@ export default function HomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(homeStructuredData) }}
       />
-      <HomeLandingClient />
+      <HomeLandingClient
+        seoSection={<SeoGeoKnowledgeSection variant="gcc-ar" />}
+      />
     </>
   );
 }
