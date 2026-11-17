@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
+import { ScrollProgressRail } from "@/components/MotionPrimitives";
 import { useApp } from "@/context/AppContext";
 import { CampaignRecord } from "@/lib/types";
 import {
@@ -145,11 +146,13 @@ export default function TrackLookupPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#EEF0F4] dark:bg-[#09090B] text-zinc-950 dark:text-zinc-50 transition-colors">
+    <div className="min-h-screen flex flex-col bg-arch-grid bg-[#EEF0F4] dark:bg-[#09090B] text-zinc-950 dark:text-zinc-50 transition-colors">
+      <ScrollProgressRail />
       <Navbar />
 
-      <div className="mx-auto max-w-3xl w-full px-4 py-14 sm:py-20">
-        <div className="exec-card exec-card-gold-top rounded-2xl overflow-hidden">
+      <main id="main-content" className="flex-1">
+        <div className="mx-auto max-w-3xl w-full px-4 py-14 sm:py-20">
+          <div className="exec-card exec-card-gold-top animate-panel-enter rounded-2xl overflow-hidden">
           <div className="exec-card-header px-6 py-6 sm:px-10 sm:py-7 flex items-start sm:items-center gap-4">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#09090B] border border-zinc-800 text-[#D4AF37]">
               <SearchCheck className="h-6 w-6" />
@@ -299,7 +302,7 @@ export default function TrackLookupPage() {
                 </p>
                 <Link
                   href={`/track/${savedCampaign.tracking_token}`}
-                  className="exec-well flex flex-wrap items-center justify-between gap-3 rounded-xl px-5 py-4 text-sm hover:border-[#D4AF37] transition-colors"
+                  className="exec-well exec-card-interactive flex flex-wrap items-center justify-between gap-3 rounded-xl px-5 py-4 text-sm hover:border-[#D4AF37]"
                 >
                   <div>
                     <span className="font-bold text-zinc-950 dark:text-zinc-50 text-base">
@@ -355,7 +358,8 @@ export default function TrackLookupPage() {
             )}
           </div>
         </div>
-      </div>
+        </div>
+      </main>
     </div>
   );
 }

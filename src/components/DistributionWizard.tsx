@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { CountryCode, CvScanResult, PackageId } from "@/lib/types";
+import { RadialProgressGauge } from "@/components/MotionPrimitives";
 import {
   AlertCircle,
   Building2,
@@ -425,7 +426,7 @@ export function DistributionWizard({
       </div>
 
       {/* Step Content Body */}
-      <div className="p-6 sm:p-8 lg:p-10">
+      <div key={step} className="p-6 sm:p-8 lg:p-10 animate-panel-enter">
         {/* ================= STEP 1: COUNTRY & CITIES LOCALIZATION ================= */}
         {step === 1 && (
           <div className="space-y-8">
@@ -457,7 +458,7 @@ export function DistributionWizard({
                       key={c.code}
                       type="button"
                       onClick={() => setSelectedCountryCode(c.code)}
-                      className={`flex flex-col justify-between rounded-xl border p-5 text-start transition-colors cursor-pointer ${
+                      className={`exec-card-interactive flex flex-col justify-between rounded-xl border p-5 text-start cursor-pointer ${
                         active
                           ? "border-[#09090B] bg-[#09090B] text-white dark:border-[#D4AF37] dark:bg-[#18181C]"
                           : "border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-[#09090B] text-zinc-950 dark:text-zinc-100 hover:border-zinc-400 dark:hover:border-zinc-600"
@@ -730,16 +731,24 @@ export function DistributionWizard({
                       </h4>
                     </div>
                   </div>
-                  <div className="rounded-lg bg-zinc-900 px-4 py-2.5 text-center border border-zinc-800">
-                    <p className="text-[11px] text-zinc-400">
-                      {t.atsScoreLabel}
-                    </p>
-                    <p dir="ltr" className="text-xl font-extrabold text-[#D4AF37] tabular-nums">
-                      {scanResult.ats_score}%{" "}
-                      <span className="text-xs font-bold text-zinc-200">
-                        → 96%
-                      </span>
-                    </p>
+                  <div className="flex items-center gap-3 rounded-xl bg-zinc-900 px-3.5 py-2 border border-zinc-800">
+                    <RadialProgressGauge
+                      percent={scanResult.ats_score}
+                      size={60}
+                      strokeWidth={5}
+                      darkSurface
+                    />
+                    <div className="text-start">
+                      <p className="text-[11px] text-zinc-400">
+                        {t.atsScoreLabel}
+                      </p>
+                      <p
+                        dir="ltr"
+                        className="text-xs font-mono font-extrabold text-[#D4AF37]"
+                      >
+                        Target → 96%
+                      </p>
+                    </div>
                   </div>
                 </div>
 
@@ -920,7 +929,7 @@ export function DistributionWizard({
                     <div
                       key={pkg.id}
                       onClick={() => setSelectedPackageId(pkg.id)}
-                      className={`relative flex flex-col justify-between rounded-xl p-6 transition-colors cursor-pointer ${
+                      className={`exec-card-interactive relative flex flex-col justify-between rounded-xl p-6 cursor-pointer ${
                         isFeatured
                           ? selected
                             ? "bg-[#09090B] dark:bg-[#18181D] text-white border-2 border-[#D4AF37]"

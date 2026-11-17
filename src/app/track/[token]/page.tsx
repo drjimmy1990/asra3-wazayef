@@ -4,6 +4,12 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
+import {
+  AnimatedCounter,
+  LiveSignalEqualizer,
+  RadialProgressGauge,
+  ScrollProgressRail,
+} from "@/components/MotionPrimitives";
 import { useApp } from "@/context/AppContext";
 import { CampaignRecord } from "@/lib/types";
 import {
@@ -21,6 +27,7 @@ import {
   Link2,
   Loader2,
   MailCheck,
+  Radio,
   RefreshCw,
   Search,
   Sparkles,
@@ -44,7 +51,13 @@ export default function CampaignTrackingDashboard() {
   const [paymentNotice, setPaymentNotice] = useState<string | null>(null);
 
   const [logSearch, setLogSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "opened" | "sent" | "queued"
+  >("all");
   const [logPage, setLogPage] = useState(1);
+  const [simExtraSent, setSimExtraSent] = useState(0);
+  const [simExtraOpened, setSimExtraOpened] = useState(0);
+  const [liveTickerIdx, setLiveTickerIdx] = useState(0);
 
   const fetchCampaign = useCallback(async () => {
     if (!token) return;
@@ -114,6 +127,27 @@ export default function CampaignTrackingDashboard() {
 
     return () => clearInterval(pollTimer);
   }, [campaignId, campaignPayStatus, campaignTrackingToken, isDemoCampaign]);
+
+  // Live Telemetry Stream Rotation (Demo + Active Dispatches)
+  useEffect(() => {
+    if (
+      !campaignId ||
+      typeof window === "undefined" ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
+      return;
+    }
+    if (
+      !isDemoCampaign &&
+      (campaignPayStatus !== "paid" || campaignStatus === "completed")
+    ) {
+      return;
+    }
+    const tickerTimer = window.setInterval(() => {
+      setLiveTickerIdx((prev) => prev + 1);
+    }, 3200);
+    return () => window.clearInterval(tickerTimer);
+  }, [campaignId, campaignPayStatus, campaignStatus, isDemoCampaign]);
 
   // 2. Live Drip Progress Sync
   useEffect(() => {
@@ -244,8 +278,39 @@ export default function CampaignTrackingDashboard() {
     }
   };
 
-  const filteredRecipients = useMemo(() => {
+  const recipientsWithSimulation = useMemo(() => {
     const list = campaign?.recipients || [];
+    if (!isDemoCampaign || (simExtraSent === 0 && simExtraOpened === 0)) {
+      return list;
+    }
+    let queuedUsed = 0;
+    let sentPromotedToOpened = 0;
+    return list.map((r) => {
+      if (r.status === "queued" && queuedUsed < simExtraSent) {
+        queuedUsed++;
+        return { ...r, status: "sent" as const };
+      }
+      if (r.status === "sent" && sentPromotedToOpened < simExtraOpened) {
+        sentPromotedToOpened++;
+        return { ...r, status: "opened" as const };
+      }
+      return r;
+    });
+  }, [campaign?.recipients, isDemoCampaign, simExtraSent, simExtraOpened]);
+
+  const activeEvents = useMemo(
+    () =>
+      recipientsWithSimulation
+        .filter((r) => r.status === "opened" || r.status === "sent")
+        .slice(0, 12),
+    [recipientsWithSimulation]
+  );
+
+  const filteredRecipients = useMemo(() => {
+    let list = recipientsWithSimulation;
+    if (statusFilter !== "all") {
+      list = list.filter((r) => r.status === statusFilter);
+    }
     if (!logSearch.trim()) return list;
     const q = logSearch.trim().toLowerCase();
     return list.filter(
@@ -255,7 +320,7 @@ export default function CampaignTrackingDashboard() {
         r.city_name_ar.includes(q) ||
         r.country_code.toLowerCase().includes(q)
     );
-  }, [campaign?.recipients, logSearch]);
+  }, [recipientsWithSimulation, statusFilter, logSearch]);
 
   const totalLogPages = Math.max(
     1,
@@ -357,43 +422,74 @@ export default function CampaignTrackingDashboard() {
   }
 
   const isPaid = campaign.payment_status === "paid";
+  const effectiveSentCount = Math.min(
+    campaign.total_target_companies,
+    campaign.emails_sent_count + (isDemoCampaign ? simExtraSent : 0)
+  );
+  const effectiveOpenedCount = Math.min(
+    effectiveSentCount,
+    campaign.emails_opened_count + (isDemoCampaign ? simExtraOpened : 0)
+  );
   const progressPercent = Math.min(
     100,
     Math.round(
-      (campaign.emails_sent_count /
-        Math.max(1, campaign.total_target_companies)) *
-        100
+      (effectiveSentCount / Math.max(1, campaign.total_target_companies)) * 100
     )
   );
+  const currentEvent =
+    activeEvents.length > 0
+      ? activeEvents[liveTickerIdx % activeEvents.length]
+      : null;
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#EEF0F4] dark:bg-[#09090B] text-zinc-950 dark:text-zinc-50 transition-colors">
+    <div className="min-h-screen flex flex-col bg-arch-grid bg-[#EEF0F4] dark:bg-[#09090B] text-zinc-950 dark:text-zinc-50 transition-colors">
+      <ScrollProgressRail />
       <Navbar />
 
-      <div className="mx-auto max-w-7xl w-full px-4 py-8 sm:py-10 sm:px-6 lg:px-8 space-y-6 sm:space-y-8">
+      <main
+        id="main-content"
+        className="mx-auto max-w-7xl w-full px-4 py-8 sm:py-10 sm:px-6 lg:px-8 space-y-6 sm:space-y-8"
+      >
         {isDemoCampaign && (
-          <div className="exec-card flex flex-wrap items-center justify-between gap-3 rounded-xl px-5 py-3.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-[#D4AF37]" />
+          <div className="exec-card animate-panel-enter flex flex-wrap items-center justify-between gap-3 rounded-xl px-5 py-3.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+            <div className="flex items-center gap-2.5">
+              <span className="gold-beacon" />
               <span>
                 {lang === "ar"
                   ? "نموذج حي تفاعلي لسجل التتبع التنفيذي في «أسرع» (Asra3.com). أطلق حملتك الفعلية خلال 3 دقائق."
                   : "Interactive Live Preview of the Asra3.com Executive Ledger. Launch your private GCC campaign in 3 minutes."}
               </span>
             </div>
-            <Link
-              href="/#wizard-section"
-              className="btn-gold rounded-lg px-4 py-2 text-xs font-extrabold"
-            >
-              {lang === "ar"
-                ? "توظَّف أسرع — ابدأ حملتي"
-                : "Launch My Dossier →"}
-            </Link>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setSimExtraSent((s) => s + 5);
+                  setSimExtraOpened((o) => o + 2);
+                }}
+                className="btn-carbon inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-extrabold cursor-pointer"
+              >
+                <Radio className="h-3.5 w-3.5 text-[#D4AF37]" />
+                <span>
+                  {lang === "ar"
+                    ? "محاكاة دفعة إرسال حية (+5)"
+                    : "Simulate Live Batch (+5)"}
+                </span>
+              </button>
+              <Link
+                href="/#wizard-section"
+                className="btn-gold rounded-lg px-4 py-2 text-xs font-extrabold"
+              >
+                {lang === "ar"
+                  ? "توظَّف أسرع — ابدأ حملتي"
+                  : "Launch My Dossier →"}
+              </Link>
+            </div>
           </div>
         )}
 
         {/* Executive Dispatch Dossier Header & Progress Card (Balanced Architectural Light/Dark) */}
-        <div className="exec-card exec-card-gold-top rounded-2xl overflow-hidden">
+        <div className="exec-card exec-card-gold-top animate-panel-enter rounded-2xl overflow-hidden">
           {/* Sleek Obsidian Top Identity Bar */}
           <div className="bg-[#09090B] px-6 py-5 sm:px-8 sm:py-6 text-zinc-50 border-b border-zinc-800">
             <div className="flex flex-wrap items-center justify-between gap-4">
@@ -469,15 +565,25 @@ export default function CampaignTrackingDashboard() {
                 </div>
               </div>
 
-              {/* Customer Action Bar */}
-              <div className="flex flex-wrap items-center gap-2">
+              {/* Customer Action Bar + Kinetic Radial Completion Gauge */}
+              <div className="flex flex-wrap items-center gap-3">
+                <RadialProgressGauge
+                  percent={progressPercent}
+                  size={66}
+                  strokeWidth={5}
+                  darkSurface
+                  label={lang === "ar" ? "اكتمال الحملة" : "Completion"}
+                  sublabel={`${effectiveSentCount} / ${campaign.total_target_companies}`}
+                />
+
                 {isPaid && campaign.campaign_status !== "completed" && (
                   <div className="flex items-center gap-2 rounded-xl border border-zinc-800 bg-[#121215] px-3.5 py-2 text-xs font-bold text-[#D4AF37]">
-                    <span className="h-2 w-2 rounded-full bg-[#D4AF37] animate-pulse" />
+                    <span className="gold-beacon" />
+                    <LiveSignalEqualizer />
                     <span>
                       {lang === "ar"
-                        ? "الإرسال التلقائي نشط بالخادم"
-                        : "Server Smart-Drip Active"}
+                        ? "الإرسال التلقائي نشط"
+                        : "Smart-Drip Active"}
                     </span>
                   </div>
                 )}
@@ -559,6 +665,46 @@ export default function CampaignTrackingDashboard() {
               </div>
             )}
 
+            {/* Live Telemetry Event Stream Bar */}
+            {currentEvent && (
+              <div className="rounded-xl border border-zinc-800 bg-[#09090B] px-4 py-3 flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-200">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <LiveSignalEqualizer />
+                  <span className="font-mono text-[10px] font-extrabold uppercase tracking-wider text-[#D4AF37]">
+                    {lang === "ar" ? "بث الإيداع الحي:" : "LIVE TELEMETRY:"}
+                  </span>
+                  <div
+                    key={`${currentEvent.id}-${liveTickerIdx}`}
+                    className="animate-panel-enter flex items-center gap-2 truncate"
+                  >
+                    <span
+                      dir="ltr"
+                      className="rounded bg-zinc-800 px-1.5 py-0.5 font-mono text-[10px] font-bold text-[#D4AF37]"
+                    >
+                      {currentEvent.country_code}
+                    </span>
+                    <span className="font-bold text-zinc-100 truncate">
+                      {currentEvent.company_name}
+                    </span>
+                    <span className="text-zinc-400 truncate hidden sm:inline">
+                      ({lang === "ar"
+                        ? currentEvent.city_name_ar
+                        : currentEvent.city_name_en})
+                    </span>
+                  </div>
+                </div>
+                <span className="rounded border border-[#D4AF37]/40 bg-[#121215] px-2.5 py-0.5 text-[11px] font-bold text-[#D4AF37]">
+                  {currentEvent.status === "opened"
+                    ? lang === "ar"
+                      ? "تم الفتح من HR"
+                      : "Opened by HR"
+                    : lang === "ar"
+                    ? "تم الإيداع بالبريد"
+                    : "Delivered to HR"}
+                </span>
+              </div>
+            )}
+
             <div className="exec-well rounded-xl p-5">
               <div className="flex flex-wrap items-center justify-between gap-2 text-sm mb-3">
                 <span className="font-semibold text-zinc-800 dark:text-zinc-200">
@@ -566,7 +712,8 @@ export default function CampaignTrackingDashboard() {
                     ? lang === "ar"
                       ? "بانتظار تأكيد بوابة الدفع EasyKash لبدء الإيداع الفوري..."
                       : "Awaiting EasyKash payment confirmation to initiate dispatch..."
-                    : campaign.campaign_status === "completed"
+                    : progressPercent >= 100 ||
+                      campaign.campaign_status === "completed"
                     ? lang === "ar"
                       ? "اكتمل إيداع ملفك بنجاح لدى جميع جهات التوظيف المستهدفة (100%)"
                       : "Dossier Placement 100% Completed Across All Target Employers"
@@ -575,8 +722,7 @@ export default function CampaignTrackingDashboard() {
                     : "Asra3 servers are placing your dossier in calibrated batches (continues even if you close this tab)..."}
                 </span>
                 <span className="font-bold text-[#9A7B1C] dark:text-[#D4AF37] tabular-nums">
-                  {campaign.emails_sent_count} /{" "}
-                  {campaign.total_target_companies}{" "}
+                  {effectiveSentCount} / {campaign.total_target_companies}{" "}
                   {lang === "ar" ? "شركة" : "Companies"} ({progressPercent}%)
                 </span>
               </div>
@@ -590,31 +736,31 @@ export default function CampaignTrackingDashboard() {
             </div>
 
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-              <div className="exec-well rounded-xl p-4">
+              <div className="exec-well exec-card-interactive rounded-xl p-4">
                 <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                   {lang === "ar" ? "الشركات المستهدفة" : "Target Companies"}
                 </p>
                 <p className="mt-1 font-editorial text-3xl font-bold text-zinc-950 dark:text-zinc-50 tabular-nums">
-                  {campaign.total_target_companies}
+                  <AnimatedCounter value={campaign.total_target_companies} />
                 </p>
               </div>
-              <div className="exec-well rounded-xl p-4">
+              <div className="exec-well exec-card-interactive rounded-xl p-4">
                 <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                   {lang === "ar" ? "الرسائل المودعة" : "Dispatched"}
                 </p>
                 <p className="mt-1 font-editorial text-3xl font-bold text-[#9A7B1C] dark:text-[#D4AF37] tabular-nums">
-                  {campaign.emails_sent_count}
+                  <AnimatedCounter value={effectiveSentCount} />
                 </p>
               </div>
-              <div className="exec-well rounded-xl p-4">
+              <div className="exec-well exec-card-interactive rounded-xl p-4">
                 <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                   {lang === "ar" ? "فتح ومراجعة الـ HR" : "Confirmed HR Opens"}
                 </p>
                 <p className="mt-1 font-editorial text-3xl font-bold text-zinc-950 dark:text-zinc-50 tabular-nums">
-                  {campaign.emails_opened_count}
+                  <AnimatedCounter value={effectiveOpenedCount} />
                 </p>
               </div>
-              <div className="exec-well rounded-xl p-4">
+              <div className="exec-well exec-card-interactive rounded-xl p-4">
                 <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                   {lang === "ar" ? "مرجع المعاملة" : "Reference"}
                 </p>
@@ -644,27 +790,59 @@ export default function CampaignTrackingDashboard() {
                 </h2>
               </div>
 
-              <div className="relative">
-                <Search className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
-                <input
-                  type="text"
-                  value={logSearch}
-                  onChange={(e) => {
-                    setLogSearch(e.target.value);
-                    setLogPage(1);
-                  }}
-                  placeholder={
-                    lang === "ar"
-                      ? "ابحث باسم الشركة أو المدينة..."
-                      : "Filter company or city..."
-                  }
-                  className="exec-input rounded-xl ps-8 pe-3 py-2 text-xs font-medium placeholder:text-zinc-400"
-                />
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-1 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-[#09090B] p-1">
+                  {(
+                    [
+                      { id: "all", ar: "الكل", en: "All" },
+                      { id: "opened", ar: "فُتِحت", en: "Opened" },
+                      { id: "sent", ar: "مُودعة", en: "Delivered" },
+                      { id: "queued", ar: "مجدولة", en: "Queued" },
+                    ] as const
+                  ).map((st) => (
+                    <button
+                      key={st.id}
+                      type="button"
+                      onClick={() => {
+                        setStatusFilter(st.id);
+                        setLogPage(1);
+                      }}
+                      className={`rounded-lg px-2.5 py-1 text-[11px] font-bold transition-colors cursor-pointer ${
+                        statusFilter === st.id
+                          ? "bg-[#09090B] text-[#D4AF37] dark:bg-[#D4AF37] dark:text-[#09090B]"
+                          : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100"
+                      }`}
+                    >
+                      {lang === "ar" ? st.ar : st.en}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="relative">
+                  <Search className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
+                  <input
+                    type="text"
+                    value={logSearch}
+                    onChange={(e) => {
+                      setLogSearch(e.target.value);
+                      setLogPage(1);
+                    }}
+                    placeholder={
+                      lang === "ar"
+                        ? "ابحث باسم الشركة أو المدينة..."
+                        : "Filter company or city..."
+                    }
+                    className="exec-input rounded-xl ps-8 pe-3 py-2 text-xs font-medium placeholder:text-zinc-400"
+                  />
+                </div>
               </div>
             </div>
 
             <div className="p-6 flex-1">
-              <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
+              <div
+                key={`${statusFilter}-${safeLogPage}-${logSearch}`}
+                className="animate-panel-enter overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800"
+              >
                 <table className="w-full text-start text-sm">
                   <thead className="exec-table-head text-[11px] font-bold tracking-wider uppercase">
                     <tr>
@@ -877,7 +1055,7 @@ export default function CampaignTrackingDashboard() {
             </div>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

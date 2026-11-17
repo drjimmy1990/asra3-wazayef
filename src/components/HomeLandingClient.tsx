@@ -9,6 +9,13 @@ import { useApp } from "@/context/AppContext";
 import { getTranslation } from "@/lib/i18n";
 import { CountryCode, Language, PackageId } from "@/lib/types";
 import {
+  AnimatedCounter,
+  EnterpriseTickerStrip,
+  LiveSignalEqualizer,
+  RevealOnScroll,
+  ScrollProgressRail,
+} from "@/components/MotionPrimitives";
+import {
   ArrowLeft,
   ArrowRight,
   ArrowUpRight,
@@ -27,6 +34,37 @@ import {
   Star,
 } from "lucide-react";
 
+const HERO_ROLE_SPOTLIGHTS = [
+  {
+    code: "AE",
+    roleAr: "مهندس مشاريع أول · دبي (DIFC)",
+    roleEn: "Senior Project Manager · Dubai DIFC",
+    before: 62,
+    after: 95,
+  },
+  {
+    code: "SA",
+    roleAr: "معماري أمن سحابي · الرياض (KAFD)",
+    roleEn: "Principal Cloud & Security Architect · Riyadh KAFD",
+    before: 58,
+    after: 96,
+  },
+  {
+    code: "QA",
+    roleAr: "مراقب مالي أول (IFRS) · الدوحة",
+    roleEn: "Senior Financial Controller (IFRS) · Doha West Bay",
+    before: 64,
+    after: 94,
+  },
+  {
+    code: "KW",
+    roleAr: "مدير عمليات وتجزئة إقليمي · الكويت",
+    roleEn: "Regional Retail & Ops Lead · Kuwait City",
+    before: 61,
+    after: 95,
+  },
+];
+
 const LIVE_DISPATCH_FEED = [
   {
     idx: "01",
@@ -38,6 +76,8 @@ const LIVE_DISPATCH_FEED = [
     cityEn: "Dubai • UAE",
     statusAr: "فُتِح من مدير التوظيف",
     statusEn: "Opened by HR Director",
+    timeAr: "الآن",
+    timeEn: "Just now",
     highlight: true,
   },
   {
@@ -50,6 +90,8 @@ const LIVE_DISPATCH_FEED = [
     cityEn: "Riyadh • KSA",
     statusAr: "تم الإيداع + خطاب تنفيذي",
     statusEn: "Placed + Executive Letter",
+    timeAr: "قبل 18 ث",
+    timeEn: "18s ago",
     highlight: false,
   },
   {
@@ -62,6 +104,8 @@ const LIVE_DISPATCH_FEED = [
     cityEn: "Doha • Qatar",
     statusAr: "وصل لصندوق استقطاب الكفاءات",
     statusEn: "Delivered to Talent Desk",
+    timeAr: "قبل 42 ث",
+    timeEn: "42s ago",
     highlight: false,
   },
   {
@@ -74,7 +118,65 @@ const LIVE_DISPATCH_FEED = [
     cityEn: "Kuwait City • KW",
     statusAr: "قيد المراجعة لدى الـ HR",
     statusEn: "Reviewed by Talent Lead",
+    timeAr: "قبل دقيقة",
+    timeEn: "1m ago",
     highlight: true,
+  },
+  {
+    idx: "05",
+    code: "AE",
+    roleAr: "مدير سلسلة الإمداد والموانئ",
+    roleEn: "Supply Chain & Logistics Lead",
+    company: "DP World & Jebel Ali Free Zone",
+    cityAr: "دبي • الإمارات",
+    cityEn: "Jebel Ali • UAE",
+    statusAr: "فُتِح من مدير الموارد البشرية",
+    statusEn: "Opened by HR Lead",
+    timeAr: "قبل 2 د",
+    timeEn: "2m ago",
+    highlight: true,
+  },
+  {
+    idx: "06",
+    code: "SA",
+    roleAr: "استشاري تحول رقمي وأمن سيبراني",
+    roleEn: "Cybersecurity & GovTech Lead",
+    company: "stc Group & Aramco Digital",
+    cityAr: "الرياض والظهران • السعودية",
+    cityEn: "Riyadh & Dhahran • KSA",
+    statusAr: "تم تسليم الملف + Reply-To مباشر",
+    statusEn: "Dossier Delivered + Direct Reply-To",
+    timeAr: "قبل 3 د",
+    timeEn: "3m ago",
+    highlight: false,
+  },
+  {
+    idx: "07",
+    code: "QA",
+    roleAr: "مهندس ميكانيكا أول (LNG / MEP)",
+    roleEn: "Lead Mechanical & LNG Engineer",
+    company: "QatarEnergy Industrial Hub",
+    cityAr: "لوسيل وراس لفان • قطر",
+    cityEn: "Lusail & Ras Laffan • QA",
+    statusAr: "قيد المراجعة الفنية للـ HR",
+    statusEn: "Reviewed by Talent Screening",
+    timeAr: "قبل 4 د",
+    timeEn: "4m ago",
+    highlight: true,
+  },
+  {
+    idx: "08",
+    code: "KW",
+    roleAr: "مدير تدقيق ومخاطر مصرفية",
+    roleEn: "Senior Banking Risk & Audit Lead",
+    company: "National Bank of Kuwait (NBK)",
+    cityAr: "شرق • مدينة الكويت",
+    cityEn: "Sharq • Kuwait City",
+    statusAr: "تم الإيداع المباشر بالـ HR",
+    statusEn: "Placed Direct in HR Inbox",
+    timeAr: "قبل 5 د",
+    timeEn: "5m ago",
+    highlight: false,
   },
 ];
 
@@ -197,6 +299,10 @@ export function HomeLandingClient({
     useState<PackageId | null>(null);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
   const [lastToken, setLastToken] = useState<string | null>(null);
+  const [roleSpotlightIdx, setRoleSpotlightIdx] = useState(0);
+  const [feedOffset, setFeedOffset] = useState(0);
+  const [liveTodayCount, setLiveTodayCount] = useState(1284);
+  const [feedPaused, setFeedPaused] = useState(false);
 
   useEffect(() => {
     setHasMounted(true);
@@ -225,6 +331,44 @@ export function HomeLandingClient({
       }
     }
   }, []);
+
+  useEffect(() => {
+    if (
+      typeof window === "undefined" ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
+      return;
+    }
+    const spotlightTimer = window.setInterval(() => {
+      setRoleSpotlightIdx((prev) => (prev + 1) % HERO_ROLE_SPOTLIGHTS.length);
+    }, 2800);
+    return () => window.clearInterval(spotlightTimer);
+  }, []);
+
+  useEffect(() => {
+    if (
+      feedPaused ||
+      typeof window === "undefined" ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
+      return;
+    }
+    const feedTimer = window.setInterval(() => {
+      setFeedOffset((prev) => (prev + 1) % LIVE_DISPATCH_FEED.length);
+      setLiveTodayCount((prev) => prev + 1);
+    }, 3200);
+    return () => window.clearInterval(feedTimer);
+  }, [feedPaused]);
+
+  const orderedFeed = [
+    ...LIVE_DISPATCH_FEED.filter((item) => item.code === selectedCountryCode),
+    ...LIVE_DISPATCH_FEED.filter((item) => item.code !== selectedCountryCode),
+  ];
+  const visibleFeed = Array.from(
+    { length: 4 },
+    (_, i) => orderedFeed[(feedOffset + i) % orderedFeed.length]
+  );
+  const activeSpotlight = HERO_ROLE_SPOTLIGHTS[roleSpotlightIdx];
 
   const currency = selectedCountry.currency_code;
   const currencySymbol =
@@ -284,6 +428,7 @@ export function HomeLandingClient({
       dir={lang === "ar" ? "rtl" : "ltr"}
       className="min-h-screen flex flex-col bg-[#FAFAFA] dark:bg-[#09090B] text-zinc-950 dark:text-zinc-50 transition-colors"
     >
+      <ScrollProgressRail />
       <Navbar />
 
       <main id="main-content" className="flex-1 flex flex-col">
@@ -327,14 +472,14 @@ export function HomeLandingClient({
       )}
 
       {/* ================= HERO SECTION (LIGHT & DARK NATIVE, ZERO GRADIENTS) ================= */}
-      <section className="bg-white dark:bg-[#09090B] pt-10 pb-16 sm:pt-16 sm:pb-24 border-b border-zinc-200 dark:border-zinc-800 transition-colors">
+      <section className="bg-arch-grid bg-white dark:bg-[#09090B] pt-10 pb-16 sm:pt-16 sm:pb-24 border-b border-zinc-200 dark:border-zinc-800 transition-colors">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12">
             {/* Primary Editorial Column (7 cols) */}
             <div className="lg:col-span-7 text-center lg:text-start">
               {/* Top Kicker Badge */}
               <div className="inline-flex items-center gap-2.5 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-[#121215] px-3.5 py-1.5 mb-6">
-                <span className="h-2 w-2 rounded-full bg-[#D4AF37]" />
+                <span className="gold-beacon" />
                 <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
                   {lang === "ar"
                     ? selectedCountry.hero_badge_ar
@@ -351,6 +496,30 @@ export function HomeLandingClient({
                     : selectedCountry.name_en}
                 </span>
               </h1>
+
+              {/* Live Executive Role ATS Uplift Spotlight Pill */}
+              <div
+                key={roleSpotlightIdx}
+                className="animate-panel-enter mt-4 inline-flex flex-wrap items-center justify-center lg:justify-start gap-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-[#121215] px-3.5 py-2 text-xs shadow-sm"
+              >
+                <span
+                  dir="ltr"
+                  className="rounded bg-[#09090B] px-1.5 py-0.5 font-mono text-[10px] font-extrabold text-[#D4AF37]"
+                >
+                  {activeSpotlight.code}
+                </span>
+                <span className="font-bold text-zinc-800 dark:text-zinc-200">
+                  {lang === "ar"
+                    ? activeSpotlight.roleAr
+                    : activeSpotlight.roleEn}
+                </span>
+                <span
+                  dir="ltr"
+                  className="font-mono text-[11px] font-extrabold text-[#9A7B1C] dark:text-[#D4AF37]"
+                >
+                  ATS {activeSpotlight.before}% → {activeSpotlight.after}%
+                </span>
+              </div>
 
               <p className="mt-5 max-w-2xl mx-auto lg:mx-0 text-base sm:text-[17px] text-zinc-600 dark:text-zinc-400 leading-[1.75]">
                 {t.heroSubtitle}
@@ -392,13 +561,13 @@ export function HomeLandingClient({
               <div className="mt-8 flex flex-wrap items-center justify-center lg:justify-start gap-3.5">
                 <a
                   href="#wizard-section"
-                  className="inline-flex items-center gap-3 rounded-xl bg-[#09090B] text-white hover:bg-zinc-800 dark:bg-[#D4AF37] dark:text-[#09090B] dark:hover:bg-[#C59F27] px-7 py-4 text-sm sm:text-base font-extrabold transition-colors"
+                  className="btn-gold inline-flex items-center gap-3 rounded-xl px-7 py-4 text-sm sm:text-base font-extrabold"
                 >
                   <span>{t.heroCtaPrimary}</span>
                   {lang === "ar" ? (
-                    <ArrowLeft className="h-5 w-5 text-[#D4AF37] dark:text-[#09090B]" />
+                    <ArrowLeft className="h-5 w-5 text-[#09090B]" />
                   ) : (
-                    <ArrowRight className="h-5 w-5 text-[#D4AF37] dark:text-[#09090B]" />
+                    <ArrowRight className="h-5 w-5 text-[#09090B]" />
                   )}
                 </a>
 
@@ -438,32 +607,58 @@ export function HomeLandingClient({
               </div>
             </div>
 
-            {/* Right Column: Pure Black & Neutral Grey Executive Dispatch Terminal (5 cols) */}
+            {/* Right Column: Kinetic Obsidian Executive Dispatch Terminal (5 cols) */}
             <div className="lg:col-span-5">
-              <div className="rounded-2xl border border-zinc-800 bg-[#09090B] dark:bg-[#121215] p-6 text-zinc-50 shadow-[0_24px_60px_rgba(9,9,11,0.14)] dark:shadow-none">
-                <div className="flex items-center justify-between border-b border-zinc-800 pb-4 mb-4">
+              <div
+                onMouseEnter={() => setFeedPaused(true)}
+                onMouseLeave={() => setFeedPaused(false)}
+                className="rounded-2xl border border-zinc-800 bg-[#09090B] dark:bg-[#121215] p-6 text-zinc-50 shadow-[0_24px_60px_rgba(9,9,11,0.14)] dark:shadow-none"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 pb-4 mb-4">
                   <div className="flex items-center gap-2.5">
-                    <span className="h-2 w-2 rounded-full bg-[#D4AF37]" />
+                    <span className="gold-beacon" />
+                    <LiveSignalEqualizer />
                     <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-zinc-200">
                       {lang === "ar"
-                        ? "سجل الإيداع المباشر — إدارات التوظيف"
-                        : "LIVE DISPATCH // GCC HR INBOXES"}
+                        ? "سجل الإيداع المباشر"
+                        : "LIVE DISPATCH // HR"}
                     </span>
                   </div>
-                  <span
-                    dir="ltr"
-                    className="rounded border border-zinc-700 bg-zinc-900 px-2 py-0.5 font-mono text-[10px] font-bold tracking-wider text-[#D4AF37]"
-                  >
-                    MX VERIFIED
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      dir="ltr"
+                      className="rounded border border-zinc-800 bg-zinc-900 px-2 py-0.5 font-mono text-[10px] font-bold text-zinc-300"
+                    >
+                      <AnimatedCounter
+                        value={liveTodayCount}
+                        suffix={lang === "ar" ? " اليوم" : " TODAY"}
+                      />
+                    </span>
+                    <span
+                      dir="ltr"
+                      className="rounded border border-zinc-700 bg-zinc-900 px-2 py-0.5 font-mono text-[10px] font-bold tracking-wider text-[#D4AF37]"
+                    >
+                      MX VERIFIED
+                    </span>
+                  </div>
                 </div>
 
                 <div className="space-y-2.5">
-                  {LIVE_DISPATCH_FEED.map((item) => (
+                  {visibleFeed.map((item, idx) => (
                     <div
-                      key={item.idx}
-                      className="rounded-xl border border-zinc-800/90 bg-[#121215] dark:bg-[#09090B] px-3.5 py-3"
+                      key={`${item.idx}-${feedOffset}`}
+                      className={`relative overflow-hidden rounded-xl border px-3.5 py-3 transition-colors ${
+                        idx === 0
+                          ? "animate-panel-enter border-[#D4AF37]/60 bg-[#141418] dark:bg-[#0D0D10]"
+                          : "border-zinc-800/90 bg-[#121215] dark:bg-[#09090B]"
+                      }`}
                     >
+                      {idx === 0 && !feedPaused && (
+                        <span
+                          aria-hidden="true"
+                          className="absolute top-0 inset-x-0 h-[2px] bg-[#D4AF37] animate-sweep-bar"
+                        />
+                      )}
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0">
                           <span
@@ -487,11 +682,22 @@ export function HomeLandingClient({
                         </span>
                       </div>
                       <div className="mt-1.5 flex items-center justify-between text-[11px] text-zinc-400">
-                        <span className="font-medium text-zinc-300">
+                        <span className="font-medium text-zinc-300 truncate">
                           {item.company}
                         </span>
-                        <span>
-                          {lang === "ar" ? item.cityAr : item.cityEn}
+                        <span className="shrink-0 flex items-center gap-2">
+                          <span>
+                            {lang === "ar" ? item.cityAr : item.cityEn}
+                          </span>
+                          <span className="font-mono text-[10px] text-[#D4AF37]">
+                            {idx === 0
+                              ? lang === "ar"
+                                ? "الآن"
+                                : "Now"
+                              : lang === "ar"
+                              ? item.timeAr
+                              : item.timeEn}
+                          </span>
                         </span>
                       </div>
                     </div>
@@ -517,8 +723,10 @@ export function HomeLandingClient({
                   </div>
                   <div className="rounded-lg bg-zinc-900 border border-zinc-800 px-3.5 py-2.5 text-center text-xs text-zinc-200 font-semibold">
                     <span className="text-[#D4AF37] font-bold">
-                      {selectedCountry.display_companies_count.toLocaleString()}
-                      +
+                      <AnimatedCounter
+                        value={selectedCountry.display_companies_count}
+                        suffix="+"
+                      />
                     </span>{" "}
                     {lang === "ar"
                       ? `شركة مفحوصة ونشطة حالياً في ${selectedCountry.name_ar}`
@@ -535,26 +743,41 @@ export function HomeLandingClient({
               {[
                 {
                   idx: "01",
-                  value: `${selectedCountry.display_companies_count.toLocaleString()}+`,
+                  numValue: selectedCountry.display_companies_count,
+                  decimals: 0,
+                  prefix: "",
+                  suffix: "+",
                   label: t.statVerifiedCompanies,
                 },
                 {
                   idx: "02",
-                  value: "18,400+",
+                  numValue: 18400,
+                  decimals: 0,
+                  prefix: "",
+                  suffix: "+",
                   label: t.statCvsDistributed,
                 },
                 {
                   idx: "03",
-                  value: "04 GCC",
+                  numValue: 4,
+                  decimals: 0,
+                  prefix: "0",
+                  suffix: " GCC",
                   label: t.statGCCCountries,
                 },
                 {
                   idx: "04",
-                  value: "3.4×",
+                  numValue: 3.4,
+                  decimals: 1,
+                  prefix: "",
+                  suffix: "×",
                   label: t.statAvgInterviewRate,
                 },
               ].map((stat) => (
-                <div key={stat.idx} className="p-6 text-center sm:text-start">
+                <div
+                  key={stat.idx}
+                  className="exec-card-interactive p-6 text-center sm:text-start"
+                >
                   <div className="flex items-center justify-center sm:justify-between mb-2">
                     <span
                       dir="ltr"
@@ -567,7 +790,12 @@ export function HomeLandingClient({
                     dir="ltr"
                     className="text-2xl sm:text-3xl font-extrabold tracking-tight text-zinc-950 dark:text-zinc-50 tabular-nums"
                   >
-                    {stat.value}
+                    <AnimatedCounter
+                      value={stat.numValue}
+                      decimals={stat.decimals}
+                      prefix={stat.prefix}
+                      suffix={stat.suffix}
+                    />
                   </div>
                   <div className="mt-1 text-xs font-medium text-zinc-500 dark:text-zinc-400">
                     {stat.label}
@@ -578,6 +806,8 @@ export function HomeLandingClient({
           </div>
         </div>
       </section>
+
+      <EnterpriseTickerStrip lang={lang} />
 
       {/* ================= 4-STEP CAMPAIGN WIZARD SECTION ================= */}
       <section
@@ -626,22 +856,26 @@ export function HomeLandingClient({
           </div>
 
           <div className="mt-14 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-            {countries.map((c) => {
+            {countries.map((c, countryIdx) => {
               const info = COUNTRY_HIGHLIGHTS[c.code] || COUNTRY_HIGHLIGHTS.AE;
               const isSelected = c.code === selectedCountryCode;
               const sectors = lang === "ar" ? info.sectorsAr : info.sectorsEn;
               const countryPath = `/${c.code.toLowerCase()}`;
 
               return (
-                <div
+                <RevealOnScroll
                   key={c.code}
-                  onClick={() => setSelectedCountryCode(c.code)}
-                  className={`flex flex-col justify-between rounded-2xl border p-6 transition-colors cursor-pointer ${
-                    isSelected
-                      ? "border-2 border-[#09090B] dark:border-[#D4AF37] bg-zinc-50 dark:bg-[#141418]"
-                      : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#121215] hover:border-zinc-400 dark:hover:border-zinc-600"
-                  }`}
+                  delayMs={countryIdx * 70}
+                  className="flex"
                 >
+                  <div
+                    onClick={() => setSelectedCountryCode(c.code)}
+                    className={`exec-card-interactive w-full flex flex-col justify-between rounded-2xl border p-6 cursor-pointer ${
+                      isSelected
+                        ? "border-2 border-[#09090B] dark:border-[#D4AF37] bg-zinc-50 dark:bg-[#141418]"
+                        : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#121215] hover:border-zinc-400 dark:hover:border-zinc-600"
+                    }`}
+                  >
                   <div>
                     <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-4">
                       <span
@@ -705,7 +939,8 @@ export function HomeLandingClient({
                       <ArrowUpRight className="h-3.5 w-3.5" />
                     </Link>
                   </div>
-                </div>
+                  </div>
+                </RevealOnScroll>
               );
             })}
           </div>
@@ -750,119 +985,126 @@ export function HomeLandingClient({
                 desc: t.howItWorksStep3Desc,
                 badge: "ASR- Live Ledger",
               },
-            ].map((item) => {
+            ].map((item, stepIdx) => {
               const Icon = item.icon;
               return (
-                <div
+                <RevealOnScroll
                   key={item.num}
-                  className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#121215] p-7 transition-colors hover:border-zinc-400 dark:hover:border-zinc-600"
+                  delayMs={stepIdx * 80}
+                  className="flex"
                 >
-                  <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-5">
-                    <span
-                      dir="ltr"
-                      className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-[#09090B] font-mono text-sm font-extrabold text-[#D4AF37]"
-                    >
-                      {item.num}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <span className="rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 px-2.5 py-1 text-[11px] font-bold text-zinc-600 dark:text-zinc-300">
-                        {item.badge}
+                  <div className="exec-card-interactive w-full rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#121215] p-7">
+                    <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-5">
+                      <span
+                        dir="ltr"
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-[#09090B] font-mono text-sm font-extrabold text-[#D4AF37]"
+                      >
+                        {item.num}
                       </span>
-                      <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-[#D4AF37]">
-                        <Icon className="h-4 w-4" />
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 px-2.5 py-1 text-[11px] font-bold text-zinc-600 dark:text-zinc-300">
+                          {item.badge}
+                        </span>
+                        <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-[#D4AF37]">
+                          <Icon className="h-4 w-4" />
+                        </div>
                       </div>
                     </div>
+                    <h3 className="mt-5 text-lg font-bold text-zinc-950 dark:text-zinc-50">
+                      {item.title}
+                    </h3>
+                    <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                      {item.desc}
+                    </p>
                   </div>
-                  <h3 className="mt-5 text-lg font-bold text-zinc-950 dark:text-zinc-50">
-                    {item.title}
-                  </h3>
-                  <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                    {item.desc}
-                  </p>
-                </div>
+                </RevealOnScroll>
               );
             })}
           </div>
 
           {/* Contrast Comparison: Crowded Portals vs. Asra3 Direct HR Placement */}
           <div className="mt-14 grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#121215] p-8">
-              <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-4">
-                <span className="font-bold text-lg text-zinc-900 dark:text-zinc-100">
-                  {lang === "ar"
-                    ? "التقديم التقليدي عبر منصات التوظيف المزدحمة"
-                    : "Conventional Public Job Boards"}
-                </span>
-                <span className="rounded-md bg-zinc-100 dark:bg-zinc-900 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                  {lang === "ar" ? "تكدس مرتفع" : "Low Visibility"}
-                </span>
+            <RevealOnScroll delayMs={0} className="flex">
+              <div className="exec-card-interactive w-full rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#121215] p-8">
+                <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-4">
+                  <span className="font-bold text-lg text-zinc-900 dark:text-zinc-100">
+                    {lang === "ar"
+                      ? "التقديم التقليدي عبر منصات التوظيف المزدحمة"
+                      : "Conventional Public Job Boards"}
+                  </span>
+                  <span className="rounded-md bg-zinc-100 dark:bg-zinc-900 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                    {lang === "ar" ? "تكدس مرتفع" : "Low Visibility"}
+                  </span>
+                </div>
+                <ul className="mt-6 space-y-4 text-sm text-zinc-600 dark:text-zinc-400">
+                  <li className="flex items-start gap-3">
+                    <Minus className="h-4 w-4 text-zinc-400 shrink-0 mt-1" />
+                    <span>
+                      {lang === "ar"
+                        ? "أكثر من 2,500 متقدم يتنافسون على نفس الإعلان الوظيفي العام."
+                        : "Over 2,500+ applicants queued behind a single public vacancy listing."}
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <Minus className="h-4 w-4 text-zinc-400 shrink-0 mt-1" />
+                    <span>
+                      {lang === "ar"
+                        ? "فلاتر آلية تستبعد أغلب السير الذاتية قبل وصولها لصانع القرار."
+                        : "Rigid keyword filters discard 85% of resumes prior to human review."}
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <Minus className="h-4 w-4 text-zinc-400 shrink-0 mt-1" />
+                    <span>
+                      {lang === "ar"
+                        ? "أسابيع من الانتظار وتعبئة النماذج المتكررة دون أي إشعار بالوصول."
+                        : "Weeks lost repeating forms with zero delivery transparency."}
+                    </span>
+                  </li>
+                </ul>
               </div>
-              <ul className="mt-6 space-y-4 text-sm text-zinc-600 dark:text-zinc-400">
-                <li className="flex items-start gap-3">
-                  <Minus className="h-4 w-4 text-zinc-400 shrink-0 mt-1" />
-                  <span>
-                    {lang === "ar"
-                      ? "أكثر من 2,500 متقدم يتنافسون على نفس الإعلان الوظيفي العام."
-                      : "Over 2,500+ applicants queued behind a single public vacancy listing."}
-                  </span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Minus className="h-4 w-4 text-zinc-400 shrink-0 mt-1" />
-                  <span>
-                    {lang === "ar"
-                      ? "فلاتر آلية تستبعد أغلب السير الذاتية قبل وصولها لصانع القرار."
-                      : "Rigid keyword filters discard 85% of resumes prior to human review."}
-                  </span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Minus className="h-4 w-4 text-zinc-400 shrink-0 mt-1" />
-                  <span>
-                    {lang === "ar"
-                      ? "أسابيع من الانتظار وتعبئة النماذج المتكررة دون أي إشعار بالوصول."
-                      : "Weeks lost repeating forms with zero delivery transparency."}
-                  </span>
-                </li>
-              </ul>
-            </div>
+            </RevealOnScroll>
 
-            <div className="rounded-2xl border border-zinc-800 dark:border-[#D4AF37]/50 bg-[#09090B] dark:bg-[#141418] p-8 text-zinc-50">
-              <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
-                <span className="font-bold text-lg text-white">
-                  {lang === "ar"
-                    ? "التوزيع المباشر عبر أسرع (Asra3.com)"
-                    : "Asra3.com Direct HR Inbox Placement"}
-                </span>
-                <span className="rounded-md bg-[#D4AF37] px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wider text-[#09090B]">
-                  3.4× Faster
-                </span>
+            <RevealOnScroll delayMs={90} className="flex">
+              <div className="exec-card-interactive w-full rounded-2xl border border-zinc-800 dark:border-[#D4AF37]/50 bg-[#09090B] dark:bg-[#141418] p-8 text-zinc-50">
+                <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
+                  <span className="font-bold text-lg text-white">
+                    {lang === "ar"
+                      ? "التوزيع المباشر عبر أسرع (Asra3.com)"
+                      : "Asra3.com Direct HR Inbox Placement"}
+                  </span>
+                  <span className="rounded-md bg-[#D4AF37] px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wider text-[#09090B]">
+                    3.4× Faster
+                  </span>
+                </div>
+                <ul className="mt-6 space-y-4 text-sm text-zinc-300">
+                  <li className="flex items-start gap-3">
+                    <Check className="h-4 w-4 text-[#D4AF37] shrink-0 mt-1" />
+                    <span>
+                      {lang === "ar"
+                        ? "إيداع مباشر في صناديق بريد مسؤولي التوظيف (HR) للوصول إلى سوق الوظائف غير المعلنة."
+                        : "Direct placement inside verified HR inboxes—unlocking the unadvertised Gulf job market."}
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <Check className="h-4 w-4 text-[#D4AF37] shrink-0 mt-1" />
+                    <span>
+                      {lang === "ar"
+                        ? "قراءة نصية حقيقية لملف الـ CV مع صياغة خطاب تقديم تنفيذي يضاعف معدل الاستجابة."
+                        : "Real PDF/DOCX ATS parsing paired with a bespoke executive cover letter."}
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <Check className="h-4 w-4 text-[#D4AF37] shrink-0 mt-1" />
+                    <span>
+                      {lang === "ar"
+                        ? "سجل تتبع خاص برمز (ASR-) يوثق كل شركة مستلمة لحظة بلحظة."
+                        : "Private ASR- tracking ledger documenting every verified employer contacted."}
+                    </span>
+                  </li>
+                </ul>
               </div>
-              <ul className="mt-6 space-y-4 text-sm text-zinc-300">
-                <li className="flex items-start gap-3">
-                  <Check className="h-4 w-4 text-[#D4AF37] shrink-0 mt-1" />
-                  <span>
-                    {lang === "ar"
-                      ? "إيداع مباشر في صناديق بريد مسؤولي التوظيف (HR) للوصول إلى سوق الوظائف غير المعلنة."
-                      : "Direct placement inside verified HR inboxes—unlocking the unadvertised Gulf job market."}
-                  </span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Check className="h-4 w-4 text-[#D4AF37] shrink-0 mt-1" />
-                  <span>
-                    {lang === "ar"
-                      ? "قراءة نصية حقيقية لملف الـ CV مع صياغة خطاب تقديم تنفيذي يضاعف معدل الاستجابة."
-                      : "Real PDF/DOCX ATS parsing paired with a bespoke executive cover letter."}
-                  </span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Check className="h-4 w-4 text-[#D4AF37] shrink-0 mt-1" />
-                  <span>
-                    {lang === "ar"
-                      ? "سجل تتبع خاص برمز (ASR-) يوثق كل شركة مستلمة لحظة بلحظة."
-                      : "Private ASR- tracking ledger documenting every verified employer contacted."}
-                  </span>
-                </li>
-              </ul>
-            </div>
+            </RevealOnScroll>
           </div>
         </div>
       </section>
@@ -890,7 +1132,7 @@ export function HomeLandingClient({
           </div>
 
           <div className="mt-14 grid grid-cols-1 gap-7 lg:grid-cols-3 items-stretch">
-            {packages.map((pkg) => {
+            {packages.map((pkg, pkgIdx) => {
               const price =
                 pkg.prices_by_currency[currency] ?? pkg.prices_by_currency.AED;
               const features =
@@ -898,14 +1140,18 @@ export function HomeLandingClient({
               const isFeatured = Boolean(pkg.is_featured);
 
               return (
-                <div
+                <RevealOnScroll
                   key={pkg.id}
-                  className={`relative flex flex-col justify-between rounded-2xl p-8 transition-colors ${
-                    isFeatured
-                      ? "bg-[#09090B] dark:bg-[#141418] text-zinc-50 border-2 border-[#D4AF37] lg:-translate-y-2"
-                      : "bg-zinc-50 dark:bg-[#121215] text-zinc-950 dark:text-zinc-50 border border-zinc-200 dark:border-zinc-800"
-                  }`}
+                  delayMs={pkgIdx * 80}
+                  className="flex"
                 >
+                  <div
+                    className={`exec-card-interactive relative w-full flex flex-col justify-between rounded-2xl p-8 ${
+                      isFeatured
+                        ? "bg-[#09090B] dark:bg-[#141418] text-zinc-50 border-2 border-[#D4AF37] lg:-translate-y-2"
+                        : "bg-zinc-50 dark:bg-[#121215] text-zinc-950 dark:text-zinc-50 border border-zinc-200 dark:border-zinc-800"
+                    }`}
+                  >
                   {isFeatured && (
                     <span className="btn-gold absolute -top-3.5 end-6 rounded-md px-3.5 py-1 text-[11px] font-extrabold uppercase tracking-wider">
                       {lang === "ar"
@@ -1008,7 +1254,8 @@ export function HomeLandingClient({
                       ? `اختر ${pkg.name_ar.split("(")[0]} وابدأ`
                       : `Select ${pkg.name_en} →`}
                   </a>
-                </div>
+                  </div>
+                </RevealOnScroll>
               );
             })}
           </div>
@@ -1065,29 +1312,32 @@ export function HomeLandingClient({
                   "I combined Asra3 Turbo in Qatar with the Kuwait market add-on. The bespoke executive cover letter was impeccable and saved weeks of manual outreach.",
               },
             ].map((item, idx) => (
-              <div
+              <RevealOnScroll
                 key={idx}
-                className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#121215] p-7 flex flex-col justify-between"
+                delayMs={idx * 80}
+                className="flex"
               >
-                <div>
-                  <div className="flex items-center gap-1 text-[#D4AF37] mb-4">
-                    {[...Array(5)].map((_, s) => (
-                      <Star key={s} className="h-3.5 w-3.5 fill-[#D4AF37]" />
-                    ))}
+                <div className="exec-card-interactive w-full rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#121215] p-7 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center gap-1 text-[#D4AF37] mb-4">
+                      {[...Array(5)].map((_, s) => (
+                        <Star key={s} className="h-3.5 w-3.5 fill-[#D4AF37]" />
+                      ))}
+                    </div>
+                    <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
+                      {lang === "ar" ? item.quoteAr : item.quoteEn}
+                    </p>
                   </div>
-                  <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
-                    {lang === "ar" ? item.quoteAr : item.quoteEn}
-                  </p>
+                  <div className="mt-6 border-t border-zinc-100 dark:border-zinc-800 pt-4">
+                    <p className="font-bold text-zinc-950 dark:text-zinc-50 text-sm">
+                      {lang === "ar" ? item.nameAr : item.nameEn}
+                    </p>
+                    <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mt-0.5">
+                      {lang === "ar" ? item.roleAr : item.roleEn}
+                    </p>
+                  </div>
                 </div>
-                <div className="mt-6 border-t border-zinc-100 dark:border-zinc-800 pt-4">
-                  <p className="font-bold text-zinc-950 dark:text-zinc-50 text-sm">
-                    {lang === "ar" ? item.nameAr : item.nameEn}
-                  </p>
-                  <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mt-0.5">
-                    {lang === "ar" ? item.roleAr : item.roleEn}
-                  </p>
-                </div>
-              </div>
+              </RevealOnScroll>
             ))}
           </div>
         </div>

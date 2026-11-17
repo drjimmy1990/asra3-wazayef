@@ -3,6 +3,11 @@
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
+import {
+  AnimatedCounter,
+  LiveSignalEqualizer,
+  ScrollProgressRail,
+} from "@/components/MotionPrimitives";
 import { useApp } from "@/context/AppContext";
 import {
   CampaignRecord,
@@ -31,6 +36,7 @@ import {
   Pencil,
   PlusCircle,
   Power,
+  RefreshCw,
   Save,
   Send,
   Server,
@@ -54,6 +60,9 @@ export default function AdminDashboardPage() {
   const [activeTab, setActiveTab] = useState<
     "companies" | "campaigns" | "smtp" | "settings"
   >("companies");
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [lastSyncedAt, setLastSyncedAt] = useState<string>("");
+  const [syncingNow, setSyncingNow] = useState(false);
 
   // Multi-SMTP Pool & Test Dispatch state
   const [smtpAccounts, setSmtpAccounts] = useState<SmtpAccountConfig[]>([]);
@@ -249,6 +258,9 @@ export default function AdminDashboardPage() {
       if (data.systemHealth) {
         setSystemHealth((prev) => ({ ...prev, ...data.systemHealth }));
       }
+      setLastSyncedAt(
+        new Date().toLocaleTimeString("en-GB", { hour12: false })
+      );
     }
   }, [isUnlocked]);
 
@@ -270,6 +282,16 @@ export default function AdminDashboardPage() {
     }
   }, [isUnlocked]);
 
+  const handleManualSync = useCallback(async () => {
+    if (!isUnlocked) return;
+    setSyncingNow(true);
+    try {
+      await Promise.all([loadAdminOverview(), loadSmtpAccounts()]);
+    } finally {
+      setSyncingNow(false);
+    }
+  }, [isUnlocked, loadAdminOverview, loadSmtpAccounts]);
+
   useEffect(() => {
     if (isUnlocked) {
       loadCompanies();
@@ -282,6 +304,15 @@ export default function AdminDashboardPage() {
       loadSmtpAccounts();
     }
   }, [isUnlocked, loadAdminOverview, loadSmtpAccounts]);
+
+  useEffect(() => {
+    if (!isUnlocked || !autoRefresh) return;
+    const poll = window.setInterval(() => {
+      void loadAdminOverview();
+      void loadSmtpAccounts();
+    }, 15000);
+    return () => window.clearInterval(poll);
+  }, [isUnlocked, autoRefresh, loadAdminOverview, loadSmtpAccounts]);
 
   const applySmtpPreset = (preset: {
     label: string;
@@ -851,11 +882,29 @@ export default function AdminDashboardPage() {
     .map(([curr, val]) => `${val.toLocaleString()} ${curr}`)
     .join(" • ");
 
+  const countrySegmentClasses = [
+    "bg-[#D4AF37]",
+    "bg-[#09090B] dark:bg-zinc-100",
+    "bg-zinc-500",
+    "bg-zinc-300 dark:bg-zinc-700",
+  ];
+  const totalCountryInventory = Math.max(
+    1,
+    countries.reduce(
+      (sum, c) => sum + (stats.inventoryByCountry?.[c.code] || 0),
+      0
+    )
+  );
+
   return (
-    <div className="min-h-screen flex flex-col bg-[#EEF0F4] dark:bg-[#09090B] text-zinc-950 dark:text-zinc-50 transition-colors">
+    <div className="min-h-screen flex flex-col bg-arch-grid bg-[#EEF0F4] dark:bg-[#09090B] text-zinc-950 dark:text-zinc-50 transition-colors">
+      <ScrollProgressRail />
       <Navbar />
 
-      <div className="mx-auto max-w-7xl w-full px-4 py-8 sm:px-6 lg:px-8 space-y-7">
+      <main
+        id="main-content"
+        className="mx-auto max-w-7xl w-full px-4 py-8 sm:px-6 lg:px-8 space-y-7"
+      >
         {/* Compact Executive Command Bar */}
         <div className="rounded-2xl bg-[#09090B] px-6 py-5 sm:px-8 sm:py-6 text-zinc-50 border border-zinc-800 border-t-[3px] border-t-[#D4AF37] shadow-lg">
           <div className="flex flex-wrap items-center justify-between gap-4">
@@ -873,23 +922,59 @@ export default function AdminDashboardPage() {
                   }`}
                 >
                   <span
-                    className={`h-1.5 w-1.5 rounded-full ${
-                      systemHealth.easykashLive ? "bg-[#09090B]" : "bg-[#D4AF37]"
-                    }`}
+                    className={
+                      systemHealth.easykashLive
+                        ? "h-2 w-2 rounded-full bg-[#09090B]"
+                        : "gold-beacon"
+                    }
                   />
                   {systemHealth.easykashLive
                     ? "EasyKash: LIVE"
                     : "EasyKash: SANDBOX"}
                 </span>
                 <span
-                  className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider ${
+                  className={`inline-flex items-center gap-2 rounded-md border px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider ${
                     systemHealth.smtpActiveCount > 0
                       ? "bg-[#121215] border-[#D4AF37]/60 text-[#D4AF37]"
                       : "bg-[#121215] border-zinc-700 text-zinc-400"
                   }`}
                 >
-                  SMTP: {systemHealth.smtpActiveCount} ACTIVE
+                  {systemHealth.smtpActiveCount > 0 && <LiveSignalEqualizer />}
+                  <span>SMTP: {systemHealth.smtpActiveCount} ACTIVE</span>
                 </span>
+                <button
+                  type="button"
+                  onClick={() => setAutoRefresh((prev) => !prev)}
+                  className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[10px] font-mono font-bold uppercase tracking-wider cursor-pointer transition-colors ${
+                    autoRefresh
+                      ? "bg-[#121215] border-[#D4AF37]/50 text-[#D4AF37]"
+                      : "bg-[#121215] border-zinc-800 text-zinc-400 hover:text-zinc-200"
+                  }`}
+                  title={
+                    lang === "ar"
+                      ? "تبديل التحديث التلقائي كل 15 ثانية"
+                      : "Toggle 15s live auto-sync"
+                  }
+                >
+                  {autoRefresh && <span className="gold-beacon" />}
+                  <span>
+                    {autoRefresh
+                      ? `LIVE 15s${lastSyncedAt ? ` · ${lastSyncedAt}` : ""}`
+                      : `PAUSED${lastSyncedAt ? ` · ${lastSyncedAt}` : ""}`}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleManualSync}
+                  disabled={syncingNow}
+                  aria-label={lang === "ar" ? "تحديث البيانات" : "Refresh data"}
+                  className="inline-flex items-center gap-1 rounded-md border border-zinc-800 bg-[#121215] px-2.5 py-1 text-[10px] font-bold text-zinc-300 hover:border-[#D4AF37] hover:text-[#D4AF37] cursor-pointer transition-colors disabled:opacity-50"
+                >
+                  <RefreshCw
+                    className={`h-3 w-3 ${syncingNow ? "animate-spin" : ""}`}
+                  />
+                  <span>{lang === "ar" ? "تحديث" : "Sync"}</span>
+                </button>
               </div>
               <h1 className="mt-2.5 text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-zinc-50">
                 {lang === "ar"
@@ -974,7 +1059,7 @@ export default function AdminDashboardPage() {
 
         {/* Crisp Light/Dark 4-Column KPI Bento Row (Separated from Dark Nav Bar) */}
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <div className="exec-card exec-card-gold-top rounded-2xl overflow-hidden flex flex-col justify-between">
+          <div className="exec-card exec-card-gold-top exec-card-interactive rounded-2xl overflow-hidden flex flex-col justify-between">
             <div className="p-5">
               <div className="flex items-center justify-between">
                 <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
@@ -987,8 +1072,34 @@ export default function AdminDashboardPage() {
                 </span>
               </div>
               <p className="mt-2 font-editorial text-3xl sm:text-4xl font-bold text-[#9A7B1C] dark:text-[#D4AF37] tabular-nums">
-                {(stats.activeCompanies || stats.totalCompanies).toLocaleString()}
+                <AnimatedCounter
+                  value={stats.activeCompanies || stats.totalCompanies}
+                />
               </p>
+              <div
+                aria-hidden="true"
+                className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800 flex gap-0.5"
+              >
+                {countries.map((c, idx) => {
+                  const pct = Math.max(
+                    4,
+                    Math.round(
+                      ((stats.inventoryByCountry?.[c.code] || 0) /
+                        totalCountryInventory) *
+                        100
+                    )
+                  );
+                  return (
+                    <span
+                      key={c.code}
+                      className={`h-full transition-all duration-500 ${
+                        countrySegmentClasses[idx % countrySegmentClasses.length]
+                      }`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  );
+                })}
+              </div>
             </div>
             <div className="exec-card-header border-t border-zinc-200 dark:border-zinc-800 border-b-0 px-5 py-2 text-[11px] font-mono font-semibold text-zinc-600 dark:text-zinc-400 truncate">
               {countries
@@ -999,7 +1110,7 @@ export default function AdminDashboardPage() {
             </div>
           </div>
 
-          <div className="exec-card exec-card-carbon-top rounded-2xl overflow-hidden flex flex-col justify-between">
+          <div className="exec-card exec-card-carbon-top exec-card-interactive rounded-2xl overflow-hidden flex flex-col justify-between">
             <div className="p-5">
               <div className="flex items-center justify-between">
                 <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
@@ -1010,7 +1121,7 @@ export default function AdminDashboardPage() {
                 </span>
               </div>
               <p className="mt-2 font-editorial text-3xl sm:text-4xl font-bold text-zinc-950 dark:text-zinc-50 tabular-nums">
-                {stats.totalCampaigns}
+                <AnimatedCounter value={stats.totalCampaigns} />
               </p>
             </div>
             <div className="exec-card-header border-t border-zinc-200 dark:border-zinc-800 border-b-0 px-5 py-2 text-[11px] font-semibold text-zinc-600 dark:text-zinc-400">
@@ -1020,7 +1131,7 @@ export default function AdminDashboardPage() {
             </div>
           </div>
 
-          <div className="exec-card exec-card-gold-top rounded-2xl overflow-hidden flex flex-col justify-between">
+          <div className="exec-card exec-card-gold-top exec-card-interactive rounded-2xl overflow-hidden flex flex-col justify-between">
             <div className="p-5">
               <div className="flex items-center justify-between">
                 <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
@@ -1033,7 +1144,7 @@ export default function AdminDashboardPage() {
                 </span>
               </div>
               <p className="mt-2 font-editorial text-3xl sm:text-4xl font-bold text-[#9A7B1C] dark:text-[#D4AF37] tabular-nums">
-                {stats.paidCampaigns}
+                <AnimatedCounter value={stats.paidCampaigns} />
               </p>
             </div>
             <div className="exec-card-header border-t border-zinc-200 dark:border-zinc-800 border-b-0 px-5 py-2 text-[11px] font-mono font-bold text-zinc-800 dark:text-zinc-300 truncate">
@@ -1041,7 +1152,7 @@ export default function AdminDashboardPage() {
             </div>
           </div>
 
-          <div className="exec-card exec-card-carbon-top rounded-2xl overflow-hidden flex flex-col justify-between">
+          <div className="exec-card exec-card-carbon-top exec-card-interactive rounded-2xl overflow-hidden flex flex-col justify-between">
             <div className="p-5">
               <div className="flex items-center justify-between">
                 <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
@@ -1054,7 +1165,7 @@ export default function AdminDashboardPage() {
                 </span>
               </div>
               <p className="mt-2 font-editorial text-3xl sm:text-4xl font-bold text-zinc-950 dark:text-zinc-50 tabular-nums">
-                {stats.totalEmailsSent.toLocaleString()}
+                <AnimatedCounter value={stats.totalEmailsSent} />
               </p>
             </div>
             <div className="exec-card-header border-t border-zinc-200 dark:border-zinc-800 border-b-0 px-5 py-2 text-[11px] font-semibold text-zinc-600 dark:text-zinc-400">
@@ -1067,7 +1178,7 @@ export default function AdminDashboardPage() {
 
         {/* ================= TAB 1: COMPANIES & CSV BULK IMPORTER ================= */}
         {activeTab === "companies" && (
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+          <div className="animate-panel-enter grid grid-cols-1 gap-8 lg:grid-cols-3">
             <div className="exec-card exec-card-carbon-top rounded-2xl overflow-hidden flex flex-col">
               <div className="exec-card-header px-6 py-4 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2.5">
@@ -1481,7 +1592,7 @@ export default function AdminDashboardPage() {
 
         {/* ================= TAB 2: CUSTOMER CAMPAIGNS & ORDERS ================= */}
         {activeTab === "campaigns" && (
-          <div className="exec-card exec-card-gold-top rounded-2xl overflow-hidden">
+          <div className="animate-panel-enter exec-card exec-card-gold-top rounded-2xl overflow-hidden">
             <div className="exec-card-header px-6 py-4 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#09090B] border border-zinc-800 text-[#D4AF37]">
@@ -1640,7 +1751,7 @@ export default function AdminDashboardPage() {
 
         {/* ================= TAB 3: MULTI-SMTP POOL & DIRECT HR DISPATCH ================= */}
         {activeTab === "smtp" && (
-          <div className="space-y-6">
+          <div className="animate-panel-enter space-y-6">
             {/* Top Status & Architecture Strip */}
             <div className="exec-card exec-card-gold-top rounded-2xl p-6">
               <div className="flex flex-wrap items-center justify-between gap-4">
@@ -2255,7 +2366,7 @@ export default function AdminDashboardPage() {
 
         {/* ================= TAB 4: PRICING, GATEWAY & PRODUCTION GO-LIVE ================= */}
         {activeTab === "settings" && (
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+          <div className="animate-panel-enter grid grid-cols-1 gap-8 lg:grid-cols-2">
             <div className="exec-card exec-card-carbon-top rounded-2xl overflow-hidden flex flex-col">
               <div className="exec-card-header px-6 py-4">
                 <h2 className="text-lg font-extrabold text-zinc-950 dark:text-zinc-50">
@@ -2535,7 +2646,7 @@ export default function AdminDashboardPage() {
             </div>
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 }
