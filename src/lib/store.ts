@@ -688,9 +688,9 @@ export async function createCampaignOrder(input: {
     pkg.company_limit + extraCount * Math.round(pkg.company_limit * 0.5);
 
   const trackingToken = crypto.randomBytes(12).toString("hex");
-  const customerReference = `ASR-${Date.now().toString().slice(-6)}-${Math.floor(
-    100 + Math.random() * 900
-  )}`;
+  const customerReference = `${Math.floor(100 + Math.random() * 900)}${Date.now()
+    .toString()
+    .slice(-6)}`;
 
   const coverLetter = pkg.includes_cover_letter
     ? generateAiCoverLetter({

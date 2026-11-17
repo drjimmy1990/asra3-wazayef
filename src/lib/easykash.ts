@@ -9,13 +9,19 @@ import {
   EasyKashDirectPayRequest,
 } from "@/lib/types";
 
-const EASYKASH_API_URL =
-  process.env.EASYKASH_API_URL ||
-  "https://back.easykash.net/api/directpayv1/pay";
+function getEasyKashPayUrl(): string {
+  return (
+    (process.env.EASYKASH_API_URL || "").trim() ||
+    "https://back.easykash.net/api/directpayv1/pay"
+  );
+}
 
-const EASYKASH_INQUIRE_URL =
-  process.env.EASYKASH_INQUIRE_URL ||
-  "https://back.easykash.net/api/cash-api/inquire";
+function getEasyKashInquireUrl(): string {
+  return (
+    (process.env.EASYKASH_INQUIRE_URL || "").trim() ||
+    "https://back.easykash.net/api/cash-api/inquire"
+  );
+}
 
 export interface InitiateEasyKashResult {
   redirectUrl: string;
@@ -88,9 +94,13 @@ export async function initiateEasyKashPayment(params: {
   // Keep redirectUrl free of query params so EasyKash appends ?status=...&customerReference=... cleanly
   const redirectUrl = `${cleanBaseUrl}/track/${params.trackingToken}`;
 
-  // Normalize phone number for EasyKash (expects digits/standard format)
-  const cleanMobile =
-    params.mobile.replace(/[^\d+]/g, "") || "01000000000";
+  // Normalize phone number for EasyKash (expects pure digits)
+  const digitsOnly = params.mobile
+    .trim()
+    .replace(/^\+/, "00")
+    .replace(/\D/g, "")
+    .slice(0, 15);
+  const cleanMobile = digitsOnly.length >= 8 ? digitsOnly : "01000000000";
 
   if (isEasyKashLiveConfigured() && apiKey) {
     // Per EasyKash Hosted Docs: omitting paymentOptions enables ALL payment methods configured on the merchant account (Card, Apple Pay, Wallets, Fawry, Meeza, etc.)
@@ -108,7 +118,7 @@ export async function initiateEasyKashPayment(params: {
       customerReference: params.customerReference,
     };
 
-    const response = await fetch(EASYKASH_API_URL, {
+    const response = await fetch(getEasyKashPayUrl(), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -172,7 +182,7 @@ export async function inquireEasyKashPayment(
   }
 
   try {
-    const response = await fetch(EASYKASH_INQUIRE_URL, {
+    const response = await fetch(getEasyKashInquireUrl(), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -191,11 +201,23 @@ export async function inquireEasyKashPayment(
       };
     }
 
-    const data = (await response.json()) as {
+    const raw = await response.json();
+    const unwrapped = Array.isArray(raw)
+      ? raw[0]
+      : raw &&
+        typeof raw === "object" &&
+        "data" in raw &&
+        raw.data &&
+        typeof raw.data === "object"
+      ? raw.data
+      : raw;
+    const data = (unwrapped || {}) as {
       status?: string;
       Amount?: string | number;
+      amount?: string | number;
       easykashRef?: string | number;
       PaymentMethod?: string;
+      paymentMethod?: string;
       voucher?: string;
     };
 
@@ -205,10 +227,12 @@ export async function inquireEasyKashPayment(
       statusUpper === "SUCCESS" ||
       statusUpper === "DELIVERED";
 
+    const rawAmount = data.Amount ?? data.amount;
     const parsedAmount =
-      data.Amount !== undefined && Number.isFinite(Number(data.Amount))
-        ? Number(data.Amount)
+      rawAmount !== undefined && Number.isFinite(Number(rawAmount))
+        ? Number(rawAmount)
         : undefined;
+    const rawMethod = data.PaymentMethod ?? data.paymentMethod;
 
     return {
       ok: true,
@@ -216,7 +240,7 @@ export async function inquireEasyKashPayment(
       statusUpper,
       paidAmount: parsedAmount,
       easykashRef: data.easykashRef ? String(data.easykashRef) : undefined,
-      paymentMethod: data.PaymentMethod ? String(data.PaymentMethod) : undefined,
+      paymentMethod: rawMethod ? String(rawMethod) : undefined,
       voucher: data.voucher ? String(data.voucher) : undefined,
     };
   } catch (err) {
