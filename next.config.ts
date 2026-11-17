@@ -5,6 +5,9 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["unpdf", "mammoth", "nodemailer"],
   reactStrictMode: true,
   poweredByHeader: false,
+  experimental: {
+    inlineCss: true,
+  },
   async redirects() {
     const rootRedirectPaths = [
       "/docs",
