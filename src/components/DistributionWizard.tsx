@@ -1307,7 +1307,7 @@ export function DistributionWizard({
                     </button>
                   </div>
                   {appliedPromo && (
-                    <p className="text-xs font-bold text-[#9A7B1C] dark:text-[#D4AF37]">
+                    <p className="text-xs font-bold text-zinc-950 dark:text-[#D4AF37]">
                       ✓{" "}
                       {lang === "ar"
                         ? `تم تطبيق كود الخصم (${appliedPromo.code}) بنجاح — خصم ${appliedPromo.percent}%!`

@@ -395,7 +395,7 @@ export function SeoGeoKnowledgeSection({
                     </td>
                     <td className="px-5 py-3.5">{row.hubs}</td>
                     <td className="px-5 py-3.5">{row.sectors}</td>
-                    <td className="px-5 py-3.5 whitespace-nowrap font-semibold text-[#9A7B1C] dark:text-[#D4AF37]">
+                    <td className="px-5 py-3.5 whitespace-nowrap font-semibold text-zinc-900 dark:text-[#D4AF37]">
                       {row.responseWindow}
                     </td>
                     <td className="px-5 py-3.5 whitespace-nowrap font-bold tabular-nums">
@@ -435,34 +435,28 @@ export function SeoGeoKnowledgeSection({
           aria-label={c.isEnglish ? "Asra3 GCC Regional Hubs" : "بوابات أسرع الإقليمية في الخليج"}
           className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#121215] px-5 py-4 text-xs font-bold"
         >
-          <span className="text-zinc-500 dark:text-zinc-400">
+          <span className="text-zinc-600 dark:text-zinc-400">
             {c.isEnglish ? "Explore Regional Hubs & Verification:" : "تصفح بوابات الدول الخليجية والتوثيق:"}
           </span>
-          <div className="flex flex-wrap items-center gap-3 text-zinc-900 dark:text-zinc-100">
-            <Link href="/" className="hover:text-[#9A7B1C] dark:hover:text-[#D4AF37] underline-offset-4 hover:underline">
-              {c.isEnglish ? "العربية (الرئيسية)" : "الرئيسية (الخليج)"}
-            </Link>
-            <Link href="/en" className="hover:text-[#9A7B1C] dark:hover:text-[#D4AF37] underline-offset-4 hover:underline">
-              English Hub
-            </Link>
-            <Link href="/ae" className="hover:text-[#9A7B1C] dark:hover:text-[#D4AF37] underline-offset-4 hover:underline">
-              {c.isEnglish ? "UAE (/ae)" : "الإمارات (/ae)"}
-            </Link>
-            <Link href="/sa" className="hover:text-[#9A7B1C] dark:hover:text-[#D4AF37] underline-offset-4 hover:underline">
-              {c.isEnglish ? "Saudi Arabia (/sa)" : "السعودية (/sa)"}
-            </Link>
-            <Link href="/qa" className="hover:text-[#9A7B1C] dark:hover:text-[#D4AF37] underline-offset-4 hover:underline">
-              {c.isEnglish ? "Qatar (/qa)" : "قطر (/qa)"}
-            </Link>
-            <Link href="/kw" className="hover:text-[#9A7B1C] dark:hover:text-[#D4AF37] underline-offset-4 hover:underline">
-              {c.isEnglish ? "Kuwait (/kw)" : "الكويت (/kw)"}
-            </Link>
-            <Link href="/about" className="hover:text-[#9A7B1C] dark:hover:text-[#D4AF37] underline-offset-4 hover:underline">
-              {c.isEnglish ? "Methodology & About" : "المنهجية والتوثيق (/about)"}
-            </Link>
-            <Link href="/track" className="hover:text-[#9A7B1C] dark:hover:text-[#D4AF37] underline-offset-4 hover:underline">
-              {c.isEnglish ? "Track Order" : "تتبع الحملة (/track)"}
-            </Link>
+          <div className="flex flex-wrap items-center gap-2 text-zinc-900 dark:text-zinc-100">
+            {[
+              { href: "/", label: c.isEnglish ? "العربية (الرئيسية)" : "الرئيسية — الخليج" },
+              { href: "/en", label: "English Hub" },
+              { href: "/ae", label: c.isEnglish ? "UAE" : "الإمارات" },
+              { href: "/sa", label: c.isEnglish ? "Saudi Arabia" : "السعودية" },
+              { href: "/qa", label: c.isEnglish ? "Qatar" : "قطر" },
+              { href: "/kw", label: c.isEnglish ? "Kuwait" : "الكويت" },
+              { href: "/about", label: c.isEnglish ? "Methodology & About" : "المنهجية والتوثيق" },
+              { href: "/track", label: c.isEnglish ? "Track Order" : "تتبع الحملة" },
+            ].map((hub) => (
+              <Link
+                key={hub.href}
+                href={hub.href}
+                className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-[#FAFAFA] dark:bg-[#09090B] px-3 py-1.5 text-zinc-900 dark:text-zinc-100 hover:border-[#D4AF37] transition-colors"
+              >
+                {hub.label}
+              </Link>
+            ))}
           </div>
         </nav>
       </div>

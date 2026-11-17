@@ -813,7 +813,7 @@ export default function AdminDashboardPage() {
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-[#09090B] border border-zinc-800 text-[#D4AF37]">
                 <Lock className="h-5 w-5" />
               </div>
-              <p className="mt-3 text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#9A7B1C] dark:text-[#D4AF37]">
+              <p className="mt-3 text-[10px] font-extrabold uppercase tracking-[0.2em] text-zinc-950 dark:text-[#D4AF37]">
                 ASRA3 EXECUTIVE OPERATIONS
               </p>
               <h1 className="mt-1 text-xl sm:text-2xl font-extrabold text-zinc-950 dark:text-zinc-50 tracking-tight">

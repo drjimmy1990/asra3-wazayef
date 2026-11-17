@@ -82,7 +82,6 @@ After payment, you receive a unique order code and private tracking link in the 
 
 ## 5. Contact Information
 - Official Desk Email: hello@asra3.com
-- WhatsApp / Candidate Desk: +971 50 408 1478
 - Website: [Asra3.com](${SITE_URL}/)
 `;
 

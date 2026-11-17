@@ -115,7 +115,6 @@ const globalJsonLd = {
         {
           "@type": "ContactPoint",
           email: "hello@asra3.com",
-          telephone: "+971-50-408-1478",
           contactType: "customer support",
           availableLanguage: ["Arabic", "English"],
         },

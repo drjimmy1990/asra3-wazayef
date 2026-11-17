@@ -515,7 +515,7 @@ export function HomeLandingClient({
                 </span>
                 <span
                   dir="ltr"
-                  className="font-mono text-[11px] font-extrabold text-[#9A7B1C] dark:text-[#D4AF37]"
+                  className="rounded-md bg-[#09090B] px-2 py-0.5 font-mono text-[11px] font-extrabold text-[#D4AF37] dark:bg-[#18181B] dark:border dark:border-zinc-700"
                 >
                   ATS {activeSpotlight.before}% → {activeSpotlight.after}%
                 </span>
@@ -1496,7 +1496,9 @@ export function HomeLandingClient({
                     href={lang === "ar" ? "/en" : "/"}
                     className="hover:text-white transition-colors"
                   >
-                    {lang === "ar" ? "النسخة الإنجليزية (/en)" : "Arabic Version (/)"}
+                    {lang === "ar"
+                      ? "النسخة الإنجليزية — English"
+                      : "النسخة العربية — Arabic"}
                   </Link>
                 </li>
                 <li>
@@ -1527,18 +1529,21 @@ export function HomeLandingClient({
                   {hasMounted ? (
                     <a
                       href="mailto:hello@asra3.com"
-                      className="text-zinc-200 hover:text-[#D4AF37] transition-colors"
+                      dir="ltr"
+                      className="inline-block font-mono text-zinc-200 hover:text-[#D4AF37] transition-colors"
                     >
                       hello@asra3.com
                     </a>
                   ) : (
-                    <span dir="ltr" className="text-zinc-200">
+                    <span dir="ltr" className="inline-block font-mono text-zinc-200">
                       hello [at] asra3.com
                     </span>
                   )}
                 </li>
-                <li dir="ltr" className="text-zinc-300">
-                  +971 50 408 1478
+                <li className="text-zinc-400">
+                  {lang === "ar"
+                    ? "ردود سريعة عبر البريد الإلكتروني الرسمي"
+                    : "Priority Candidate Support via Email"}
                 </li>
                 <li className="pt-1">
                   <span className="inline-flex items-center gap-1.5 rounded-md border border-zinc-800 bg-[#121215] px-3 py-1 text-[11px] text-zinc-200 font-semibold">

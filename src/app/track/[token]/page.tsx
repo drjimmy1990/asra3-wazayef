@@ -721,7 +721,7 @@ export default function CampaignTrackingDashboard() {
                     ? "يودع خادم «أسرع» سيرتك الذاتية على دفعات متزنة لضمان وصولها لصندوق الوارد الرئيسي..."
                     : "Asra3 servers are placing your dossier in calibrated batches (continues even if you close this tab)..."}
                 </span>
-                <span className="font-bold text-[#9A7B1C] dark:text-[#D4AF37] tabular-nums">
+                <span className="font-bold text-zinc-950 dark:text-[#D4AF37] tabular-nums">
                   {effectiveSentCount} / {campaign.total_target_companies}{" "}
                   {lang === "ar" ? "شركة" : "Companies"} ({progressPercent}%)
                 </span>

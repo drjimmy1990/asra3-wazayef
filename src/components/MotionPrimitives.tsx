@@ -392,7 +392,7 @@ export function EnterpriseTickerStrip({ lang }: { lang: Language }) {
                 <span className="font-mono text-[11px] font-bold tracking-wider text-zinc-200">
                   {item.name}
                 </span>
-                <span className="text-[10px] font-mono text-zinc-500">
+                <span className="text-[10px] font-mono text-zinc-300">
                   MX-VERIFIED
                 </span>
                 <span className="text-[#D4AF37] text-xs font-bold">◆</span>

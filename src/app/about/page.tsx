@@ -153,32 +153,31 @@ export default function AboutMethodologyPage() {
             </h2>
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 text-xs font-bold">
               <Link href="/ae" className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-[#FAFAFA] dark:bg-[#09090B] px-3 py-2.5 text-center hover:border-[#D4AF37] transition-colors">
-                الإمارات (/ae)
+                الإمارات
               </Link>
               <Link href="/sa" className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-[#FAFAFA] dark:bg-[#09090B] px-3 py-2.5 text-center hover:border-[#D4AF37] transition-colors">
-                السعودية (/sa)
+                السعودية
               </Link>
               <Link href="/qa" className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-[#FAFAFA] dark:bg-[#09090B] px-3 py-2.5 text-center hover:border-[#D4AF37] transition-colors">
-                قطر (/qa)
+                قطر
               </Link>
               <Link href="/kw" className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-[#FAFAFA] dark:bg-[#09090B] px-3 py-2.5 text-center hover:border-[#D4AF37] transition-colors">
-                الكويت (/kw)
+                الكويت
               </Link>
               <Link href="/en" className="rounded-lg border border-zinc-800 bg-[#09090B] text-[#D4AF37] px-3 py-2.5 text-center hover:bg-zinc-900 transition-colors">
-                English Hub (/en)
+                English Hub
               </Link>
             </div>
             <div className="pt-3 flex flex-wrap items-center gap-4 text-xs text-zinc-600 dark:text-zinc-400">
               <span className="inline-flex items-center gap-1.5 font-semibold">
                 <Mail className="h-4 w-4 text-[#9A7B1C] dark:text-[#D4AF37]" />
-                hello@asra3.com
+                <span dir="ltr" className="font-mono">hello@asra3.com</span>
               </span>
-              <span dir="ltr" className="font-mono">+971 50 408 1478</span>
               <Link href="/privacy" className="underline hover:text-[#9A7B1C] dark:hover:text-[#D4AF37]">
-                سياسة الخصوصية (/privacy)
+                سياسة الخصوصية
               </Link>
               <Link href="/terms" className="underline hover:text-[#9A7B1C] dark:hover:text-[#D4AF37]">
-                الشروط والأحكام (/terms)
+                الشروط والأحكام
               </Link>
             </div>
           </section>

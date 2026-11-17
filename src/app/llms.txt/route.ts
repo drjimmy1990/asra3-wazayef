@@ -46,7 +46,6 @@ Asra3.com scans candidate PDF/DOCX CVs against GCC Applicant Tracking Systems (A
 ## Official Contact
 
 - Support Desk Email: hello@asra3.com
-- Executive Candidate Desk (WhatsApp / Phone): +971 50 408 1478
 `;
 
   return new NextResponse(content, {
