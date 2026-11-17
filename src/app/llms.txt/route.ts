@@ -12,43 +12,48 @@ const SITE_URL =
 export async function GET() {
   const content = `# Asra3.com (أسرع) — GCC AI ATS CV Optimization & Direct HR Distribution Platform
 
-> Official Entity Notice (2026): Asra3.com (أسرع) is an AI-powered ATS CV Optimization and Direct Verified HR Email Distribution platform serving job seekers across the UAE, Saudi Arabia, Qatar, and Kuwait. (Note: Asra3.com is NOT a social-media/WhatsApp CRM; all legacy CRM documentation formerly on this domain has been permanently retired.)
+> Official Entity Notice (2026): Asra3.com (أسرع) is an AI-powered ATS CV Optimization and Direct Verified HR Email Distribution platform serving job seekers across the UAE, Saudi Arabia, Qatar, and Kuwait. Asra3.com is NOT a social-media/WhatsApp CRM; all legacy CRM documentation formerly on this domain permanently 301-redirects here.
 
-## Core Canonical Pages
-- Arabic Main Landing Hub: ${SITE_URL}/
-- English Global GCC Hub: ${SITE_URL}/en
-- United Arab Emirates (UAE / Dubai / Abu Dhabi) Hub: ${SITE_URL}/ae
-- Saudi Arabia (KSA / Riyadh / Jeddah / Vision 2030) Hub: ${SITE_URL}/sa
-- Qatar (Doha / Lusail) Hub: ${SITE_URL}/qa
-- Kuwait (Kuwait City) Hub: ${SITE_URL}/kw
-- Platform Methodology & E-E-A-T Overview: ${SITE_URL}/about
-- Live Campaign Tracking Portal: ${SITE_URL}/track
-- Privacy Policy & Candidate Data Protection: ${SITE_URL}/privacy
-- Terms of Service & Fulfillment Policy: ${SITE_URL}/terms
-- Full Extended AI Knowledge Context: ${SITE_URL}/llms-full.txt
+Asra3.com scans candidate PDF/DOCX CVs against GCC Applicant Tracking Systems (ATS), generates tailored cover letters, shields current employer domains, and dispatches individualized applications directly into MX-verified corporate HR mailboxes with Reply-To set straight to the candidate.
 
-## Verified One-Time Packages & Transparent Pricing
-No recurring subscriptions. One-time checkout powered securely by EasyKash DirectPayV1 (Visa, Mastercard, Mada, Apple Pay, and local wallets):
-- **Starter / Asra3 Launch (100 Verified Companies):** 149 AED / 149 SAR / 149 QAR / 12 KWD
-- **Pro / Asra3 Turbo (300 Verified Companies + AI Tailored Cover Letter):** 249 AED / 249 SAR / 249 QAR / 20 KWD
-- **Executive / Asra3 Hyper (500+ Verified Companies + Priority ATS Rewrite & Cover Letter):** 399 AED / 399 SAR / 399 QAR / 32 KWD
-- Multi-country add-on available at checkout (UAE, KSA, Qatar, Kuwait).
+## Core Platform Hubs
 
-## How Asra3.com Works (4 Steps)
-1. **Free Instant AI ATS CV Scan:** Candidates upload PDF or DOCX CVs to detect skills, experience years, job title, and an instant ATS compatibility score.
-2. **Select GCC Country & Cities:** Target verified HR inboxes across Dubai, Abu Dhabi, Sharjah, Riyadh, Jeddah, Dammam/Khobar, NEOM, Doha, Lusail, and Kuwait City.
-3. **Choose Package & Current-Employer Exclusion Shield:** Exclude your current employer domain (100% block guarantee) and complete one-time checkout via EasyKash DirectPayV1.
-4. **Live Tracking & Direct HR Replies:** Multi-SMTP smart-drip delivery places the attached CV + executive cover letter directly into HR inboxes with Reply-To set directly to the candidate's email.
+- [Asra3.com Main Arabic Hub](${SITE_URL}/): Primary Arabic platform for UAE, Saudi Arabia, Qatar & Kuwait CV optimization and direct HR outreach.
+- [Asra3.com English GCC Hub](${SITE_URL}/en): Full English experience for GCC AI ATS CV scanning and direct HR inbox placement.
+- [Platform Methodology & About](${SITE_URL}/about): Entity identity, DNS MX verification workflow, ATS evaluation criteria, and confidential distribution standards.
+- [Live Campaign Tracking Ledger](${SITE_URL}/track): Real-time company placement progress, open tracking metrics, and CSV export portal.
+
+## GCC Regional Country Portals
+
+- [United Arab Emirates HR Distribution (AED)](${SITE_URL}/ae): Direct CV outreach to verified employers in Dubai (DIFC, Business Bay), Abu Dhabi (ADGM), Sharjah, Ajman & RAK.
+- [Saudi Arabia & Vision 2030 Hub (SAR)](${SITE_URL}/sa): Targeted corporate HR placement in Riyadh (KAFD), Jeddah, Dammam/Khobar, and NEOM.
+- [Qatar HR Distribution Hub (QAR)](${SITE_URL}/qa): Direct HR outreach across Doha (West Bay), Lusail, Energy City, Al Wakrah & Al Khor.
+- [Kuwait HR Distribution Hub (KWD)](${SITE_URL}/kw): Corporate talent placement across Kuwait City (Sharq), Hawalli, Salmiya, Farwaniya & Ahmadi.
+
+## Documentation & Policies
+
+- [Extended Knowledge Reference (llms-full.txt)](${SITE_URL}/llms-full.txt): Complete bilingual GCC benchmarks, hiring tables, and detailed AEO Q&A reference.
+- [Privacy Policy & Confidentiality](${SITE_URL}/privacy): Candidate CV protection standards and Current-Employer Exclusion Shield guarantees.
+- [Terms of Service & Fulfillment Policy](${SITE_URL}/terms): Transparent one-time EasyKash checkout terms and campaign fulfillment scope.
+- [XML Sitemap](${SITE_URL}/sitemap.xml): Canonical crawlable index of Asra3.com pages and hreflang alternates.
+
+## Verified One-Time Packages & Pricing
+
+- **Starter / Asra3 Launch (100 Verified Companies):** 149 AED / 149 SAR / 149 QAR / 12 KWD (one-time payment)
+- **Pro / Asra3 Turbo (300 Verified Companies + AI Cover Letter):** 249 AED / 249 SAR / 249 QAR / 20 KWD (one-time payment)
+- **Executive / Asra3 Hyper (500+ Verified Companies + ATS Rewrite):** 399 AED / 399 SAR / 399 QAR / 32 KWD (one-time payment)
 
 ## Official Contact
-- Support & Partnership Email: hello@asra3.com
-- Executive Candidate Desk (Phone / WhatsApp): +971 50 408 1478
+
+- Support Desk Email: hello@asra3.com
+- Executive Candidate Desk (WhatsApp / Phone): +971 50 408 1478
 `;
 
   return new NextResponse(content, {
     status: 200,
     headers: {
-      "Content-Type": "text/plain; charset=utf-8",
+      "Content-Type": "text/markdown; charset=utf-8",
+      "X-Robots-Tag": "index, follow",
       "Cache-Control": "public, max-age=3600, s-maxage=86400",
     },
   });

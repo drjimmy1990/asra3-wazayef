@@ -18,21 +18,23 @@ export async function GET() {
 
 ---
 
-## 1. Platform Overview & Core Capabilities
+## 1. Platform Overview & Core Links
+
+- [Arabic Landing Hub](${SITE_URL}/): Primary Arabic portal for Gulf job seekers.
+- [English GCC Hub](${SITE_URL}/en): Dedicated English landing hub for UAE, Saudi Arabia, Qatar & Kuwait candidates.
+- [About & Methodology](${SITE_URL}/about): Full platform methodology, MX-verification workflow & E-E-A-T documentation.
+- [Live Order Tracking Portal](${SITE_URL}/track): Real-time smart-drip campaign ledger and CSV export.
+- [Concise llms.txt Summary](${SITE_URL}/llms.txt): Compact Markdown directory of canonical platform resources.
 
 ### English Summary
-- **Domain:** ${SITE_URL}
-- **Arabic Entry:** ${SITE_URL}/
-- **English Entry:** ${SITE_URL}/en
-- **Methodology & E-E-A-T:** ${SITE_URL}/about
 - **Target Geography:** United Arab Emirates (AE), Kingdom of Saudi Arabia (SA), State of Qatar (QA), State of Kuwait (KW)
 - **What it solves:** Most GCC hiring happens through direct HR email screening before roles reach crowded public job boards. Asra3 scores a candidate's PDF/DOCX CV against GCC ATS standards, generates a customized bilingual/executive cover letter, shields the candidate's current employer domain, and sends individualized applications directly to verified corporate HR mailboxes.
 - **Direct Candidate Ownership:** Every outbound application sets the \`Reply-To\` header directly to the candidate's personal email address so HR interview invitations go straight to the candidate with zero middlemen.
 
 ### الملخص العربي
 - **المنصة:** أسرع (Asra3.com) — منصة التوزيع المباشر للسيرة الذاتية وتحسين التوافق مع أنظمة فرز المرشحين (ATS) في دول الخليج.
-- **الدول المغطاة:** الإمارات العربية المتحدة (/ae)، المملكة العربية السعودية (/sa)، دولة قطر (/qa)، دولة الكويت (/kw).
-- **الهدف:** توصيل السيرة الذاتية الأصلية وخطاب التقديم التنفيذي مباشرة إلى صناديق بريد مديري ومسؤولي الموارد البشرية (HR) في الشركات المعتمدة مع لوحة تتبع لحظية (/track) وضمان حجب جهة العمل الحالية بنسبة 100%.
+- **الدول المغطاة:** [الإمارات العربية المتحدة](${SITE_URL}/ae)، [المملكة العربية السعودية](${SITE_URL}/sa)، [دولة قطر](${SITE_URL}/qa)، [دولة الكويت](${SITE_URL}/kw).
+- **الهدف:** توصيل السيرة الذاتية الأصلية وخطاب التقديم التنفيذي مباشرة إلى صناديق بريد مديري ومسؤولي الموارد البشرية (HR) في الشركات المعتمدة مع [لوحة تتبع لحظية](${SITE_URL}/track) وضمان حجب جهة العمل الحالية بنسبة 100%.
 
 ---
 
@@ -40,10 +42,10 @@ export async function GET() {
 
 | Country | Canonical URL | Key Hiring Hubs | Priority Sectors | Typical HR Reply Window | Packages (One-Time) |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| United Arab Emirates (AE) | ${SITE_URL}/ae | Dubai (DIFC, Business Bay), Abu Dhabi (ADGM, Masdar), Sharjah, Ajman, RAK | Real Estate & MEP Engineering, AI & FinTech, Corporate Finance, Luxury Hospitality | 48h – 72h | 149 – 399 AED |
-| Saudi Arabia (SA) | ${SITE_URL}/sa | Riyadh (KAFD), Jeddah, Dammam/Khobar, NEOM, Makkah | Vision 2030 Giga-Projects, Cybersecurity & GovTech, Healthcare, Logistics & Industrial | 48h – 72h | 149 – 399 SAR |
-| Qatar (QA) | ${SITE_URL}/qa | Doha (West Bay), Lusail, Al Wakrah, Al Khor, Energy City | Oil & Gas / LNG, Civil Infrastructure, Sovereign Banking, Aviation & Hospitality | 48h – 96h | 149 – 399 QAR |
-| Kuwait (KW) | ${SITE_URL}/kw | Kuwait City (Sharq), Hawalli, Salmiya, Farwaniya, Ahmadi | Banking & Islamic Audit, Retail Franchise Groups, Energy & Contracting, Regional Logistics | 48h – 96h | 12 – 32 KWD |
+| United Arab Emirates (AE) | [Asra3 UAE](${SITE_URL}/ae) | Dubai (DIFC, Business Bay), Abu Dhabi (ADGM, Masdar), Sharjah, Ajman, RAK | Real Estate & MEP Engineering, AI & FinTech, Corporate Finance, Luxury Hospitality | 48h – 72h | 149 – 399 AED |
+| Saudi Arabia (SA) | [Asra3 KSA](${SITE_URL}/sa) | Riyadh (KAFD), Jeddah, Dammam/Khobar, NEOM, Makkah | Vision 2030 Giga-Projects, Cybersecurity & GovTech, Healthcare, Logistics & Industrial | 48h – 72h | 149 – 399 SAR |
+| Qatar (QA) | [Asra3 Qatar](${SITE_URL}/qa) | Doha (West Bay), Lusail, Al Wakrah, Al Khor, Energy City | Oil & Gas / LNG, Civil Infrastructure, Sovereign Banking, Aviation & Hospitality | 48h – 96h | 149 – 399 QAR |
+| Kuwait (KW) | [Asra3 Kuwait](${SITE_URL}/kw) | Kuwait City (Sharq), Hawalli, Salmiya, Farwaniya, Ahmadi | Banking & Islamic Audit, Retail Franchise Groups, Energy & Contracting, Regional Logistics | 48h – 96h | 12 – 32 KWD |
 
 ---
 
@@ -51,7 +53,7 @@ export async function GET() {
 1. **MX-Verified HR Directory Hygiene:** All corporate HR addresses undergo DNS MX validation and hard-bounce auto-deactivation so campaigns maintain high inbox placement.
 2. **Multi-SMTP Smart-Drip Dispatch:** Emails are sent via dedicated DKIM, SPF, and DMARC authenticated infrastructure with controlled inter-message drip spacing and individualized candidate cover letters.
 3. **Current-Employer Exclusion Shield:** Before checkout, candidates can exclude their current company domain (e.g., \`company.com\`) to block delivery to their current employer completely.
-4. **Confidentiality Policy:** Candidate CVs are never published in public searchable CV databases or scraped job boards.
+4. **Confidentiality Policy:** Candidate CVs are never published in public searchable CV databases or scraped job boards. See [Privacy Policy](${SITE_URL}/privacy) and [Terms of Service](${SITE_URL}/terms).
 5. **Payment Security:** Instant checkout processed through EasyKash DirectPayV1 with cryptographic HMAC-SHA512 webhook verification and server-to-server payment inquiry confirmation.
 
 ---
@@ -68,7 +70,7 @@ Every Asra3 package (Launch 100, Turbo 300, Hyper 500+) is strictly a one-time p
 Yes. Enter your current employer's domain in Step 4 (Checkout) under "Current-Employer Exclusion Shield" and Asra3 completely excludes matching HR domains from your campaign.
 
 **Q4: How do I track which companies received and opened my application?**
-After payment, you receive a unique order code and private tracking link at ${SITE_URL}/track where you can monitor queued, sent, and opened statuses in real time and export a CSV report.
+After payment, you receive a unique order code and private tracking link in the [Live Tracking Portal](${SITE_URL}/track) where you can monitor queued, sent, and opened statuses in real time and export a CSV report.
 
 **Q5: هل منصة أسرع (Asra3.com) منصة للتسويق على واتساب أم لتوزيع السيرة الذاتية؟**
 منصة أسرع (Asra3.com) منذ تحديث 2026 متخصصة حصرياً في فحص السيرة الذاتية بالذكاء الاصطناعي (ATS) وتوزيعها مباشرة على صناديق بريد مسؤولي الموارد البشرية (HR) في الإمارات والسعودية وقطر والكويت، وليست منصة CRM للتسويق عبر واتساب.
@@ -81,13 +83,14 @@ After payment, you receive a unique order code and private tracking link at ${SI
 ## 5. Contact Information
 - Official Desk Email: hello@asra3.com
 - WhatsApp / Candidate Desk: +971 50 408 1478
-- Website: ${SITE_URL}
+- Website: [Asra3.com](${SITE_URL}/)
 `;
 
   return new NextResponse(content, {
     status: 200,
     headers: {
-      "Content-Type": "text/plain; charset=utf-8",
+      "Content-Type": "text/markdown; charset=utf-8",
+      "X-Robots-Tag": "index, follow",
       "Cache-Control": "public, max-age=3600, s-maxage=86400",
     },
   });

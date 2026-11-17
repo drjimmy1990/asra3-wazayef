@@ -286,6 +286,8 @@ export function HomeLandingClient({
     >
       <Navbar />
 
+      <main id="main-content" className="flex-1 flex flex-col">
+
       {/* Returning Candidate Active Campaign Strip */}
       {lastToken && (
         <div className="bg-[#09090B] dark:bg-[#141417] border-b border-zinc-800 px-4 py-2.5 text-center text-xs text-zinc-200">
@@ -1146,13 +1148,23 @@ export function HomeLandingClient({
       </section>
 
       {seoSection}
+      </main>
 
       {/* ================= PURE CARBON BLACK EXECUTIVE FOOTER ================= */}
       <footer className="mt-auto bg-[#09090B] pt-16 pb-24 sm:pb-14 text-zinc-400 border-t border-zinc-800">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <h2 className="sr-only">
+            {lang === "ar"
+              ? "تذييل الموقع والروابط السريعة"
+              : "Site Footer & Quick Links"}
+          </h2>
           <div className="grid grid-cols-1 gap-10 md:grid-cols-12 pb-12 border-b border-zinc-800">
             <div className="md:col-span-5 space-y-4">
-              <Link href="/" className="inline-block">
+              <Link
+                href="/"
+                aria-label="Asra3.com Home"
+                className="inline-block"
+              >
                 <Asra3Logo
                   variant="dark"
                   size="md"
@@ -1169,9 +1181,9 @@ export function HomeLandingClient({
             </div>
 
             <div className="md:col-span-2">
-              <h4 className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#D4AF37] mb-3.5">
+              <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#D4AF37] mb-3.5">
                 {lang === "ar" ? "أسواق الخليج" : "GCC Markets"}
-              </h4>
+              </h3>
               <ul className="space-y-2.5 text-xs">
                 <li>
                   <Link href="/ae" className="hover:text-white transition-colors">
@@ -1201,9 +1213,9 @@ export function HomeLandingClient({
             </div>
 
             <div className="md:col-span-2">
-              <h4 className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#D4AF37] mb-3.5">
+              <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#D4AF37] mb-3.5">
                 {lang === "ar" ? "روابط المنصة" : "Platform"}
-              </h4>
+              </h3>
               <ul className="space-y-2.5 text-xs">
                 <li>
                   <a
@@ -1257,17 +1269,23 @@ export function HomeLandingClient({
             </div>
 
             <div className="md:col-span-3">
-              <h4 className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#D4AF37] mb-3.5">
+              <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#D4AF37] mb-3.5">
                 {lang === "ar" ? "مكتب دعم المرشحين" : "Support Desk"}
-              </h4>
+              </h3>
               <ul className="space-y-2.5 text-xs">
                 <li>
-                  <a
-                    href="mailto:hello@asra3.com"
-                    className="text-zinc-200 hover:text-[#D4AF37] transition-colors"
-                  >
-                    hello@asra3.com
-                  </a>
+                  {hasMounted ? (
+                    <a
+                      href="mailto:hello@asra3.com"
+                      className="text-zinc-200 hover:text-[#D4AF37] transition-colors"
+                    >
+                      hello@asra3.com
+                    </a>
+                  ) : (
+                    <span dir="ltr" className="text-zinc-200">
+                      hello [at] asra3.com
+                    </span>
+                  )}
                 </li>
                 <li dir="ltr" className="text-zinc-300">
                   +971 50 408 1478
