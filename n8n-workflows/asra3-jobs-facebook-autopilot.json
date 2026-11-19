@@ -2,6 +2,11 @@
   "name": "Asra3.com — Automated 3h GCC Jobs Harvester, Website & Facebook Autopilot",
   "nodes": [
     {
+      "id": "schedule-3h",
+      "name": "scheduleEvery3h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [180, 300],
       "parameters": {
         "rule": {
           "interval": [
@@ -11,65 +16,68 @@
             }
           ]
         }
-      },
-      "id": "schedule-3h",
-      "name": "Every 3 Hours Schedule",
-      "type": "n8n-nodes-base.scheduleTrigger",
-      "typeVersion": 1.2,
-      "position": [180, 300]
+      }
     },
     {
+      "id": "config-vars",
+      "name": "configCredentials",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [420, 300],
+      "notes": "Paste your ADMIN_PASSCODE / N8N_WEBHOOK_SECRET, Facebook Page ID, and Page Access Token here.",
       "parameters": {
         "assignments": {
           "assignments": [
             {
               "id": "cfg-url",
               "name": "asra3BaseUrl",
-              "value": "https://asra3.com",
-              "type": "string"
+              "type": "string",
+              "value": "https://asra3.com"
             },
             {
               "id": "cfg-secret",
               "name": "webhookSecret",
-              "value": "asra3@2026",
-              "type": "string"
+              "type": "string",
+              "value": "YOUR_N8N_WEBHOOK_SECRET_OR_ADMIN_PASSCODE"
             },
             {
               "id": "cfg-fb-page",
               "name": "facebookPageId",
-              "value": "YOUR_FACEBOOK_PAGE_ID",
-              "type": "string"
+              "type": "string",
+              "value": "YOUR_FACEBOOK_PAGE_ID"
             },
             {
               "id": "cfg-fb-token",
               "name": "facebookPageAccessToken",
-              "value": "YOUR_FACEBOOK_PAGE_ACCESS_TOKEN",
-              "type": "string"
+              "type": "string",
+              "value": "YOUR_FACEBOOK_PAGE_ACCESS_TOKEN"
             },
             {
               "id": "cfg-tg-token",
               "name": "telegramBotToken",
-              "value": "",
-              "type": "string"
+              "type": "string",
+              "value": ""
             },
             {
               "id": "cfg-tg-chat",
               "name": "telegramChatId",
-              "value": "",
-              "type": "string"
+              "type": "string",
+              "value": ""
             }
           ]
         },
         "options": {}
-      },
-      "id": "config-vars",
-      "name": "Config & Credentials",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [420, 300],
-      "notes": "Paste your ADMIN_PASSCODE / N8N_WEBHOOK_SECRET, Facebook Page ID, and Page Access Token here."
+      }
     },
     {
+      "id": "harvest-jobs-api",
+      "name": "harvestJobsWebsite",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300],
+      "retryOnFail": false,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
       "parameters": {
         "method": "POST",
         "url": "={{ $json.asra3BaseUrl }}/api/webhooks/jobs-harvest",
@@ -90,52 +98,53 @@
         "specifyBody": "json",
         "jsonBody": "={ \"pagesPerChannel\": 2, \"maxJobsToInsert\": 15 }",
         "options": {
-          "timeout": 45000
+          "timeout": 180000
         }
-      },
-      "id": "harvest-jobs-api",
-      "name": "1. Harvest & Publish Jobs to Website",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [680, 300],
-      "retryOnFail": true,
-      "maxTries": 2,
-      "waitBetweenTries": 3000
+      }
     },
     {
+      "id": "fetch-social-queue",
+      "name": "fetchSocialQueue",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [940, 300],
       "parameters": {
         "method": "GET",
-        "url": "={{ $('Config & Credentials').first().json.asra3BaseUrl }}/api/webhooks/jobs-social?limit=2",
+        "url": "={{ $('configCredentials').first().json.asra3BaseUrl }}/api/webhooks/jobs-social?limit=2",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "x-webhook-secret",
-              "value": "={{ $('Config & Credentials').first().json.webhookSecret }}"
+              "value": "={{ $('configCredentials').first().json.webhookSecret }}"
             }
           ]
         },
         "options": {
           "timeout": 15000
         }
-      },
-      "id": "fetch-social-queue",
-      "name": "2. Fetch Unposted Social Queue",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [940, 300]
+      }
     },
     {
-      "parameters": {
-        "jsCode": "const cfg = $('Config & Credentials').first().json;\nconst payload = $input.first()?.json || {};\nconst items = Array.isArray(payload.items) ? payload.items : [];\n\nif (!items.length) {\n  return [];\n}\n\nif (!cfg.facebookPageId || cfg.facebookPageId === 'YOUR_FACEBOOK_PAGE_ID' || !cfg.facebookPageAccessToken || cfg.facebookPageAccessToken === 'YOUR_FACEBOOK_PAGE_ACCESS_TOKEN') {\n  throw new Error('Set facebookPageId and facebookPageAccessToken in the Config & Credentials node before activating Facebook publishing.');\n}\n\nreturn items.map((job) => ({\n  json: {\n    ...job,\n    asra3BaseUrl: cfg.asra3BaseUrl,\n    webhookSecret: cfg.webhookSecret,\n    facebookPageId: cfg.facebookPageId,\n    facebookPageAccessToken: cfg.facebookPageAccessToken,\n    telegramBotToken: cfg.telegramBotToken,\n    telegramChatId: cfg.telegramChatId,\n  },\n}));"
-      },
       "id": "unpack-social-items",
-      "name": "3. Unpack Queue Items",
+      "name": "unpackQueueItems",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1200, 300]
+      "position": [1200, 300],
+      "parameters": {
+        "jsCode": "const cfg = $('configCredentials').first().json;\nconst payload = $input.first()?.json || {};\nconst items = Array.isArray(payload.items) ? payload.items : [];\n\nif (!items.length) {\n  return [];\n}\n\nif (!cfg.facebookPageId || cfg.facebookPageId === 'YOUR_FACEBOOK_PAGE_ID' || !cfg.facebookPageAccessToken || cfg.facebookPageAccessToken === 'YOUR_FACEBOOK_PAGE_ACCESS_TOKEN') {\n  throw new Error('Set facebookPageId and facebookPageAccessToken in configCredentials before activating Facebook publishing.');\n}\n\nreturn items.map((job) => ({\n  json: {\n    ...job,\n    asra3BaseUrl: cfg.asra3BaseUrl,\n    webhookSecret: cfg.webhookSecret,\n    facebookPageId: cfg.facebookPageId,\n    facebookPageAccessToken: cfg.facebookPageAccessToken,\n    telegramBotToken: cfg.telegramBotToken,\n    telegramChatId: cfg.telegramChatId,\n  },\n}));"
+      }
     },
     {
+      "id": "fb-publish-photo",
+      "name": "publishFacebookPhoto",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1460, 300],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "alwaysOutputData": true,
       "parameters": {
         "method": "POST",
         "url": "=https://graph.facebook.com/v21.0/{{ $json.facebookPageId }}/photos",
@@ -145,62 +154,59 @@
         "options": {
           "timeout": 25000
         }
-      },
-      "id": "fb-publish-photo",
-      "name": "4. Publish Branded Photo to Facebook Page",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [1460, 300],
-      "retryOnFail": true,
-      "maxTries": 2,
-      "waitBetweenTries": 3000
+      }
     },
     {
+      "id": "fb-first-comment",
+      "name": "postFirstCommentLink",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1740, 300],
+      "onError": "continueRegularOutput",
       "parameters": {
         "method": "POST",
         "url": "=https://graph.facebook.com/v21.0/{{ $json.post_id || $json.id }}/comments",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ message: $('3. Unpack Queue Items').item.json.facebook_first_comment, access_token: $('3. Unpack Queue Items').item.json.facebookPageAccessToken }) }}",
+        "jsonBody": "={{ JSON.stringify({ message: $('unpackQueueItems').item.json.facebook_first_comment, access_token: $('unpackQueueItems').item.json.facebookPageAccessToken }) }}",
         "options": {
           "timeout": 15000
         }
-      },
-      "id": "fb-first-comment",
-      "name": "5. Post Direct Apply Link as 1st Comment",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [1740, 300],
-      "continueOnFail": true
+      }
     },
     {
-      "parameters": {
-        "method": "POST",
-        "url": "=https://api.telegram.org/bot{{ $('3. Unpack Queue Items').item.json.telegramBotToken }}/sendPhoto",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ chat_id: $('3. Unpack Queue Items').item.json.telegramChatId, photo: $('3. Unpack Queue Items').item.json.og_image_url, caption: $('3. Unpack Queue Items').item.json.telegram_html, parse_mode: 'HTML' }) }}",
-        "options": {}
-      },
       "id": "tg-optional-broadcast",
-      "name": "Optional: Broadcast to Telegram Channel",
+      "name": "optionalTelegramChannel",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [1740, 500],
       "disabled": true,
-      "continueOnFail": true,
-      "notes": "Enable this node once telegramBotToken and telegramChatId are filled in Config & Credentials."
-    },
-    {
+      "onError": "continueRegularOutput",
+      "notes": "Enable this node once telegramBotToken and telegramChatId are filled in configCredentials.",
       "parameters": {
         "method": "POST",
-        "url": "={{ $('3. Unpack Queue Items').item.json.asra3BaseUrl }}/api/webhooks/jobs-social",
+        "url": "=https://api.telegram.org/bot{{ $('unpackQueueItems').item.json.telegramBotToken }}/sendPhoto",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: $('unpackQueueItems').item.json.telegramChatId, photo: $('unpackQueueItems').item.json.og_image_url, caption: $('unpackQueueItems').item.json.telegram_html, parse_mode: 'HTML' }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "mark-posted-callback",
+      "name": "markJobPosted",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2020, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('unpackQueueItems').item.json.asra3BaseUrl }}/api/webhooks/jobs-social",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "x-webhook-secret",
-              "value": "={{ $('3. Unpack Queue Items').item.json.webhookSecret }}"
+              "value": "={{ $('unpackQueueItems').item.json.webhookSecret }}"
             },
             {
               "name": "Content-Type",
@@ -210,93 +216,88 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ id: $('3. Unpack Queue Items').item.json.id, fb_post_id: $('4. Publish Branded Photo to Facebook Page').item.json.post_id || $('4. Publish Branded Photo to Facebook Page').item.json.id || 'posted' }) }}",
+        "jsonBody": "={{ JSON.stringify({ id: $('unpackQueueItems').item.json.id, fb_post_id: $('publishFacebookPhoto').item.json.post_id || $('publishFacebookPhoto').item.json.id || 'posted' }) }}",
         "options": {}
-      },
-      "id": "mark-posted-callback",
-      "name": "6. Mark Job Posted on Asra3.com",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [2020, 300]
+      }
     }
   ],
   "connections": {
-    "Every 3 Hours Schedule": {
+    "scheduleEvery3h": {
       "main": [
         [
           {
-            "node": "Config & Credentials",
+            "node": "configCredentials",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Config & Credentials": {
+    "configCredentials": {
       "main": [
         [
           {
-            "node": "1. Harvest & Publish Jobs to Website",
+            "node": "harvestJobsWebsite",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "1. Harvest & Publish Jobs to Website": {
+    "harvestJobsWebsite": {
       "main": [
         [
           {
-            "node": "2. Fetch Unposted Social Queue",
+            "node": "fetchSocialQueue",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "2. Fetch Unposted Social Queue": {
+    "fetchSocialQueue": {
       "main": [
         [
           {
-            "node": "3. Unpack Queue Items",
+            "node": "unpackQueueItems",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "3. Unpack Queue Items": {
+    "unpackQueueItems": {
       "main": [
         [
           {
-            "node": "4. Publish Branded Photo to Facebook Page",
+            "node": "publishFacebookPhoto",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "4. Publish Branded Photo to Facebook Page": {
+    "publishFacebookPhoto": {
       "main": [
         [
           {
-            "node": "5. Post Direct Apply Link as 1st Comment",
+            "node": "postFirstCommentLink",
             "type": "main",
             "index": 0
           },
           {
-            "node": "Optional: Broadcast to Telegram Channel",
+            "node": "optionalTelegramChannel",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "5. Post Direct Apply Link as 1st Comment": {
+    "postFirstCommentLink": {
       "main": [
         [
           {
-            "node": "6. Mark Job Posted on Asra3.com",
+            "node": "markJobPosted",
             "type": "main",
             "index": 0
           }

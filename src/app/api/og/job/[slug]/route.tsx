@@ -1,5 +1,6 @@
-import { ImageResponse } from "next/og";
+﻿import { ImageResponse } from "next/og";
 import { NextRequest } from "next/server";
+import type { ReactElement } from "react";
 import { getJobBySlug } from "@/lib/jobs-store";
 import { INITIAL_COUNTRIES, INITIAL_INDUSTRIES } from "@/lib/seed-data";
 
@@ -8,20 +9,65 @@ const size = {
   height: 630,
 };
 
+/**
+ * The bundled OG renderer cannot shape Arabic/other complex scripts (it throws
+ * "lookupType: 5 - substFormat: 3 is not yet supported" mid-stream, which used to
+ * crash the whole Node process). Keep only Latin-range characters and fall back
+ * to a safe label when nothing readable remains.
+ */
+function latinSafe(text: string | null | undefined, fallback: string): string {
+  const cleaned = String(text || "")
+    .replace(/[^\u0020-\u024F\u2013\u2014\u2022\u00B7]/g, "")
+    .replace(/\s{2,}/g, " ")
+    .replace(/^[\s\-–—•·]+|[\s\-–—•·]+$/g, "")
+    .trim();
+  return /[A-Za-z0-9]/.test(cleaned) ? cleaned : fallback;
+}
+
+function companyFromDomain(domain: string | null | undefined): string {
+  const base = String(domain || "")
+    .toLowerCase()
+    .replace(/\.(com|net|org|gov|edu|co)\.(ae|sa|qa|kw)$/, "")
+    .replace(/\.(com|net|org|gov|edu|co|io|ae|sa|qa|kw)$/, "")
+    .split(".")
+    .pop();
+  return base ? base.charAt(0).toUpperCase() + base.slice(1) : "";
+}
+
+// Render fully into memory so any renderer failure is catchable (never a
+// half-streamed response that takes the server down).
+async function renderToPng(element: ReactElement): Promise<Response> {
+  const img = new ImageResponse(element, { ...size });
+  const buf = await img.arrayBuffer();
+  return new Response(buf, {
+    status: 200,
+    headers: {
+      "Content-Type": "image/png",
+      "Cache-Control": "public, max-age=3600, s-maxage=86400",
+    },
+  });
+}
+
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
   const { slug } = await params;
   const { job } = await getJobBySlug(slug);
 
-  const titleEn = job?.title_en || "Verified Executive Opportunity in the GCC";
-  const companyName = job?.company_name || "MX-Verified Corporate Employer";
+  const titleEn = latinSafe(
+    job?.title_en,
+    "Verified Executive Opportunity in the GCC"
+  );
+  const companyName = latinSafe(
+    job?.company_name,
+    latinSafe(companyFromDomain(job?.company_domain), "MX-Verified GCC Employer")
+  );
   const countryCode = job?.country_code || "AE";
   const countryObj =
     INITIAL_COUNTRIES.find((c) => c.code === countryCode) ||
     INITIAL_COUNTRIES[0];
-  const cityEn = job?.city_name_en || countryObj.cities[0].name_en;
+  const cityEn = latinSafe(job?.city_name_en, countryObj.cities[0].name_en);
   const industryObj =
     INITIAL_INDUSTRIES.find((i) => i.id === job?.industry_id) ||
     INITIAL_INDUSTRIES[0];
@@ -31,10 +77,40 @@ export async function GET(
       ? `${job.salary_min.toLocaleString()} - ${job.salary_max.toLocaleString()} ${job.salary_currency}`
       : `${countryCode} • ${job?.employment_type?.replace("_", " ") || "FULL TIME"}`;
 
-  const skills = (job?.skills || ["ATS Ready", "Direct HR Inbox"]).slice(0, 4);
+  const skills = (job?.skills || ["ATS Ready", "Direct HR Inbox"])
+    .map((s) => latinSafe(s, ""))
+    .filter(Boolean)
+    .slice(0, 4);
 
-  return new ImageResponse(
-    (
+  try {
+    return await renderToPng(
+      buildJobCard({ titleEn, companyName, countryCode, cityEn, industryObj, salaryText, skills })
+    );
+  } catch (err) {
+    console.error(`[og] job card render failed for ${slug}:`, err);
+    // Last-resort: the static site-wide card always renders
+    return Response.redirect(new URL("/opengraph-image", req.url), 302);
+  }
+}
+
+function buildJobCard({
+  titleEn,
+  companyName,
+  countryCode,
+  cityEn,
+  industryObj,
+  salaryText,
+  skills,
+}: {
+  titleEn: string;
+  companyName: string;
+  countryCode: string;
+  cityEn: string;
+  industryObj: { name_en: string };
+  salaryText: string;
+  skills: string[];
+}): ReactElement {
+  return (
       <div
         style={{
           width: "100%",
@@ -231,7 +307,5 @@ export async function GET(
           </div>
         </div>
       </div>
-    ),
-    { ...size }
   );
 }

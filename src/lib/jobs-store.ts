@@ -474,8 +474,11 @@ export async function upsertJobPostings(
   }
 
   const existing = readLocalJobs();
-  const seenHashes = new Set(existing.map((j) => j.dedupe_hash));
-  const seenSlugs = new Set(existing.map((j) => j.slug));
+  // Dedupe against BOTH stores so a job living only in Supabase is never
+  // re-inserted (which would reset fb_posted_at and cause duplicate FB posts).
+  const allKnown = await getAllJobsRaw();
+  const seenHashes = new Set(allKnown.map((j) => j.dedupe_hash));
+  const seenSlugs = new Set(allKnown.map((j) => j.slug));
 
   const inserted: JobPostingRecord[] = [];
   let skippedDuplicates = 0;
@@ -618,7 +621,10 @@ export async function upsertJobPostings(
           delete copy.rank_score;
           return copy;
         });
-        await sb.from("jobs").upsert(dbRows, { onConflict: "dedupe_hash" });
+        await sb.from("jobs").upsert(dbRows, {
+          onConflict: "dedupe_hash",
+          ignoreDuplicates: true,
+        });
       } catch {
         // Non-blocking if Supabase migration 002 hasn't been executed yet
       }
@@ -827,7 +833,8 @@ export async function getUnpostedSocialJobs(
     .filter(
       (j) =>
         j.status === "published" &&
-        j.is_mx_verified &&
+        // MX-verified jobs, or employer jobs an admin explicitly approved
+        (j.is_mx_verified || j.source_type === "employer_direct") &&
         !j.fb_posted_at
     )
     .sort((a, b) => {
@@ -864,6 +871,7 @@ export async function markJobPostedToSocial(
     writeLocalJobs(jobs);
   }
 
+  let remoteUpdated = false;
   if (isSupabaseConfigured()) {
     try {
       const sb = getSupabaseJobsClient();
@@ -876,13 +884,29 @@ export async function markJobPostedToSocial(
         patch.tg_message_id = meta.tg_message_id;
         patch.tg_posted_at = nowIso;
       }
-      await sb.from("jobs").update(patch).or(`id.eq.${idOrSlug},slug.eq.${idOrSlug}`);
+      if (Object.keys(patch).length > 0) {
+        const byId = await sb
+          .from("jobs")
+          .update(patch)
+          .eq("id", idOrSlug)
+          .select("id");
+        if (Array.isArray(byId.data) && byId.data.length > 0) {
+          remoteUpdated = true;
+        } else {
+          const bySlug = await sb
+            .from("jobs")
+            .update(patch)
+            .eq("slug", idOrSlug)
+            .select("id");
+          remoteUpdated = Array.isArray(bySlug.data) && bySlug.data.length > 0;
+        }
+      }
     } catch {
       // Ignore
     }
   }
 
-  return idx !== -1;
+  return idx !== -1 || remoteUpdated;
 }
 
 export async function performAdminJobAction(

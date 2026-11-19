@@ -30,8 +30,15 @@ export async function generateMetadata({
 
   const canonical = `/${country.code.toLowerCase()}/jobs/${industry.id}`;
   const citiesAr = country.cities.slice(0, 3).map((c) => c.name_ar).join("، ");
+  const { total } = await searchAndRankJobs({
+    country: country.code,
+    industry: industry.id,
+    limit: 1,
+  });
 
   return {
+    // Empty sector hubs are thin content; keep them crawlable but out of the index
+    ...(total === 0 ? { robots: { index: false, follow: true } } : {}),
     title: `وظائف ${industry.name_ar} في ${country.name_ar} (${citiesAr}) | ${industry.name_en} Jobs in ${country.name_en}`,
     description: `قدّم مباشرة على أحدث وظائف ${industry.name_ar} الموثقة في ${country.name_ar} (${citiesAr}) أو أرسل سيرتك الذاتية المحسنة بنظام ATS إلى مئات شركات القطاع عبر Asra3.com.`,
     alternates: {
@@ -97,6 +104,7 @@ export default async function CountryIndustryJobsPage({
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <JobsBoardClient
+        key={`${country.code}-${industry.id}`}
         initialData={initialData}
         lockedCountry={country.code}
         lockedIndustry={industry.id}

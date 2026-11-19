@@ -127,6 +127,16 @@ export default async function JobDetailPage({
     ],
   };
 
+  // Google Jobs only accepts these employmentType values. REMOTE is not a type —
+  // it is expressed via jobLocationType=TELECOMMUTE + applicantLocationRequirements.
+  const googleEmploymentType =
+    job.employment_type === "CONTRACT"
+      ? "CONTRACTOR"
+      : job.employment_type === "PART_TIME"
+      ? "PART_TIME"
+      : "FULL_TIME";
+  const isRemote = job.employment_type === "REMOTE";
+
   // Emit Google Jobs `JobPosting` structured data ONLY while active (Google Jobs policy)
   const jobPostingJsonLd = !isExpired
     ? {
@@ -140,8 +150,9 @@ export default async function JobDetailPage({
         },
         datePosted: job.published_at,
         validThrough: job.expires_at,
-        employmentType: job.employment_type,
-        directApply: true,
+        employmentType: googleEmploymentType,
+        // Candidates apply by emailing the employer's HR inbox, not on-site
+        directApply: false,
         hiringOrganization: {
           "@type": "Organization",
           name: job.company_name,
@@ -156,8 +167,14 @@ export default async function JobDetailPage({
             addressCountry: job.country_code,
           },
         },
-        ...(job.employment_type === "REMOTE"
-          ? { jobLocationType: "TELECOMMUTE" }
+        ...(isRemote
+          ? {
+              jobLocationType: "TELECOMMUTE",
+              applicantLocationRequirements: {
+                "@type": "Country",
+                name: job.country_code,
+              },
+            }
           : {}),
         ...(job.salary_min && job.salary_max
           ? {

@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 import { INITIAL_COUNTRIES, INITIAL_INDUSTRIES } from "@/lib/seed-data";
-import { searchAndRankJobs } from "@/lib/jobs-store";
+import { getAllJobsRaw } from "@/lib/jobs-store";
 import { getCanonicalSiteUrl } from "@/lib/seo-indexer";
 
 export const dynamic = "force-dynamic";
@@ -104,7 +104,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ];
 
-  // 4 Country Job Hubs + 48 Country x Industry Programmatic SEO Hubs
+  // Published jobs drive both the per-job URLs and which sector hubs are listed
+  const publishedJobs = (await getAllJobsRaw()).filter(
+    (j) => j.status === "published"
+  );
+  const populatedHubs = new Set<string>();
+  for (const job of publishedJobs) {
+    const cSlug = job.country_code.toLowerCase();
+    populatedHubs.add(`${cSlug}/${job.industry_id}`);
+    for (const sec of job.secondary_industries || []) {
+      populatedHubs.add(`${cSlug}/${sec}`);
+    }
+  }
+
+  // 4 country job hubs always; country x industry hubs only when they have jobs
+  // (empty hubs are thin content / soft-404s and are marked noindex)
   const programmaticEntries: MetadataRoute.Sitemap = [];
   for (const country of INITIAL_COUNTRIES) {
     const cSlug = country.code.toLowerCase();
@@ -115,6 +129,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.94,
     });
     for (const ind of INITIAL_INDUSTRIES) {
+      if (!populatedHubs.has(`${cSlug}/${ind.id}`)) continue;
       programmaticEntries.push({
         url: `${SITE_URL}/${cSlug}/jobs/${ind.id}`,
         lastModified: now,
@@ -124,14 +139,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
   }
 
-  // Active Individual Job Postings (/jobs/[slug])
-  const { jobs } = await searchAndRankJobs({ sort: "newest", limit: 100 });
-  const jobEntries: MetadataRoute.Sitemap = jobs.map((job) => ({
-    url: `${SITE_URL}/jobs/${job.slug}`,
-    lastModified: new Date(job.published_at),
-    changeFrequency: "daily",
-    priority: job.is_featured ? 0.92 : 0.88,
-  }));
+  const jobEntries: MetadataRoute.Sitemap = publishedJobs
+    .slice(0, 1000)
+    .map((job) => ({
+      url: `${SITE_URL}/jobs/${job.slug}`,
+      lastModified: new Date(job.published_at),
+      changeFrequency: "daily",
+      priority: job.is_featured ? 0.92 : 0.88,
+    }));
 
   return [...staticEntries, ...programmaticEntries, ...jobEntries];
 }

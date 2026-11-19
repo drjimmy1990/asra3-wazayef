@@ -82,6 +82,7 @@ export default async function CountryJobsHubPage({
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <JobsBoardClient
+        key={cObj.code}
         initialData={initialData}
         lockedCountry={cObj.code}
         heroHeadingAr={`الوظائف الموثقة في ${cObj.name_ar} (${citiesAr})`}

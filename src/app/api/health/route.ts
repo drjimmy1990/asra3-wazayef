@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isQaTestModeEnabled } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 
@@ -7,6 +8,8 @@ export async function GET() {
     {
       status: "ok",
       service: "asra3-platform",
+      // true = campaigns from QA candidate emails only reach QA test inboxes
+      qa_test_mode: isQaTestModeEnabled(),
       timestamp: new Date().toISOString(),
     },
     {

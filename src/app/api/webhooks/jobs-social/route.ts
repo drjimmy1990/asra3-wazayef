@@ -14,6 +14,14 @@ const COUNTRY_HASHTAGS: Record<string, string> = {
   KW: "#وظائف_الكويت #KuwaitJobs #توظيف_الكويت",
 };
 
+// Telegram parse_mode=HTML rejects the whole message on unescaped & < >
+function tgEscape(text: string): string {
+  return String(text || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
 /**
  * Social Syndication Queue for n8n (Facebook Page + Telegram Channel Autopilot):
  * - GET: Returns top unposted MX-verified jobs with pre-formatted bilingual
@@ -84,11 +92,11 @@ export async function GET(req: NextRequest) {
     const facebookFirstComment = `✅ قدّم مباشرة الآن أو افحص توافق سيرتك الذاتية مع هذه الوظيفة عبر منصة أسرع:\nApply directly & check your ATS match score here:\n${fbCommentApplyUrl}`;
 
     const telegramMessage = [
-      `⚡ <b>${job.title_ar}</b>`,
-      `<b>${job.title_en}</b>`,
+      `⚡ <b>${tgEscape(job.title_ar)}</b>`,
+      `<b>${tgEscape(job.title_en)}</b>`,
       ``,
-      `🏢 <b>${job.company_name}</b> (MX-Verified HR ✓)`,
-      `📍 ${job.city_name_ar}، ${country.name_ar} (${job.city_name_en})`,
+      `🏢 <b>${tgEscape(job.company_name)}</b> (MX-Verified HR ✓)`,
+      `📍 ${tgEscape(job.city_name_ar)}، ${tgEscape(country.name_ar)} (${tgEscape(job.city_name_en)})`,
       job.salary_min && job.salary_max
         ? `💰 ${job.salary_min.toLocaleString()} – ${job.salary_max.toLocaleString()} ${job.salary_currency}`
         : null,

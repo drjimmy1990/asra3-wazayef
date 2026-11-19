@@ -51,6 +51,22 @@ const DATA_DIR = path.join(process.cwd(), ".data");
 const STORE_FILE = path.join(DATA_DIR, "store.json");
 const JOBS_STORE_FILE = path.join(DATA_DIR, "jobs.json");
 
+function parseEmailList(raw: string | undefined): Set<string> {
+  return new Set(
+    (raw || "")
+      .split(/[,;\s]+/)
+      .map((e) => e.trim().toLowerCase())
+      .filter((e) => e.includes("@"))
+  );
+}
+
+export function isQaTestModeEnabled(): boolean {
+  return (
+    parseEmailList(process.env.QA_TEST_CANDIDATE_EMAILS).size > 0 &&
+    parseEmailList(process.env.QA_TEST_HR_EMAILS).size > 0
+  );
+}
+
 export interface ActiveCompanyCategoryMap {
   byEmail: Map<string, Set<string>>;
   byDomain: Map<string, Set<string>>;
@@ -920,6 +936,28 @@ export async function createCampaignOrder(input: {
     }
     return true;
   });
+
+  // QA Safe Test Mode: when the candidate email is in QA_TEST_CANDIDATE_EMAILS,
+  // the campaign targets ONLY the inboxes in QA_TEST_HR_EMAILS (which must exist
+  // in the companies directory). Real HR companies are never contacted.
+  const qaCandidates = parseEmailList(process.env.QA_TEST_CANDIDATE_EMAILS);
+  const qaHrInboxes = parseEmailList(process.env.QA_TEST_HR_EMAILS);
+  const isQaTestCampaign =
+    qaCandidates.has(input.candidate_email.trim().toLowerCase()) &&
+    qaHrInboxes.size > 0;
+
+  if (isQaTestCampaign) {
+    const qaPool = allCompanies.filter((c) =>
+      qaHrInboxes.has(c.hr_email.trim().toLowerCase())
+    );
+    if (qaPool.length === 0) {
+      throw new Error(
+        "QA test mode: none of the QA_TEST_HR_EMAILS inboxes exist in the companies directory. Import them in /admin first."
+      );
+    }
+    matchingPool.length = 0;
+    matchingPool.push(...qaPool);
+  }
 
   // Smart Cooldown & Multi-Category Relevance Ranking:
   // 0. Exact primary OR secondary/active-job category match for this company
