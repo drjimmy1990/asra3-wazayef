@@ -4,9 +4,9 @@
 
 **Goal:** Add four coordinated conversion and automation capabilities to Asra3.com: (1) Admin-managed dynamic discount coupons, (2) Limited-time offer pricing with crossed-out anchor prices and live countdown timer, (3) Branded Asra3 QR codes on Facebook/OG job cards and job pages, and (4) A floating bilingual AI Support & Lead-Capture Chatbot backed by a live n8n workflow and an `/admin` Support Leads inbox.
 
-**Architecture:** All persistent configuration (`coupons`, `offerSettings`, `supportLeads`) extends `LocalStoreData` in `src/lib/store.ts` (backed by `.data/store.json` with safe backward-compatible hydration and zero breaking schema migrations). Reusable UI modules (`OfferCountdownBanner.tsx`, `AdminPromosPanel.tsx`, `AdminLeadsTab.tsx`, `SupportChatWidget.tsx`, `src/lib/qr-code.ts`) keep `src/app/admin/page.tsx` and `DistributionWizard.tsx` clean and modular. The chatbot proxies through Next.js `/api/chat` to the live n8n webhook (`https://n8n.pr-media.forum/webhook/asra3-support-chat`) with live pricing/offer context injected on every turn and a built-in deterministic fallback so the widget never breaks offline.
+**Architecture:** All persistent configuration (`coupons`, `offerSettings`, `supportLeads`) extends `LocalStoreData` in `src/lib/store.ts` (backed by `.data/store.json` with safe backward-compatible hydration and zero breaking schema migrations). Reusable UI modules (`OfferCountdownBanner.tsx`, `AdminPromosPanel.tsx`, `AdminLeadsTab.tsx`, `SupportChatWidget.tsx`, `src/lib/qr-code.ts`) keep `src/app/admin/page.tsx` and `DistributionWizard.tsx` clean and modular. The chatbot proxies through Next.js `/api/chat` to the live n8n webhook (`https://n8n.asra3.com/webhook/asra3-support-chat`) with live pricing/offer context injected on every turn and a built-in deterministic fallback so the widget never breaks offline.
 
-**Tech Stack:** Next.js 15 App Router, React 19, TypeScript 5.8, Tailwind CSS v4, `qrcode` (SVG/Data-URI generation for Satori + client UI), `next/og` (Satori), `lucide-react`, n8n (`https://n8n.pr-media.forum` with existing `OpenAI account` credential `Arwid7CTslrXwpfL` / `Google Gemini` `f5qzhIMAaSz2uchi`).
+**Tech Stack:** Next.js 15 App Router, React 19, TypeScript 5.8, Tailwind CSS v4, `qrcode` (SVG/Data-URI generation for Satori + client UI), `next/og` (Satori), `lucide-react`, n8n (`https://n8n.asra3.com` with existing `OpenAI account` credential `Arwid7CTslrXwpfL` / `Google Gemini` `f5qzhIMAaSz2uchi`).
 
 ---
 
@@ -23,7 +23,7 @@
 - `src/components/AdminPromosPanel.tsx` — Admin UI panel inside `/admin → Pricing & Go-Live` for configuring Limited-Time Offer settings and managing Discount Coupons.
 - `src/components/AdminLeadsTab.tsx` — Admin tab (`Support Leads`) showing captured customer contact requests with status badges, 1-click WhatsApp/Email links, and resolution controls.
 - `src/components/SupportChatWidget.tsx` — Floating bottom-corner bilingual (AR/EN) Support & Lead-Capture chat widget mounted globally (hidden on `/admin`).
-- `n8n-workflows/asra3-support-chatbot.json` — Exported n8n Support Chatbot workflow mirrored with the live workflow created on `https://n8n.pr-media.forum`.
+- `n8n-workflows/asra3-support-chatbot.json` — Exported n8n Support Chatbot workflow mirrored with the live workflow created on `https://n8n.asra3.com`.
 
 ### Modified Files
 - `package.json` — Add `qrcode` and `@types/qrcode`.
@@ -250,7 +250,7 @@ Before editing any existing symbol (`createCampaignOrder`, `markCampaignPaidAndS
 - Create: `src/components/SupportChatWidget.tsx`
 - Modify: `src/app/layout.tsx`
 - Create: `n8n-workflows/asra3-support-chatbot.json`
-- Live n8n: Create & validate workflow via `n8n-mcp` on `https://n8n.pr-media.forum`
+- Live n8n: Create & validate workflow via `n8n-mcp` on `https://n8n.asra3.com`
 
 - [ ] **Step 1: Build `POST /api/chat` (`src/app/api/chat/route.ts`)**
   - Accepts `{ sessionId, message, history, lang, countryCode, pageUrl }`.
@@ -270,7 +270,7 @@ Before editing any existing symbol (`createCampaignOrder`, `markCampaignPaidAndS
     - Embedded **Contact / Callback Form** (Name, Email, WhatsApp/Phone, Topic, Message) posting directly to `POST /api/support/leads` with instant confirmation banner.
 - [ ] **Step 3: Mount `<SupportChatWidget />` in `src/app/layout.tsx`**
   - Render inside `<AppProvider>` right after `{children}`.
-- [ ] **Step 4: Build & validate live n8n Support Chatbot workflow on `https://n8n.pr-media.forum`**
+- [ ] **Step 4: Build & validate live n8n Support Chatbot workflow on `https://n8n.asra3.com`**
   - Create workflow **`Asra3.com — AI Support Chatbot & Lead Capture Backend`** via `n8n_create_workflow`:
     - `chatWebhook` (`n8n-nodes-base.webhook`, `POST`, path `asra3-support-chat`, `responseMode: "responseNode"`)
     - `buildSupportPrompt` (`n8n-nodes-base.code`: checks optional `x-webhook-secret`, builds strict bilingual Asra3 system prompt with injected live `siteContext`, instructs model to answer concisely about Asra3/prices/offers/jobs and detect when to collect customer contact details in strict JSON)
@@ -318,4 +318,4 @@ Before editing any existing symbol (`createCampaignOrder`, `markCampaignPaidAndS
   - `/api/og/job/[slug]` returns valid `image/png` with embedded branded QR code (including Arabic company/title inputs, 0 crashes).
   - `/api/chat` answers live pricing/offer questions in AR & EN; `/api/support/leads` saves lead (and drops honeypot bots); `/api/admin/leads` lists & resolves lead.
 - [ ] **Step 4: Clean local test data, run GitNexus `analyze` + `detect_changes`, commit & push via `smart_commit.sh`**
-  - Provide exact VPS deploy commands from `DEPLOYMENT-VPS.md` plus the one line to add to VPS `.env` (`N8N_SUPPORT_CHAT_WEBHOOK=https://n8n.pr-media.forum/webhook/asra3-support-chat`).
+  - Provide exact VPS deploy commands from `DEPLOYMENT-VPS.md` plus the one line to add to VPS `.env` (`N8N_SUPPORT_CHAT_WEBHOOK=https://n8n.asra3.com/webhook/asra3-support-chat`).

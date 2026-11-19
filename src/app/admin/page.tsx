@@ -2692,7 +2692,7 @@ export default function AdminDashboardPage() {
                     {
                       id: "n8n-support",
                       title: "5. Support Chatbot Webhook (Set in VPS .env as N8N_SUPPORT_CHAT_WEBHOOK):",
-                      url: "https://n8n.pr-media.forum/webhook/asra3-support-chat",
+                      url: "https://n8n.asra3.com/webhook/asra3-support-chat",
                       copyable: true,
                     },
                   ].map((ep) => (

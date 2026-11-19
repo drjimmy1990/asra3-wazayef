@@ -94,17 +94,18 @@ Your live n8n workflow is already created and validated:
    - *(Optional Telegram Channel)*: fill `telegramBotToken` and `telegramChatId` (`@yourchannel`), then right-click **`optionalTelegramChannel`** → **Enable**.
 3. **Save** the workflow (leave **Inactive** until Test E below passes!).
 
-### 1.5 AI Support Chatbot Backend (Already Live on n8n!)
+### 1.5 AI Support Chatbot Backend (on `https://n8n.asra3.com`)
 
-Your floating support chatbot workflow is already created, validated, tested live, and **Active** on n8n:
-- **Workflow Name:** `Asra3.com — AI Support Chatbot & Lead Capture Backend`
-- **Workflow ID:** `St0lbN8VpNvxzO9G` (powered by `models/gemini-3.1-flash-lite` via `Google Gemini(PaLM) Api account 5`)
-- **Production Webhook URL:** `https://n8n.pr-media.forum/webhook/asra3-support-chat`
-- **Backup Template in Repo:** `n8n-workflows/asra3-support-chatbot.json`
+Import both ready-to-use n8n workflows into your **`https://n8n.asra3.com`** instance (**Workflows → Import from File**):
+- **Jobs + Facebook Autopilot:** `n8n-workflows/asra3-jobs-facebook-autopilot.json`
+- **AI Support Chatbot & Lead Capture:** `n8n-workflows/asra3-support-chatbot.json`
+  1. Open the `geminiLiteModel` node and select your Gemini API credential (`models/gemini-3.1-flash-lite` or `models/gemini-2.5-flash-lite`).
+  2. Save and switch the workflow **Active**.
+  3. Production Webhook URL: `https://n8n.asra3.com/webhook/asra3-support-chat`
 
-To connect your live site to this n8n AI backend, add this line to `/www/wwwroot/asra3-wazayef/.env`:
+To connect your live site to this `n8n.asra3.com` AI backend, add this line to `/www/wwwroot/asra3-wazayef/.env`:
 ```env
-N8N_SUPPORT_CHAT_WEBHOOK=https://n8n.pr-media.forum/webhook/asra3-support-chat
+N8N_SUPPORT_CHAT_WEBHOOK=https://n8n.asra3.com/webhook/asra3-support-chat
 ```
 *(Even if this variable is omitted or n8n is momentarily paused, `/api/chat` falls back seamlessly to a built-in bilingual pricing/FAQ responder so the floating widget never breaks.)*
 
