@@ -12,15 +12,24 @@ import {
   CompanyRecord,
   CountryCode,
   CountryConfig,
+  CouponDiscountType,
+  CouponRecord,
   CurrencyCode,
   Industry,
+  OfferSettings,
+  PackageId,
   PackageTier,
+  SupportLeadRecord,
+  SupportLeadStatus,
+  SupportLeadTopic,
 } from "@/lib/types";
 import {
   INITIAL_COMPANIES,
   INITIAL_COUNTRIES,
+  INITIAL_COUPONS,
   INITIAL_DEMO_CAMPAIGNS,
   INITIAL_INDUSTRIES,
+  INITIAL_OFFER_SETTINGS,
   INITIAL_PACKAGES,
   maskEmail,
 } from "@/lib/seed-data";
@@ -45,6 +54,9 @@ interface LocalStoreData {
   packages: PackageTier[];
   companies: CompanyRecord[];
   campaigns: CampaignRecord[];
+  coupons: CouponRecord[];
+  offerSettings: OfferSettings;
+  supportLeads: SupportLeadRecord[];
 }
 
 const DATA_DIR = path.join(process.cwd(), ".data");
@@ -217,6 +229,9 @@ function readLocalStore(): LocalStoreData {
         packages: INITIAL_PACKAGES,
         companies: INITIAL_COMPANIES,
         campaigns: INITIAL_DEMO_CAMPAIGNS,
+        coupons: INITIAL_COUPONS,
+        offerSettings: INITIAL_OFFER_SETTINGS,
+        supportLeads: [],
       };
       fs.writeFileSync(STORE_FILE, JSON.stringify(initial, null, 2), "utf8");
       return initial;
@@ -233,6 +248,13 @@ function readLocalStore(): LocalStoreData {
       campaigns: parsed.campaigns?.length
         ? parsed.campaigns
         : INITIAL_DEMO_CAMPAIGNS,
+      coupons: Array.isArray(parsed.coupons) ? parsed.coupons : INITIAL_COUPONS,
+      offerSettings: parsed.offerSettings
+        ? { ...INITIAL_OFFER_SETTINGS, ...parsed.offerSettings }
+        : INITIAL_OFFER_SETTINGS,
+      supportLeads: Array.isArray(parsed.supportLeads)
+        ? parsed.supportLeads
+        : [],
     };
   } catch {
     return {
@@ -241,6 +263,9 @@ function readLocalStore(): LocalStoreData {
       packages: INITIAL_PACKAGES,
       companies: INITIAL_COMPANIES,
       campaigns: INITIAL_DEMO_CAMPAIGNS,
+      coupons: INITIAL_COUPONS,
+      offerSettings: INITIAL_OFFER_SETTINGS,
+      supportLeads: [],
     };
   }
 }
@@ -260,10 +285,14 @@ export async function getCatalogData(): Promise<{
   countries: CountryConfig[];
   industries: Industry[];
   packages: PackageTier[];
+  offerSettings: OfferSettings;
 }> {
+  const localStore = readLocalStore();
+
   const mergeAsra3PackageBranding = (pkgs: PackageTier[]): PackageTier[] =>
     pkgs.map((p) => {
       const seedPkg = INITIAL_PACKAGES.find((sp) => sp.id === p.id);
+      const localPkg = localStore.packages.find((lp) => lp.id === p.id);
       if (!seedPkg) return p;
       return {
         ...p,
@@ -273,6 +302,10 @@ export async function getCatalogData(): Promise<{
         tagline_en: seedPkg.tagline_en,
         features_ar: seedPkg.features_ar,
         features_en: seedPkg.features_en,
+        original_prices_by_currency:
+          p.original_prices_by_currency ||
+          localPkg?.original_prices_by_currency ||
+          seedPkg.original_prices_by_currency,
       };
     });
 
@@ -295,17 +328,18 @@ export async function getCatalogData(): Promise<{
           packages: mergeAsra3PackageBranding(
             packagesRes.data as PackageTier[]
           ),
+          offerSettings: localStore.offerSettings,
         };
       }
     } catch (e) {
       console.warn("Supabase catalog fallback to local store:", e);
     }
   }
-  const store = readLocalStore();
   return {
-    countries: store.countries,
-    industries: store.industries,
-    packages: mergeAsra3PackageBranding(store.packages),
+    countries: localStore.countries,
+    industries: localStore.industries,
+    packages: mergeAsra3PackageBranding(localStore.packages),
+    offerSettings: localStore.offerSettings,
   };
 }
 
@@ -865,17 +899,17 @@ export async function createCampaignOrder(input: {
   const extraCount = input.extra_country_codes.length;
   const originalAmount = basePrice + extraCount * addonUnit;
 
-  let discountPercent = 0;
-  const upperPromo = input.promo_code?.trim().toUpperCase() || "";
-  if (upperPromo === "ASRA3VIP" || upperPromo === "GCC20") {
-    discountPercent = 20;
-  } else if (upperPromo === "FAST15" || upperPromo === "WAZAYEF15") {
-    discountPercent = 15;
-  }
-  const finalAmount = Math.max(
-    1,
-    Math.round(originalAmount * (1 - discountPercent / 100))
-  );
+  const couponCheck = input.promo_code?.trim()
+    ? await validateCouponCode({
+        code: input.promo_code,
+        packageId: pkg.id,
+        subtotal: originalAmount,
+      })
+    : null;
+  const appliedPromoCode = couponCheck?.valid ? couponCheck.code : null;
+  const finalAmount = couponCheck?.valid
+    ? couponCheck.finalTotal
+    : Math.max(1, originalAmount);
 
   const requestedTargetCompanies =
     pkg.company_limit + extraCount * Math.round(pkg.company_limit * 0.5);
@@ -1052,7 +1086,7 @@ export async function createCampaignOrder(input: {
     easykash_product_code: null,
     easykash_voucher: null,
     payment_method: null,
-    promo_code: input.promo_code || null,
+    promo_code: appliedPromoCode,
     amount_original: originalAmount,
     amount_paid: finalAmount,
     currency,
@@ -1804,7 +1838,8 @@ export async function deleteCompanyRecord(companyId: string): Promise<boolean> {
 export async function updatePackagePricing(
   packageId: string,
   pricesByCurrency: Record<string, number>,
-  addonPricesByCurrency?: Record<string, number>
+  addonPricesByCurrency?: Record<string, number>,
+  originalPricesByCurrency?: Record<string, number>
 ): Promise<PackageTier[]> {
   if (isSupabaseConfigured()) {
     try {
@@ -1834,7 +1869,396 @@ export async function updatePackagePricing(
         ...addonPricesByCurrency,
       };
     }
+    if (originalPricesByCurrency) {
+      store.packages[idx].original_prices_by_currency = {
+        ...(store.packages[idx].original_prices_by_currency ||
+          store.packages[idx].prices_by_currency),
+        ...originalPricesByCurrency,
+      };
+    }
     writeLocalStore(store);
   }
   return store.packages;
+}
+
+// ==============================================================================
+// Dynamic Offer Settings, Discount Coupons & Support Chatbot Leads
+// ==============================================================================
+
+export function getOfferSettings(): OfferSettings {
+  return readLocalStore().offerSettings;
+}
+
+export function updateOfferSettings(
+  patch: Partial<OfferSettings>
+): OfferSettings {
+  const store = readLocalStore();
+  const next: OfferSettings = {
+    ...store.offerSettings,
+    ...patch,
+    evergreen_hours: Math.min(
+      720,
+      Math.max(
+        1,
+        Number(patch.evergreen_hours ?? store.offerSettings.evergreen_hours) || 48
+      )
+    ),
+    ends_at:
+      patch.ends_at === undefined
+        ? store.offerSettings.ends_at
+        : patch.ends_at
+        ? String(patch.ends_at).trim() || null
+        : null,
+    highlight_coupon_code:
+      patch.highlight_coupon_code === undefined
+        ? store.offerSettings.highlight_coupon_code
+        : patch.highlight_coupon_code
+        ? String(patch.highlight_coupon_code).trim().toUpperCase() || null
+        : null,
+  };
+  store.offerSettings = next;
+  writeLocalStore(store);
+  return next;
+}
+
+async function computePaidUsageByCoupon(): Promise<Map<string, number>> {
+  const counts = new Map<string, number>();
+  try {
+    const campaigns = await listAllCampaigns();
+    for (const camp of campaigns) {
+      if (camp.id === "camp-demo-ae-1") continue;
+      if (camp.payment_status !== "paid" || !camp.promo_code) continue;
+      const code = camp.promo_code.trim().toUpperCase();
+      counts.set(code, (counts.get(code) || 0) + 1);
+    }
+  } catch {
+    // Fallback to stored used_count
+  }
+  return counts;
+}
+
+export async function listCoupons(): Promise<CouponRecord[]> {
+  const store = readLocalStore();
+  const paidCounts = await computePaidUsageByCoupon();
+  return store.coupons.map((cpn) => ({
+    ...cpn,
+    used_count: Math.max(cpn.used_count || 0, paidCounts.get(cpn.code) || 0),
+  }));
+}
+
+export function validateAndComputeCoupon(
+  coupons: CouponRecord[],
+  params: { code: string; packageId: PackageId; subtotal: number }
+): {
+  valid: boolean;
+  code: string;
+  discount_type?: CouponDiscountType;
+  discount_value?: number;
+  discountAmount: number;
+  finalTotal: number;
+  errorReason?:
+    | "empty"
+    | "not_found"
+    | "inactive"
+    | "expired"
+    | "max_uses_reached"
+    | "package_not_eligible";
+} {
+  const normalized = (params.code || "").trim().toUpperCase();
+  const safeSubtotal = Math.max(1, Math.round(Number(params.subtotal) || 0));
+
+  if (!normalized) {
+    return {
+      valid: false,
+      code: "",
+      discountAmount: 0,
+      finalTotal: safeSubtotal,
+      errorReason: "empty",
+    };
+  }
+
+  const found = coupons.find((c) => c.code.trim().toUpperCase() === normalized);
+  if (!found) {
+    return {
+      valid: false,
+      code: normalized,
+      discountAmount: 0,
+      finalTotal: safeSubtotal,
+      errorReason: "not_found",
+    };
+  }
+
+  if (!found.is_active) {
+    return {
+      valid: false,
+      code: found.code,
+      discountAmount: 0,
+      finalTotal: safeSubtotal,
+      errorReason: "inactive",
+    };
+  }
+
+  if (found.expires_at) {
+    const expiryMs = new Date(found.expires_at).getTime();
+    if (!Number.isNaN(expiryMs) && expiryMs < Date.now()) {
+      return {
+        valid: false,
+        code: found.code,
+        discountAmount: 0,
+        finalTotal: safeSubtotal,
+        errorReason: "expired",
+      };
+    }
+  }
+
+  if (
+    found.max_uses !== null &&
+    found.max_uses !== undefined &&
+    found.max_uses > 0 &&
+    (found.used_count || 0) >= found.max_uses
+  ) {
+    return {
+      valid: false,
+      code: found.code,
+      discountAmount: 0,
+      finalTotal: safeSubtotal,
+      errorReason: "max_uses_reached",
+    };
+  }
+
+  if (
+    found.applicable_packages !== "all" &&
+    Array.isArray(found.applicable_packages) &&
+    !found.applicable_packages.includes(params.packageId)
+  ) {
+    return {
+      valid: false,
+      code: found.code,
+      discountAmount: 0,
+      finalTotal: safeSubtotal,
+      errorReason: "package_not_eligible",
+    };
+  }
+
+  const discountAmount =
+    found.discount_type === "fixed"
+      ? Math.min(safeSubtotal, Math.max(0, Math.round(found.discount_value)))
+      : Math.round(
+          (safeSubtotal * Math.min(100, Math.max(0, found.discount_value))) /
+            100
+        );
+
+  const finalTotal = Math.max(1, safeSubtotal - discountAmount);
+
+  return {
+    valid: true,
+    code: found.code,
+    discount_type: found.discount_type,
+    discount_value: found.discount_value,
+    discountAmount,
+    finalTotal,
+  };
+}
+
+export async function validateCouponCode(params: {
+  code: string;
+  packageId: PackageId;
+  subtotal: number;
+}) {
+  const coupons = await listCoupons();
+  return validateAndComputeCoupon(coupons, params);
+}
+
+export function createCoupon(input: {
+  code: string;
+  discount_type: CouponDiscountType;
+  discount_value: number;
+  applicable_packages?: PackageId[] | "all";
+  max_uses?: number | null;
+  expires_at?: string | null;
+  is_active?: boolean;
+  note?: string;
+}): CouponRecord {
+  const store = readLocalStore();
+  const cleanCode = input.code
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9_-]/g, "");
+  if (cleanCode.length < 3) {
+    throw new Error("Coupon code must be at least 3 alphanumeric characters.");
+  }
+  if (store.coupons.some((c) => c.code.toUpperCase() === cleanCode)) {
+    throw new Error(`Coupon code "${cleanCode}" already exists.`);
+  }
+
+  const discountType: CouponDiscountType =
+    input.discount_type === "fixed" ? "fixed" : "percent";
+  const rawVal = Number(input.discount_value);
+  if (!Number.isFinite(rawVal) || rawVal <= 0) {
+    throw new Error("Discount value must be greater than 0.");
+  }
+  const discountValue =
+    discountType === "percent" ? Math.min(99, Math.round(rawVal)) : Math.round(rawVal);
+
+  const record: CouponRecord = {
+    id: `cpn-${crypto.randomUUID().slice(0, 10)}`,
+    code: cleanCode,
+    discount_type: discountType,
+    discount_value: discountValue,
+    applicable_packages:
+      Array.isArray(input.applicable_packages) &&
+      input.applicable_packages.length > 0
+        ? input.applicable_packages
+        : "all",
+    max_uses:
+      input.max_uses && Number(input.max_uses) > 0
+        ? Math.round(Number(input.max_uses))
+        : null,
+    used_count: 0,
+    expires_at: input.expires_at ? String(input.expires_at).trim() || null : null,
+    is_active: input.is_active !== false,
+    note: (input.note || "").trim().slice(0, 140),
+    created_at: new Date().toISOString(),
+  };
+
+  store.coupons.unshift(record);
+  writeLocalStore(store);
+  return record;
+}
+
+export function updateCoupon(
+  id: string,
+  patch: Partial<
+    Pick<
+      CouponRecord,
+      | "is_active"
+      | "discount_type"
+      | "discount_value"
+      | "max_uses"
+      | "expires_at"
+      | "applicable_packages"
+      | "note"
+    >
+  >
+): CouponRecord | null {
+  const store = readLocalStore();
+  const idx = store.coupons.findIndex((c) => c.id === id);
+  if (idx === -1) return null;
+
+  const existing = store.coupons[idx];
+  const nextType: CouponDiscountType =
+    patch.discount_type === "fixed"
+      ? "fixed"
+      : patch.discount_type === "percent"
+      ? "percent"
+      : existing.discount_type;
+  const nextVal =
+    patch.discount_value !== undefined
+      ? nextType === "percent"
+        ? Math.min(99, Math.max(1, Math.round(Number(patch.discount_value))))
+        : Math.max(1, Math.round(Number(patch.discount_value)))
+      : existing.discount_value;
+
+  store.coupons[idx] = {
+    ...existing,
+    ...patch,
+    discount_type: nextType,
+    discount_value: nextVal,
+    max_uses:
+      patch.max_uses === undefined
+        ? existing.max_uses
+        : patch.max_uses && Number(patch.max_uses) > 0
+        ? Math.round(Number(patch.max_uses))
+        : null,
+    expires_at:
+      patch.expires_at === undefined
+        ? existing.expires_at
+        : patch.expires_at
+        ? String(patch.expires_at).trim() || null
+        : null,
+  };
+  writeLocalStore(store);
+  return store.coupons[idx];
+}
+
+export function deleteCoupon(id: string): boolean {
+  const store = readLocalStore();
+  const before = store.coupons.length;
+  store.coupons = store.coupons.filter((c) => c.id !== id);
+  if (store.coupons.length === before) return false;
+  writeLocalStore(store);
+  return true;
+}
+
+export function listSupportLeads(): SupportLeadRecord[] {
+  const store = readLocalStore();
+  return [...store.supportLeads].sort(
+    (a, b) =>
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
+}
+
+export function createSupportLead(input: {
+  session_id?: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  country_code?: string;
+  topic?: SupportLeadTopic;
+  message: string;
+  page_url?: string;
+}): SupportLeadRecord {
+  const store = readLocalStore();
+  const allowedTopics = new Set<SupportLeadTopic>([
+    "pricing",
+    "campaign_help",
+    "employer_hr",
+    "payment",
+    "general",
+  ]);
+  const cleanTopic: SupportLeadTopic = allowedTopics.has(
+    input.topic as SupportLeadTopic
+  )
+    ? (input.topic as SupportLeadTopic)
+    : "general";
+
+  const record: SupportLeadRecord = {
+    id: `lead-${crypto.randomUUID().slice(0, 10)}`,
+    session_id: (input.session_id || "web").slice(0, 64),
+    name: input.name.trim().slice(0, 120),
+    email: (input.email || "").trim().toLowerCase().slice(0, 160),
+    phone: (input.phone || "").trim().slice(0, 40),
+    country_code: (input.country_code || "AE").trim().toUpperCase().slice(0, 8),
+    topic: cleanTopic,
+    message: input.message.trim().slice(0, 1500),
+    page_url: (input.page_url || "/").trim().slice(0, 300),
+    status: "new",
+    created_at: new Date().toISOString(),
+  };
+
+  store.supportLeads.unshift(record);
+  store.supportLeads = store.supportLeads.slice(0, 500);
+  writeLocalStore(store);
+  return record;
+}
+
+export function updateSupportLeadStatus(
+  id: string,
+  status: SupportLeadStatus
+): SupportLeadRecord | null {
+  const store = readLocalStore();
+  const idx = store.supportLeads.findIndex((l) => l.id === id);
+  if (idx === -1) return null;
+  store.supportLeads[idx].status = status;
+  writeLocalStore(store);
+  return store.supportLeads[idx];
+}
+
+export function deleteSupportLead(id: string): boolean {
+  const store = readLocalStore();
+  const before = store.supportLeads.length;
+  store.supportLeads = store.supportLeads.filter((l) => l.id !== id);
+  if (store.supportLeads.length === before) return false;
+  writeLocalStore(store);
+  return true;
 }

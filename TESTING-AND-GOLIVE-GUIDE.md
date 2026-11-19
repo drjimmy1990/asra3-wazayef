@@ -94,6 +94,20 @@ Your live n8n workflow is already created and validated:
    - *(Optional Telegram Channel)*: fill `telegramBotToken` and `telegramChatId` (`@yourchannel`), then right-click **`optionalTelegramChannel`** → **Enable**.
 3. **Save** the workflow (leave **Inactive** until Test E below passes!).
 
+### 1.5 AI Support Chatbot Backend (Already Live on n8n!)
+
+Your floating support chatbot workflow is already created, validated, tested live, and **Active** on n8n:
+- **Workflow Name:** `Asra3.com — AI Support Chatbot & Lead Capture Backend`
+- **Workflow ID:** `St0lbN8VpNvxzO9G` (powered by `models/gemini-3.1-flash-lite` via `Google Gemini(PaLM) Api account 5`)
+- **Production Webhook URL:** `https://n8n.pr-media.forum/webhook/asra3-support-chat`
+- **Backup Template in Repo:** `n8n-workflows/asra3-support-chatbot.json`
+
+To connect your live site to this n8n AI backend, add this line to `/www/wwwroot/asra3-wazayef/.env`:
+```env
+N8N_SUPPORT_CHAT_WEBHOOK=https://n8n.pr-media.forum/webhook/asra3-support-chat
+```
+*(Even if this variable is omitted or n8n is momentarily paused, `/api/chat` falls back seamlessly to a built-in bilingual pricing/FAQ responder so the floating widget never breaks.)*
+
 ---
 
 ## Part 2 — Full End-to-End Real-World QA Test Plan (Safe Live Testing)
@@ -272,6 +286,27 @@ Now switch to your **Test HR Inbox** (`your-hr-inbox-1@yourdomain.com`):
    - Run `fetchSocialQueue` again → confirm that same job is **no longer returned**.
 7. **Activate Autopilot:**
    - Toggle the workflow switch in n8n to **Active** so it harvests & publishes automatically every **3 hours**.
+
+---
+
+### Test F — Coupons, Limited-Time Offers, Branded QR Job Cards & Support Chatbot
+
+1. **Test F1 — Limited-Time Offers & Discount Coupons (`/admin` → Pricing, Offers & Coupons):**
+   - Confirm the **Offer Countdown Banner** is active on the homepage pricing section and Step 3 of the wizard, showing crossed-out anchor prices + `SAVE XX%` badges.
+   - Create a custom test coupon in `/admin` (e.g., `QATEST50`, `50% OFF`, `Max Uses: 2`).
+   - Enter `QATEST50` in Step 4 of the Distribution Wizard → verify live validation cuts the checkout total in half immediately and EasyKash bills the exact discounted amount.
+   - Toggle `QATEST50` to **Paused** (or delete it after testing) and verify the wizard immediately rejects it.
+2. **Test F2 — Branded Asra3 QR Code on Job Cards & Job Pages:**
+   - Open any live job (`/jobs/<slug>`):
+     - Confirm the sidebar **"Branded Asra3 Job QR Card"** renders a crisp QR code with the centered gold **`A3`** emblem.
+     - Scan the QR code with your phone camera → confirm it opens `https://asra3.com/jobs/<slug>` directly.
+     - Click **Download Facebook Card (PNG + QR)** → open the downloaded `1200×630` PNG and confirm the QR code + `"Scan QR or Tap 1st Comment • Apply Free on Asra3.com"` footer render crisply.
+     - Click **1st Comment** → verify a ready-to-paste comment with tracked URL copies to your clipboard.
+3. **Test F3 — Floating Support Chatbot & Lead Capture:**
+   - Open `https://asra3.com` (make sure you're NOT on `/admin`) → click the floating **`دعم أسرع • اسألنا` / `Asra3 Support`** button in the bottom corner.
+   - Ask about prices in Arabic or English → confirm the bot quotes your exact live prices and active offer from `/api/catalog`.
+   - Click **Contact / تواصل معنا** inside the widget (or type your phone/email in chat) and submit a test inquiry.
+   - Open `/admin` → **Support Leads** tab → confirm the lead appears with 1-click **WhatsApp** & **Email** buttons; test marking it **Contacted → Resolved**, then delete your test lead.
 
 ---
 

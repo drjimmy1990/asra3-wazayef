@@ -8,6 +8,9 @@ import {
   isSupabaseConfigured,
   listAllCampaigns,
   listCompanies,
+  listCoupons,
+  listSupportLeads,
+  updateOfferSettings,
   updatePackagePricing,
 } from "@/lib/store";
 import {
@@ -21,11 +24,16 @@ export async function GET(req: NextRequest) {
     return unauthorizedAdminResponse();
   }
 
-  const [campaigns, companies, catalog] = await Promise.all([
+  const [campaigns, companies, catalog, coupons] = await Promise.all([
     listAllCampaigns(),
     listCompanies(),
     getCatalogData(),
+    listCoupons(),
   ]);
+  const supportLeads = listSupportLeads();
+  const newSupportLeadsCount = supportLeads.filter(
+    (l) => l.status === "new"
+  ).length;
 
   const paidCampaigns = campaigns.filter((c) => c.payment_status === "paid");
   const totalEmailsSent = campaigns.reduce(
@@ -82,6 +90,9 @@ export async function GET(req: NextRequest) {
       ),
     },
     packages: catalog.packages,
+    offerSettings: catalog.offerSettings,
+    coupons,
+    newSupportLeadsCount,
     countries: catalog.countries,
   });
 }
@@ -93,11 +104,16 @@ export async function PATCH(req: NextRequest) {
 
   try {
     const body = await req.json();
+    if (body.offerSettings && typeof body.offerSettings === "object") {
+      const offerSettings = updateOfferSettings(body.offerSettings);
+      return NextResponse.json({ ok: true, offerSettings });
+    }
     if (body.packageId && body.pricesByCurrency) {
       const updatedPackages = await updatePackagePricing(
         body.packageId,
         body.pricesByCurrency,
-        body.addonPricesByCurrency
+        body.addonPricesByCurrency,
+        body.originalPricesByCurrency
       );
       return NextResponse.json({ ok: true, packages: updatedPackages });
     }

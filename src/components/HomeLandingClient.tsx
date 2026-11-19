@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { Asra3Logo } from "@/components/Asra3Logo";
 import { DistributionWizard } from "@/components/DistributionWizard";
+import { OfferCountdownBanner } from "@/components/OfferCountdownBanner";
 import {
   SeoGeoKnowledgeSection,
   SeoSectionVariant,
@@ -289,6 +290,7 @@ export function HomeLandingClient({
     t: ctxT,
     countries,
     packages,
+    offerSettings,
     selectedCountryCode: ctxCountryCode,
     setSelectedCountryCode,
     selectCountry,
@@ -1153,10 +1155,24 @@ export function HomeLandingClient({
             </p>
           </div>
 
-          <div className="mt-14 grid grid-cols-1 gap-7 lg:grid-cols-3 items-stretch">
+          <div className="mt-8">
+            <OfferCountdownBanner />
+          </div>
+
+          <div className="mt-10 grid grid-cols-1 gap-7 lg:grid-cols-3 items-stretch">
             {packages.map((pkg, pkgIdx) => {
               const price =
                 pkg.prices_by_currency[currency] ?? pkg.prices_by_currency.AED;
+              const originalPrice =
+                pkg.original_prices_by_currency?.[currency] ??
+                pkg.original_prices_by_currency?.AED;
+              const showOfferDiscount =
+                offerSettings.enabled &&
+                Boolean(originalPrice && originalPrice > price);
+              const savePct =
+                showOfferDiscount && originalPrice
+                  ? Math.round(((originalPrice - price) / originalPrice) * 100)
+                  : 0;
               const features =
                 lang === "ar" ? pkg.features_ar : pkg.features_en;
               const isFeatured = Boolean(pkg.is_featured);
@@ -1202,7 +1218,31 @@ export function HomeLandingClient({
                       {lang === "ar" ? pkg.tagline_ar : pkg.tagline_en}
                     </p>
 
-                    <div className="mt-6 flex items-baseline gap-2">
+                    {showOfferDiscount && originalPrice && (
+                      <div className="mt-5 flex items-center gap-2">
+                        <span
+                          dir="ltr"
+                          className={`text-sm font-bold line-through tabular-nums ${
+                            isFeatured
+                              ? "text-zinc-500"
+                              : "text-zinc-400 dark:text-zinc-500"
+                          }`}
+                        >
+                          {originalPrice} {currencySymbol}
+                        </span>
+                        <span className="rounded bg-[#D4AF37] px-2 py-0.5 text-[10px] font-extrabold text-[#09090B]">
+                          {lang === "ar"
+                            ? `وفر ${savePct}%`
+                            : `SAVE ${savePct}%`}
+                        </span>
+                      </div>
+                    )}
+
+                    <div
+                      className={`${
+                        showOfferDiscount ? "mt-1.5" : "mt-6"
+                      } flex items-baseline gap-2`}
+                    >
                       <span
                         dir="ltr"
                         className={`text-4xl sm:text-5xl font-extrabold tabular-nums ${

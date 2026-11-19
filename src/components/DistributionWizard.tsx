@@ -3,7 +3,13 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { trackGaEvent } from "@/components/GoogleAnalytics";
-import { CountryCode, CvScanResult, PackageId } from "@/lib/types";
+import { OfferCountdownBanner } from "@/components/OfferCountdownBanner";
+import {
+  CountryCode,
+  CouponDiscountType,
+  CvScanResult,
+  PackageId,
+} from "@/lib/types";
 import { RadialProgressGauge } from "@/components/MotionPrimitives";
 import {
   AlertCircle,
@@ -40,6 +46,7 @@ export function DistributionWizard({
     countries,
     industries,
     packages,
+    offerSettings,
     selectedCountryCode,
     selectCountry,
     selectedCountry,
@@ -78,9 +85,12 @@ export function DistributionWizard({
   const [selectedPackageId, setSelectedPackageId] = useState<PackageId>("pro");
   const [promoCode, setPromoCode] = useState("");
   const [promoError, setPromoError] = useState<string | null>(null);
+  const [validatingPromo, setValidatingPromo] = useState(false);
   const [appliedPromo, setAppliedPromo] = useState<{
     code: string;
-    percent: number;
+    discount_type: CouponDiscountType;
+    discount_value: number;
+    discountAmount: number;
   } | null>(null);
   const [isSubmittingCheckout, setIsSubmittingCheckout] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
@@ -277,29 +287,6 @@ export function DistributionWizard({
     setStep(3);
   };
 
-  const handleApplyPromo = () => {
-    const code = promoCode.trim().toUpperCase();
-    if (!code) {
-      setAppliedPromo(null);
-      setPromoError(null);
-      return;
-    }
-    if (code === "ASRA3VIP" || code === "GCC20") {
-      setAppliedPromo({ code, percent: 20 });
-      setPromoError(null);
-    } else if (code === "FAST15" || code === "WAZAYEF15") {
-      setAppliedPromo({ code, percent: 15 });
-      setPromoError(null);
-    } else {
-      setAppliedPromo(null);
-      setPromoError(
-        lang === "ar"
-          ? "كود الخصم غير صالح أو منتهي الصلاحية."
-          : "Invalid or expired promo code."
-      );
-    }
-  };
-
   const activePackage =
     packages.find((p) => p.id === selectedPackageId) || packages[1];
   const currency = selectedCountry.currency_code;
@@ -316,9 +303,93 @@ export function DistributionWizard({
     activePackage.addon_country_price_by_currency.AED;
   const addonTotal = extraCountries.length * addonUnitPrice;
   const subtotal = basePrice + addonTotal;
-  const discountAmount = appliedPromo
-    ? Math.round((subtotal * appliedPromo.percent) / 100)
-    : 0;
+
+  const validatePromoAgainstServer = async (
+    rawCode: string,
+    pkgId: PackageId,
+    currentSubtotal: number
+  ) => {
+    const code = rawCode.trim().toUpperCase();
+    if (!code) {
+      setAppliedPromo(null);
+      setPromoError(null);
+      return;
+    }
+    setValidatingPromo(true);
+    try {
+      const res = await fetch("/api/coupons/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code,
+          packageId: pkgId,
+          subtotal: currentSubtotal,
+        }),
+      });
+      const data = await res.json();
+      if (data?.valid) {
+        setAppliedPromo({
+          code: data.code,
+          discount_type: data.discount_type || "percent",
+          discount_value: Number(data.discount_value) || 0,
+          discountAmount: Number(data.discountAmount) || 0,
+        });
+        setPromoError(null);
+      } else {
+        setAppliedPromo(null);
+        const reason = data?.errorReason;
+        if (reason === "expired") {
+          setPromoError(
+            lang === "ar"
+              ? "انتهت صلاحية كود الخصم هذا."
+              : "This coupon code has expired."
+          );
+        } else if (reason === "max_uses_reached") {
+          setPromoError(
+            lang === "ar"
+              ? "تم استنفاد الحد الأقصى لاستخدام هذا الكوبون."
+              : "This coupon has reached its maximum usage limit."
+          );
+        } else if (reason === "package_not_eligible") {
+          setPromoError(
+            lang === "ar"
+              ? "هذا الكوبون غير مخصص للباقة المختارة حالياً."
+              : "This coupon is not valid for the selected package."
+          );
+        } else {
+          setPromoError(
+            lang === "ar"
+              ? "كود الخصم غير صالح أو غير مفعّل."
+              : "Invalid or inactive promo code."
+          );
+        }
+      }
+    } catch {
+      setPromoError(
+        lang === "ar"
+          ? "تعذّر التحقق من كود الخصم، حاول مرة أخرى."
+          : "Could not verify promo code, please try again."
+      );
+    } finally {
+      setValidatingPromo(false);
+    }
+  };
+
+  const handleApplyPromo = () => {
+    void validatePromoAgainstServer(promoCode, selectedPackageId, subtotal);
+  };
+
+  useEffect(() => {
+    if (!appliedPromo?.code) return;
+    void validatePromoAgainstServer(
+      appliedPromo.code,
+      selectedPackageId,
+      subtotal
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPackageId, subtotal]);
+
+  const discountAmount = appliedPromo ? appliedPromo.discountAmount : 0;
   const finalTotal = Math.max(1, subtotal - discountAmount);
 
   const totalCompaniesToReach =
@@ -958,6 +1029,20 @@ export function DistributionWizard({
                   : `Localized pricing displayed in ${selectedCountry.name_en} currency (${currencySymbol})`}
               </p>
 
+              <div className="mt-4">
+                <OfferCountdownBanner
+                  compact
+                  onSelectCoupon={(code) => {
+                    setPromoCode(code);
+                    void validatePromoAgainstServer(
+                      code,
+                      selectedPackageId,
+                      subtotal
+                    );
+                  }}
+                />
+              </div>
+
               <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-3">
                 {packages.map((pkg) => {
                   const selected = pkg.id === selectedPackageId;
@@ -965,6 +1050,18 @@ export function DistributionWizard({
                   const price =
                     pkg.prices_by_currency[currency] ??
                     pkg.prices_by_currency.AED;
+                  const originalPrice =
+                    pkg.original_prices_by_currency?.[currency] ??
+                    pkg.original_prices_by_currency?.AED;
+                  const showOfferDiscount =
+                    offerSettings.enabled &&
+                    Boolean(originalPrice && originalPrice > price);
+                  const savePct =
+                    showOfferDiscount && originalPrice
+                      ? Math.round(
+                          ((originalPrice - price) / originalPrice) * 100
+                        )
+                      : 0;
                   const features =
                     lang === "ar" ? pkg.features_ar : pkg.features_en;
 
@@ -1010,7 +1107,31 @@ export function DistributionWizard({
                           {lang === "ar" ? pkg.tagline_ar : pkg.tagline_en}
                         </p>
 
-                        <div className="mt-4 flex items-baseline gap-1.5">
+                        {showOfferDiscount && originalPrice && (
+                          <div className="mt-3.5 flex items-center gap-2">
+                            <span
+                              dir="ltr"
+                              className={`text-xs font-bold line-through tabular-nums ${
+                                isFeatured
+                                  ? "text-zinc-500"
+                                  : "text-zinc-400 dark:text-zinc-500"
+                              }`}
+                            >
+                              {originalPrice} {currencySymbol}
+                            </span>
+                            <span className="rounded bg-[#D4AF37] px-2 py-0.5 text-[10px] font-extrabold text-[#09090B]">
+                              {lang === "ar"
+                                ? `وفر ${savePct}%`
+                                : `SAVE ${savePct}%`}
+                            </span>
+                          </div>
+                        )}
+
+                        <div
+                          className={`${
+                            showOfferDiscount ? "mt-1" : "mt-4"
+                          } flex items-baseline gap-1.5`}
+                        >
                           <span
                             dir="ltr"
                             className={`text-3xl sm:text-4xl font-extrabold tabular-nums ${
@@ -1343,18 +1464,27 @@ export function DistributionWizard({
                     />
                     <button
                       type="button"
+                      disabled={validatingPromo}
                       onClick={handleApplyPromo}
-                      className="btn-carbon rounded-lg px-5 py-2.5 text-xs font-bold cursor-pointer"
+                      className="btn-carbon rounded-lg px-5 py-2.5 text-xs font-bold cursor-pointer disabled:opacity-60"
                     >
-                      {t.applyPromoBtn}
+                      {validatingPromo ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        t.applyPromoBtn
+                      )}
                     </button>
                   </div>
                   {appliedPromo && (
                     <p className="text-xs font-bold text-zinc-950 dark:text-[#D4AF37]">
                       ✓{" "}
-                      {lang === "ar"
-                        ? `تم تطبيق كود الخصم (${appliedPromo.code}) بنجاح — خصم ${appliedPromo.percent}%!`
-                        : `Promo code (${appliedPromo.code}) applied — ${appliedPromo.percent}% OFF!`}
+                      {appliedPromo.discount_type === "fixed"
+                        ? lang === "ar"
+                          ? `تم تطبيق كود الخصم (${appliedPromo.code}) بنجاح — خصم ${appliedPromo.discountAmount} ${currencySymbol}!`
+                          : `Promo code (${appliedPromo.code}) applied — ${appliedPromo.discountAmount} ${currencySymbol} OFF!`
+                        : lang === "ar"
+                        ? `تم تطبيق كود الخصم (${appliedPromo.code}) بنجاح — خصم ${appliedPromo.discount_value}%!`
+                        : `Promo code (${appliedPromo.code}) applied — ${appliedPromo.discount_value}% OFF!`}
                     </p>
                   )}
                   {promoError && (

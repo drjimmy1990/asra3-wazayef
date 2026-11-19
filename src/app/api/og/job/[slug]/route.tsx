@@ -2,6 +2,8 @@
 import { NextRequest } from "next/server";
 import type { ReactElement } from "react";
 import { getJobBySlug } from "@/lib/jobs-store";
+import { buildBrandedQrDataUri } from "@/lib/qr-code";
+import { getCanonicalSiteUrl } from "@/lib/seo-indexer";
 import { INITIAL_COUNTRIES, INITIAL_INDUSTRIES } from "@/lib/seed-data";
 
 const size = {
@@ -82,9 +84,27 @@ export async function GET(
     .filter(Boolean)
     .slice(0, 4);
 
+  const siteUrl = getCanonicalSiteUrl();
+  const jobUrl = `${siteUrl}/jobs/${encodeURIComponent(job?.slug || slug)}`;
+  let qrDataUri = "";
+  try {
+    qrDataUri = buildBrandedQrDataUri(jobUrl, 160);
+  } catch {
+    qrDataUri = "";
+  }
+
   try {
     return await renderToPng(
-      buildJobCard({ titleEn, companyName, countryCode, cityEn, industryObj, salaryText, skills })
+      buildJobCard({
+        titleEn,
+        companyName,
+        countryCode,
+        cityEn,
+        industryObj,
+        salaryText,
+        skills,
+        qrDataUri,
+      })
     );
   } catch (err) {
     console.error(`[og] job card render failed for ${slug}:`, err);
@@ -101,6 +121,7 @@ function buildJobCard({
   industryObj,
   salaryText,
   skills,
+  qrDataUri,
 }: {
   titleEn: string;
   companyName: string;
@@ -109,6 +130,7 @@ function buildJobCard({
   industryObj: { name_en: string };
   salaryText: string;
   skills: string[];
+  qrDataUri: string;
 }): ReactElement {
   return (
       <div
@@ -195,81 +217,140 @@ function buildJobCard({
           </div>
         </div>
 
-        {/* Center Job Role & Company */}
+        {/* Center Job Role & Company + Branded QR Column */}
         <div
           style={{
             display: "flex",
-            flexDirection: "column",
-            gap: "18px",
-            maxWidth: "1040px",
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "36px",
+            width: "100%",
           }}
         >
           <div
             style={{
-              fontSize: 21,
-              fontWeight: 700,
-              color: "#D4AF37",
-              letterSpacing: "1px",
-              textTransform: "uppercase",
-            }}
-          >
-            {industryObj.name_en}
-          </div>
-
-          <div
-            style={{
-              fontSize: titleEn.length > 42 ? 48 : 56,
-              fontWeight: 800,
-              lineHeight: 1.12,
-              letterSpacing: "-1px",
-              color: "#FAFAFA",
-            }}
-          >
-            {titleEn}
-          </div>
-
-          <div
-            style={{
               display: "flex",
-              alignItems: "center",
-              gap: "18px",
-              fontSize: 26,
-              color: "#D4D4D8",
-              fontWeight: 600,
+              flexDirection: "column",
+              gap: "16px",
+              flex: 1,
+              maxWidth: qrDataUri ? "820px" : "1040px",
             }}
           >
-            <span>{companyName}</span>
-            <span style={{ color: "#D4AF37" }}>•</span>
-            <span style={{ color: "#D4AF37", fontWeight: 700 }}>
-              {salaryText}
-            </span>
+            <div
+              style={{
+                fontSize: 20,
+                fontWeight: 700,
+                color: "#D4AF37",
+                letterSpacing: "1px",
+                textTransform: "uppercase",
+              }}
+            >
+              {industryObj.name_en}
+            </div>
+
+            <div
+              style={{
+                fontSize: titleEn.length > 42 ? 44 : 52,
+                fontWeight: 800,
+                lineHeight: 1.12,
+                letterSpacing: "-1px",
+                color: "#FAFAFA",
+              }}
+            >
+              {titleEn}
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "16px",
+                fontSize: 24,
+                color: "#D4D4D8",
+                fontWeight: 600,
+              }}
+            >
+              <span>{companyName}</span>
+              <span style={{ color: "#D4AF37" }}>•</span>
+              <span style={{ color: "#D4AF37", fontWeight: 700 }}>
+                {salaryText}
+              </span>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "10px",
+                marginTop: "6px",
+              }}
+            >
+              {skills.map((sk) => (
+                <div
+                  key={sk}
+                  style={{
+                    padding: "7px 15px",
+                    borderRadius: "8px",
+                    backgroundColor: "#18181B",
+                    border: "1px solid #27272A",
+                    color: "#E4E4E7",
+                    fontSize: 16,
+                    fontWeight: 600,
+                  }}
+                >
+                  {sk}
+                </div>
+              ))}
+            </div>
           </div>
 
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: "10px",
-              marginTop: "6px",
-            }}
-          >
-            {skills.map((sk) => (
-              <div
-                key={sk}
+          {qrDataUri ? (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "10px",
+                padding: "14px",
+                borderRadius: "16px",
+                backgroundColor: "#141417",
+                border: "2px solid #D4AF37",
+              }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={qrDataUri}
+                alt="QR"
+                width={158}
+                height={158}
                 style={{
-                  padding: "7px 16px",
-                  borderRadius: "8px",
-                  backgroundColor: "#18181B",
-                  border: "1px solid #27272A",
-                  color: "#E4E4E7",
-                  fontSize: 17,
-                  fontWeight: 600,
+                  borderRadius: "10px",
+                  backgroundColor: "#FFFFFF",
+                }}
+              />
+              <div
+                style={{
+                  fontSize: 13,
+                  fontWeight: 800,
+                  color: "#D4AF37",
+                  letterSpacing: "1.4px",
                 }}
               >
-                {sk}
+                SCAN TO APPLY
               </div>
-            ))}
-          </div>
+              <div
+                style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: "#A1A1AA",
+                  letterSpacing: "0.6px",
+                }}
+              >
+                ASRA3.COM
+              </div>
+            </div>
+          ) : null}
         </div>
 
         {/* Footer CTA */}
@@ -279,18 +360,18 @@ function buildJobCard({
             alignItems: "center",
             justifyContent: "space-between",
             width: "100%",
-            paddingTop: "24px",
+            paddingTop: "22px",
             borderTop: "1px solid #27272A",
           }}
         >
           <div
             style={{
-              fontSize: 20,
+              fontSize: 19,
               color: "#A1A1AA",
-              fontWeight: 500,
+              fontWeight: 600,
             }}
           >
-            Direct HR Apply + Free AI ATS CV Match Audit on Asra3.com
+            Scan QR or Tap Link in 1st Comment • Apply Free on Asra3.com
           </div>
 
           <div
@@ -299,7 +380,7 @@ function buildJobCard({
               borderRadius: "10px",
               backgroundColor: "#D4AF37",
               color: "#09090B",
-              fontSize: 20,
+              fontSize: 19,
               fontWeight: 800,
             }}
           >

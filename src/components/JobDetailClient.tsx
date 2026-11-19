@@ -16,9 +16,11 @@ import {
   Check,
   CheckCircle2,
   Copy,
+  Download,
   ExternalLink,
   Mail,
   MapPin,
+  QrCode,
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
@@ -27,12 +29,16 @@ interface JobDetailClientProps {
   job: JobPostingRecord;
   isExpired: boolean;
   similarJobs: JobPostingRecord[];
+  qrDataUri?: string;
+  jobUrl?: string;
 }
 
 export function JobDetailClient({
   job,
   isExpired,
   similarJobs,
+  qrDataUri,
+  jobUrl,
 }: JobDetailClientProps) {
   const { lang, countries, industries } = useApp();
 
@@ -43,6 +49,8 @@ export function JobDetailClient({
   } | null>(null);
   const [unlocking, setUnlocking] = useState(false);
   const [copiedEmail, setCopiedEmail] = useState(false);
+  const [copiedJobLink, setCopiedJobLink] = useState(false);
+  const [copiedFirstComment, setCopiedFirstComment] = useState(false);
 
   useEffect(() => {
     fetch("/api/jobs", {
@@ -485,6 +493,134 @@ export function JobDetailClient({
                 <ArrowUpRight className="h-3.5 w-3.5" />
               </Link>
             </div>
+
+            {/* Branded Asra3 QR & Social Share Card */}
+            {qrDataUri && (
+              <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#121215] p-5 space-y-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#09090B] text-[#D4AF37]">
+                      <QrCode className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-xs font-extrabold text-zinc-950 dark:text-zinc-50">
+                        {lang === "ar"
+                          ? "بطاقة الوظيفة وكود QR"
+                          : "Branded Asra3 Job QR Card"}
+                      </h3>
+                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                        {lang === "ar"
+                          ? "امسح الكود أو شارك بطاقة فيسبوك"
+                          : "Scan directly or share on Facebook"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4 rounded-xl bg-[#09090B] border border-zinc-800 p-3.5">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={qrDataUri}
+                    alt={`Asra3 QR for ${job.title_en}`}
+                    width={96}
+                    height={96}
+                    className="h-24 w-24 shrink-0 rounded-lg border-2 border-[#D4AF37] bg-white"
+                  />
+                  <div className="min-w-0 space-y-1.5 text-zinc-200">
+                    <p
+                      dir="ltr"
+                      className="font-mono text-[10px] font-extrabold text-[#D4AF37] tracking-wider"
+                    >
+                      ASRA3.COM • VERIFIED QR
+                    </p>
+                    <p className="text-[11px] leading-relaxed text-zinc-300">
+                      {lang === "ar"
+                        ? "بطاقة جاهزة للنشر مع كود QR مباشر لصفحة التقديم ورابط جاهز لأول تعليق."
+                        : "Ready-to-post Facebook job flyer with direct QR code and 1st-comment apply link."}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-2">
+                  <a
+                    href={`/api/og/job/${job.slug}`}
+                    download={`asra3-${job.slug}.png`}
+                    className="btn-gold inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-extrabold"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    <span>
+                      {lang === "ar"
+                        ? "تحميل بطاقة فيسبوك (PNG مع QR)"
+                        : "Download Facebook Card (PNG + QR)"}
+                    </span>
+                  </a>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const targetLink =
+                          jobUrl ||
+                          (typeof window !== "undefined"
+                            ? window.location.href
+                            : `https://asra3.com/jobs/${job.slug}`);
+                        navigator.clipboard?.writeText(targetLink);
+                        setCopiedJobLink(true);
+                        setTimeout(() => setCopiedJobLink(false), 2000);
+                      }}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-[#09090B] px-3 py-2 text-[11px] font-bold text-zinc-800 dark:text-zinc-200 hover:border-[#D4AF37] transition-colors cursor-pointer"
+                    >
+                      {copiedJobLink ? (
+                        <Check className="h-3.5 w-3.5 text-[#D4AF37]" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
+                      <span>
+                        {copiedJobLink
+                          ? lang === "ar"
+                            ? "نُسخ الرابط ✓"
+                            : "Copied ✓"
+                          : lang === "ar"
+                          ? "نسخ الرابط"
+                          : "Copy Link"}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const targetLink = `${
+                          jobUrl || `https://asra3.com/jobs/${job.slug}`
+                        }?utm_source=facebook&utm_medium=social`;
+                        const commentText =
+                          lang === "ar"
+                            ? `🔗 قدّم الآن مجاناً وبشكل مباشر لقسم الـ HR عبر منصة أسرع:\n${targetLink}\n\n⚡ عايز توصل سيرتك الذاتية لـ 300+ شركة موثقة في الخليج؟ ابدأ من https://asra3.com`
+                            : `🔗 Apply directly to Verified HR on Asra3.com:\n${targetLink}\n\n⚡ Send your ATS-optimized CV to 300+ verified GCC employers at https://asra3.com`;
+                        navigator.clipboard?.writeText(commentText);
+                        setCopiedFirstComment(true);
+                        setTimeout(() => setCopiedFirstComment(false), 2000);
+                      }}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-[#09090B] px-3 py-2 text-[11px] font-bold text-zinc-800 dark:text-zinc-200 hover:border-[#D4AF37] transition-colors cursor-pointer"
+                    >
+                      {copiedFirstComment ? (
+                        <Check className="h-3.5 w-3.5 text-[#D4AF37]" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
+                      <span>
+                        {copiedFirstComment
+                          ? lang === "ar"
+                            ? "نُسخ التعليق ✓"
+                            : "Copied ✓"
+                          : lang === "ar"
+                          ? "نسخ أول تعليق"
+                          : "1st Comment"}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </aside>
         </div>
 

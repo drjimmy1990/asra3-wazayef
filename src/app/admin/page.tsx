@@ -4,6 +4,8 @@ import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { AdminJobsManagerTab } from "@/components/AdminJobsManagerTab";
+import { AdminPromosPanel } from "@/components/AdminPromosPanel";
+import { AdminLeadsTab } from "@/components/AdminLeadsTab";
 import {
   AnimatedCounter,
   LiveSignalEqualizer,
@@ -14,6 +16,8 @@ import {
   CampaignRecord,
   CompanyRecord,
   CountryCode,
+  CouponRecord,
+  OfferSettings,
   PackageTier,
   SmtpAccountConfig,
 } from "@/lib/types";
@@ -30,6 +34,7 @@ import {
   FileSpreadsheet,
   FileText,
   Filter,
+  Headphones,
   Loader2,
   Lock,
   LogOut,
@@ -59,8 +64,15 @@ export default function AdminDashboardPage() {
   const [loggingIn, setLoggingIn] = useState(false);
 
   const [activeTab, setActiveTab] = useState<
-    "companies" | "jobs" | "campaigns" | "smtp" | "settings"
+    "companies" | "jobs" | "campaigns" | "leads" | "smtp" | "settings"
   >("companies");
+  const [offerSettingsState, setOfferSettingsState] = useState<
+    OfferSettings | undefined
+  >(undefined);
+  const [couponsState, setCouponsState] = useState<CouponRecord[] | undefined>(
+    undefined
+  );
+  const [newLeadsCount, setNewLeadsCount] = useState(0);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastSyncedAt, setLastSyncedAt] = useState<string>("");
   const [syncingNow, setSyncingNow] = useState(false);
@@ -256,6 +268,11 @@ export default function AdminDashboardPage() {
       setCampaigns(data.campaigns || []);
       if (data.stats) setStats((prev) => ({ ...prev, ...data.stats }));
       if (data.packages) setPackages(data.packages);
+      if (data.offerSettings) setOfferSettingsState(data.offerSettings);
+      if (Array.isArray(data.coupons)) setCouponsState(data.coupons);
+      if (typeof data.newSupportLeadsCount === "number") {
+        setNewLeadsCount(data.newSupportLeadsCount);
+      }
       if (data.systemHealth) {
         setSystemHealth((prev) => ({ ...prev, ...data.systemHealth }));
       }
@@ -782,6 +799,7 @@ export default function AdminDashboardPage() {
           packageId: pkg.id,
           pricesByCurrency: pkg.prices_by_currency,
           addonPricesByCurrency: pkg.addon_country_price_by_currency,
+          originalPricesByCurrency: pkg.original_prices_by_currency,
         }),
       });
       if (res.ok) {
@@ -1011,6 +1029,14 @@ export default function AdminDashboardPage() {
                   icon: Users,
                 },
                 {
+                  id: "leads",
+                  label:
+                    lang === "ar"
+                      ? `الدعم والتواصل${newLeadsCount > 0 ? ` (${newLeadsCount})` : ""}`
+                      : `Support Leads${newLeadsCount > 0 ? ` (${newLeadsCount})` : ""}`,
+                  icon: Headphones,
+                },
+                {
                   id: "smtp",
                   label:
                     lang === "ar"
@@ -1022,8 +1048,8 @@ export default function AdminDashboardPage() {
                   id: "settings",
                   label:
                     lang === "ar"
-                      ? "الأسعار وبوابة الإنتاج"
-                      : "Pricing & Go-Live",
+                      ? "الأسعار والعروض والكوبونات"
+                      : "Pricing, Offers & Coupons",
                   icon: Settings,
                 },
               ].map((tItem) => {
@@ -1039,6 +1065,7 @@ export default function AdminDashboardPage() {
                           | "companies"
                           | "jobs"
                           | "campaigns"
+                          | "leads"
                           | "smtp"
                           | "settings"
                       )
@@ -2374,9 +2401,16 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* ================= TAB 4: PRICING, GATEWAY & PRODUCTION GO-LIVE ================= */}
+        {/* ================= TAB 4: PRICING, OFFERS, COUPONS & PRODUCTION GO-LIVE ================= */}
         {activeTab === "settings" && (
-          <div className="animate-panel-enter grid grid-cols-1 gap-8 lg:grid-cols-2">
+          <div className="animate-panel-enter space-y-8">
+            <AdminPromosPanel
+              initialOfferSettings={offerSettingsState}
+              initialCoupons={couponsState}
+              onChanged={loadAdminOverview}
+            />
+
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
             <div className="exec-card exec-card-carbon-top rounded-2xl overflow-hidden flex flex-col">
               <div className="exec-card-header px-6 py-4">
                 <h2 className="text-lg font-extrabold text-zinc-950 dark:text-zinc-50">
@@ -2441,6 +2475,47 @@ export default function AdminDashboardPage() {
                                           ...item,
                                           prices_by_currency: {
                                             ...item.prices_by_currency,
+                                            [curr]: val,
+                                          },
+                                        }
+                                      : item
+                                  )
+                                );
+                              }}
+                              className="exec-input w-full rounded-lg px-2 py-1.5 text-xs font-bold"
+                            />
+                          </div>
+                        )
+                      )}
+                    </div>
+
+                    <p className="text-[11px] font-bold text-zinc-600 dark:text-zinc-400 pt-1">
+                      {lang === "ar"
+                        ? "السعر الأصلي قبل الخصم (يظهر مشطوباً أثناء العرض):"
+                        : "Original Anchor Price (Shown Crossed-Out During Offer):"}
+                    </p>
+                    <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+                      {(["AED", "SAR", "QAR", "KWD", "EGP", "USD"] as const).map(
+                        (curr) => (
+                          <div key={`orig-${curr}`}>
+                            <label className="block text-[10px] font-bold text-zinc-500 dark:text-zinc-400 mb-1">
+                              ~~{curr}~~
+                            </label>
+                            <input
+                              type="number"
+                              value={
+                                pkg.original_prices_by_currency?.[curr] ?? 0
+                              }
+                              onChange={(e) => {
+                                const val = Number(e.target.value);
+                                setPackages((prev) =>
+                                  prev.map((item, idx) =>
+                                    idx === pkgIdx
+                                      ? {
+                                          ...item,
+                                          original_prices_by_currency: {
+                                            ...(item.original_prices_by_currency ||
+                                              item.prices_by_currency),
                                             [curr]: val,
                                           },
                                         }
@@ -2614,6 +2689,12 @@ export default function AdminDashboardPage() {
                       url: `${systemHealth.appUrl}/api/webhooks/email-health`,
                       copyable: true,
                     },
+                    {
+                      id: "n8n-support",
+                      title: "5. Support Chatbot Webhook (Set in VPS .env as N8N_SUPPORT_CHAT_WEBHOOK):",
+                      url: "https://n8n.pr-media.forum/webhook/asra3-support-chat",
+                      copyable: true,
+                    },
                   ].map((ep) => (
                     <div
                       key={ep.id}
@@ -2655,6 +2736,11 @@ export default function AdminDashboardPage() {
               </div>
             </div>
           </div>
+          </div>
+        )}
+
+        {activeTab === "leads" && (
+          <AdminLeadsTab onNewCountChange={setNewLeadsCount} />
         )}
 
         {activeTab === "jobs" && (

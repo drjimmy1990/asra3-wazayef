@@ -3,6 +3,7 @@ import "./fonts.css";
 import "./globals.css";
 import { AppProvider } from "@/context/AppContext";
 import { GoogleAnalytics } from "@/components/GoogleAnalytics";
+import { SupportChatWidget } from "@/components/SupportChatWidget";
 
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ||
@@ -168,7 +169,10 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(globalJsonLd) }}
         />
         <GoogleAnalytics />
-        <AppProvider>{children}</AppProvider>
+        <AppProvider>
+          {children}
+          <SupportChatWidget />
+        </AppProvider>
       </body>
     </html>
   );

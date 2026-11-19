@@ -71,6 +71,7 @@ export interface PackageTier {
   includes_cv_rewrite: boolean;
   includes_priority_queue: boolean;
   prices_by_currency: Record<CurrencyCode, number>;
+  original_prices_by_currency?: Record<CurrencyCode, number>;
   addon_country_price_by_currency: Record<CurrencyCode, number>;
   features_ar: string[];
   features_en: string[];
@@ -301,5 +302,60 @@ export interface JobSearchResponse {
   countsByCountry: Record<CountryCode, number>;
   countsByIndustry: Record<string, number>;
 }
+
+// ==============================================================================
+// Dynamic Discount Coupons, Limited-Time Offers & Support Chatbot Leads
+// ==============================================================================
+
+export type CouponDiscountType = "percent" | "fixed";
+
+export interface CouponRecord {
+  id: string;
+  code: string;
+  discount_type: CouponDiscountType;
+  discount_value: number;
+  applicable_packages: PackageId[] | "all";
+  max_uses: number | null;
+  used_count: number;
+  expires_at: string | null;
+  is_active: boolean;
+  note?: string;
+  created_at: string;
+}
+
+export interface OfferSettings {
+  enabled: boolean;
+  badge_ar: string;
+  badge_en: string;
+  headline_ar: string;
+  headline_en: string;
+  ends_at: string | null;
+  evergreen_hours: number;
+  highlight_coupon_code?: string | null;
+}
+
+export type SupportLeadTopic =
+  | "pricing"
+  | "campaign_help"
+  | "employer_hr"
+  | "payment"
+  | "general";
+
+export type SupportLeadStatus = "new" | "contacted" | "resolved";
+
+export interface SupportLeadRecord {
+  id: string;
+  session_id: string;
+  name: string;
+  email: string;
+  phone: string;
+  country_code: string;
+  topic: SupportLeadTopic;
+  message: string;
+  page_url: string;
+  status: SupportLeadStatus;
+  created_at: string;
+}
+
 
 

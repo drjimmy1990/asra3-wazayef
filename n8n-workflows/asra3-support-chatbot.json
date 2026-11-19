@@ -1,0 +1,145 @@
+{
+  "name": "Asra3.com — AI Support Chatbot & Lead Capture Backend",
+  "nodes": [
+    {
+      "id": "chat-webhook",
+      "name": "chatWebhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [160, 300],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "asra3-support-chat",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "prepare-context",
+      "name": "prepareContext",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [420, 300],
+      "parameters": {
+        "jsCode": "const payload = $json.body || $json || {};\nconst message = String(payload.message || '').trim();\nconst lang = payload.lang === 'en' ? 'en' : 'ar';\nconst countryCode = String(payload.countryCode || 'AE').toUpperCase();\nconst pageUrl = String(payload.pageUrl || '/');\nconst history = Array.isArray(payload.history) ? payload.history.slice(-6) : [];\nconst ctx = payload.siteContext || {};\n\nconst historyText = history.length\n  ? history.map((h) => `${h.role === 'user' ? 'Customer' : 'Asra3 Support'}: ${h.content}`).join('\\n')\n  : 'None (first turn)';\n\nconst userPrompt = [\n  `Customer Language Preference: ${lang === 'ar' ? 'Arabic (respond in clear friendly Arabic unless user writes English)' : 'English (respond in clear friendly English unless user writes Arabic)'}`,\n  `Active Country Hub: ${countryCode} | Current Page: ${pageUrl}`,\n  `LIVE ASRA3.COM CONTEXT (ALWAYS USE THESE EXACT LIVE PRICES & OFFERS):`,\n  JSON.stringify(ctx, null, 2),\n  ``,\n  `RECENT CONVERSATION HISTORY:`,\n  historyText,\n  ``,\n  `LATEST CUSTOMER MESSAGE:`,\n  message,\n].join('\\n');\n\nreturn [{\n  json: {\n    userPrompt,\n    lang,\n    countryCode,\n    pageUrl,\n    originalMessage: message,\n  },\n}];"
+      }
+    },
+    {
+      "id": "gemini-lite-model",
+      "name": "geminiLiteModel",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [680, 520],
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {
+          "temperature": 0.35
+        }
+      },
+      "credentials": {
+        "googlePalmApi": {
+          "id": "YOUR_GEMINI_CREDENTIAL_ID",
+          "name": "Google Gemini API"
+        }
+      }
+    },
+    {
+      "id": "asra3-support-agent",
+      "name": "asra3SupportAgent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [680, 300],
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.userPrompt }}",
+        "options": {
+          "systemMessage": "You are the official customer support & conversion specialist for Asra3.com (أسرع), the GCC AI ATS CV Optimization, Direct Verified HR Email Distribution, and GCC Jobs Board platform covering UAE (AE), Saudi Arabia (SA), Qatar (QA), and Kuwait (KW).\n\nRULES:\n1. Respond in the SAME language the customer used (Arabic or English). Be concise, warm, trustworthy, and executive — max 4-6 short lines.\n2. ALWAYS quote ONLY the exact live package prices, crossed-out original prices, active offers, and public coupon code provided in LIVE ASRA3.COM CONTEXT. Never invent prices, discounts, or phone numbers.\n3. Explain key Asra3 benefits accurately:\n   - Free instant AI ATS CV compatibility scan before paying.\n   - Direct HR inbox outreach to 100-500+ verified GCC companies with Reply-To set directly to the candidate's personal email.\n   - Confidentiality Shield to exclude the candidate's current employer domain 100%.\n   - One-time transparent payment via EasyKash (Visa, Mastercard, Mada, Apple Pay, Wallets) — zero subscriptions.\n   - Live Tracking Portal (/track) showing delivery progress, HR opens, AI cover letter, and downloadable CSV report.\n   - Free GCC Jobs Board (/jobs) and Free Employer Posting Portal (/employers) with DNS MX verification and QR job cards.\n4. LEAD COLLECTION:\n   - If the customer wants to talk to human support, asks for a custom/enterprise quote, has a payment or tracking issue, or asks you to contact them: set \"showLeadForm\": true and politely invite them to leave their name + WhatsApp/phone or email in the form (or type it in chat).\n   - If the customer ALREADY typed their email or phone/WhatsApp number in their message, extract it into \"capturedLead\": {\"name\":\"...\",\"email\":\"...\",\"phone\":\"...\",\"topic\":\"pricing|campaign_help|employer_hr|payment|general\",\"message\":\"short summary\"} and confirm that our team received their details and will contact them shortly.\n5. OUTPUT FORMAT (STRICT): Return ONLY a valid raw JSON object (no markdown fences, no extra text outside JSON):\n{\n  \"reply\": \"Your helpful response in Arabic or English\",\n  \"showLeadForm\": false,\n  \"suggestedActions\": [\"Short follow-up chip 1\", \"Short follow-up chip 2\"],\n  \"capturedLead\": null\n}"
+        }
+      }
+    },
+    {
+      "id": "format-reply",
+      "name": "formatReply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 300],
+      "parameters": {
+        "jsCode": "const rawOutput = String($json.output || $json.text || '').trim();\nconst prep = $('prepareContext').first().json || {};\nconst isAr = prep.lang === 'ar' || /[\\u0600-\\u06FF]/.test(prep.originalMessage || '');\n\nconst cleaned = rawOutput\n  .replace(/^```(?:json)?\\s*/i, '')\n  .replace(/\\s*```$/i, '')\n  .trim();\n\nlet parsed = null;\ntry {\n  parsed = JSON.parse(cleaned);\n} catch {\n  const match = cleaned.match(/\\{[\\s\\S]*\\}/);\n  if (match) {\n    try {\n      parsed = JSON.parse(match[0]);\n    } catch {\n      parsed = null;\n    }\n  }\n}\n\nconst reply = (parsed && typeof parsed.reply === 'string' && parsed.reply.trim())\n  ? parsed.reply.trim()\n  : (cleaned || (isAr\n      ? 'أهلاً بك في دعم أسرع! كيف يمكنني مساعدتك بخصوص الباقات أو الوظائف؟'\n      : 'Welcome to Asra3 Support! How can I assist you with packages or GCC jobs?'));\n\nconst showLeadForm = Boolean(parsed && parsed.showLeadForm);\nconst suggestedActions = Array.isArray(parsed?.suggestedActions)\n  ? parsed.suggestedActions.map((s) => String(s || '').trim()).filter(Boolean).slice(0, 4)\n  : (isAr\n      ? ['الأسعار والعروض الحالية', 'أريد التواصل مع الدعم']\n      : ['Pricing & Offers', 'Contact Human Support']);\nconst capturedLead = (parsed && parsed.capturedLead && typeof parsed.capturedLead === 'object')\n  ? parsed.capturedLead\n  : null;\n\nreturn [{\n  json: {\n    reply,\n    showLeadForm,\n    suggestedActions,\n    capturedLead,\n  },\n}];"
+      }
+    },
+    {
+      "id": "respond-to-widget",
+      "name": "respondToWidget",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1220, 300],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    }
+  ],
+  "connections": {
+    "chatWebhook": {
+      "main": [
+        [
+          {
+            "node": "prepareContext",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "prepareContext": {
+      "main": [
+        [
+          {
+            "node": "asra3SupportAgent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "geminiLiteModel": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "asra3SupportAgent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "asra3SupportAgent": {
+      "main": [
+        [
+          {
+            "node": "formatReply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "formatReply": {
+      "main": [
+        [
+          {
+            "node": "respondToWidget",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { JobDetailClient } from "@/components/JobDetailClient";
 import { getJobBySlug } from "@/lib/jobs-store";
+import { buildBrandedQrDataUri } from "@/lib/qr-code";
 import { getCanonicalSiteUrl } from "@/lib/seo-indexer";
 
 export const dynamic = "force-dynamic";
@@ -200,6 +201,14 @@ export default async function JobDetailPage({
       : [breadcrumbJsonLd],
   };
 
+  const jobCanonicalUrl = `${SITE_URL}/jobs/${job.slug}`;
+  let qrDataUri = "";
+  try {
+    qrDataUri = buildBrandedQrDataUri(jobCanonicalUrl, 196);
+  } catch {
+    qrDataUri = "";
+  }
+
   return (
     <>
       <script
@@ -210,6 +219,8 @@ export default async function JobDetailPage({
         job={{ ...job, apply_email: null }}
         isExpired={isExpired}
         similarJobs={similarJobs}
+        qrDataUri={qrDataUri}
+        jobUrl={jobCanonicalUrl}
       />
     </>
   );

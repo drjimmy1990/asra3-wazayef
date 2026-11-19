@@ -5,7 +5,9 @@
 import {
   CompanyRecord,
   CountryConfig,
+  CouponRecord,
   Industry,
+  OfferSettings,
   PackageTier,
 } from "@/lib/types";
 
@@ -217,6 +219,14 @@ export const INITIAL_PACKAGES: PackageTier[] = [
       EGP: 1690,
       USD: 35,
     },
+    original_prices_by_currency: {
+      AED: 249,
+      SAR: 249,
+      QAR: 249,
+      KWD: 21,
+      EGP: 3200,
+      USD: 69,
+    },
     addon_country_price_by_currency: {
       AED: 69,
       SAR: 69,
@@ -259,6 +269,14 @@ export const INITIAL_PACKAGES: PackageTier[] = [
       KWD: 19,
       EGP: 2950,
       USD: 62,
+    },
+    original_prices_by_currency: {
+      AED: 449,
+      SAR: 449,
+      QAR: 449,
+      KWD: 37,
+      EGP: 5800,
+      USD: 119,
     },
     addon_country_price_by_currency: {
       AED: 99,
@@ -303,6 +321,14 @@ export const INITIAL_PACKAGES: PackageTier[] = [
       EGP: 4490,
       USD: 95,
     },
+    original_prices_by_currency: {
+      AED: 699,
+      SAR: 699,
+      QAR: 699,
+      KWD: 58,
+      EGP: 8900,
+      USD: 189,
+    },
     addon_country_price_by_currency: {
       AED: 129,
       SAR: 129,
@@ -327,6 +353,59 @@ export const INITIAL_PACKAGES: PackageTier[] = [
     ],
     is_featured: false,
     sort_order: 3,
+  },
+];
+
+export const INITIAL_OFFER_SETTINGS: OfferSettings = {
+  enabled: true,
+  badge_ar: "عرض الإطلاق لفترة محدودة",
+  badge_en: "LIMITED-TIME LAUNCH OFFER",
+  headline_ar: "خصم يصل إلى 50% على جميع باقات توزيع السيرة الذاتية في الخليج",
+  headline_en: "Save up to 50% on GCC Direct HR Distribution Packages",
+  ends_at: null,
+  evergreen_hours: 48,
+  highlight_coupon_code: "ASRA3VIP",
+};
+
+export const INITIAL_COUPONS: CouponRecord[] = [
+  {
+    id: "cpn-asra3vip",
+    code: "ASRA3VIP",
+    discount_type: "percent",
+    discount_value: 20,
+    applicable_packages: "all",
+    max_uses: null,
+    used_count: 0,
+    expires_at: null,
+    is_active: true,
+    note: "VIP Launch 20% discount",
+    created_at: "2026-01-10T10:00:00Z",
+  },
+  {
+    id: "cpn-gcc20",
+    code: "GCC20",
+    discount_type: "percent",
+    discount_value: 20,
+    applicable_packages: "all",
+    max_uses: null,
+    used_count: 0,
+    expires_at: null,
+    is_active: true,
+    note: "GCC Campaign 20% discount",
+    created_at: "2026-01-10T10:00:00Z",
+  },
+  {
+    id: "cpn-fast15",
+    code: "FAST15",
+    discount_type: "percent",
+    discount_value: 15,
+    applicable_packages: "all",
+    max_uses: null,
+    used_count: 0,
+    expires_at: null,
+    is_active: true,
+    note: "Fast-track 15% discount",
+    created_at: "2026-01-10T10:00:00Z",
   },
 ];
 

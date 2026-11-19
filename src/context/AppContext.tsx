@@ -14,11 +14,13 @@ import {
   CountryConfig,
   Industry,
   Language,
+  OfferSettings,
   PackageTier,
 } from "@/lib/types";
 import {
   INITIAL_COUNTRIES,
   INITIAL_INDUSTRIES,
+  INITIAL_OFFER_SETTINGS,
   INITIAL_PACKAGES,
 } from "@/lib/seed-data";
 import { getCountryCodeFromPathname } from "@/lib/country-hubs";
@@ -45,6 +47,7 @@ interface AppContextValue {
   countries: CountryConfig[];
   industries: Industry[];
   packages: PackageTier[];
+  offerSettings: OfferSettings;
 }
 
 const AppContext = createContext<AppContextValue | undefined>(undefined);
@@ -66,6 +69,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     useState<CountryConfig[]>(INITIAL_COUNTRIES);
   const [industries, setIndustries] = useState<Industry[]>(INITIAL_INDUSTRIES);
   const [packages, setPackages] = useState<PackageTier[]>(INITIAL_PACKAGES);
+  const [offerSettings, setOfferSettings] = useState<OfferSettings>(
+    INITIAL_OFFER_SETTINGS
+  );
 
   useEffect(() => {
     if (routeCountry) {
@@ -144,6 +150,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (data?.countries?.length) setCountries(data.countries);
         if (data?.industries?.length) setIndustries(data.industries);
         if (data?.packages?.length) setPackages(data.packages);
+        if (data?.offerSettings) setOfferSettings(data.offerSettings);
       })
       .catch(() => {
         // Fallback to initial seed data
@@ -212,6 +219,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         countries,
         industries,
         packages,
+        offerSettings,
       }}
     >
       {children}
