@@ -31,7 +31,7 @@
       "typeVersion": 1,
       "position": [680, 520],
       "parameters": {
-        "modelName": "models/gemini-3.1-flash-lite",
+        "modelName": "models/gemini-2.5-flash-lite",
         "options": {
           "temperature": 0.35
         }
@@ -47,7 +47,7 @@
       "id": "asra3-support-agent",
       "name": "asra3SupportAgent",
       "type": "@n8n/n8n-nodes-langchain.agent",
-      "typeVersion": 3.1,
+      "typeVersion": 3,
       "position": [680, 300],
       "parameters": {
         "promptType": "define",
@@ -71,7 +71,7 @@
       "id": "respond-to-widget",
       "name": "respondToWidget",
       "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.1,
+      "typeVersion": 1.4,
       "position": [1220, 300],
       "parameters": {
         "respondWith": "json",
