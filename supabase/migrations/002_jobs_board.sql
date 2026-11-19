@@ -1,7 +1,9 @@
 -- ==============================================================================
 -- ASRA3.COM — Automated GCC Jobs Board, Employer Portal & Social Syndication
--- Migration 002: Run in Supabase SQL Editor (optional when using .data/jobs.json)
+-- Migration 002: Standalone & Idempotent (Safe on fresh or existing Supabase DB)
 -- ==============================================================================
+
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 CREATE TABLE IF NOT EXISTS jobs (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -15,11 +17,11 @@ CREATE TABLE IF NOT EXISTS jobs (
   apply_email TEXT,
   apply_url TEXT,
   apply_whatsapp TEXT,
-  country_code TEXT NOT NULL REFERENCES countries(code) ON DELETE CASCADE,
+  country_code TEXT NOT NULL CHECK (country_code IN ('AE', 'SA', 'QA', 'KW')),
   city_id TEXT NOT NULL,
   city_name_ar TEXT NOT NULL,
   city_name_en TEXT NOT NULL,
-  industry_id TEXT NOT NULL REFERENCES industries(id),
+  industry_id TEXT NOT NULL,
   employment_type TEXT NOT NULL DEFAULT 'FULL_TIME'
     CHECK (employment_type IN ('FULL_TIME', 'PART_TIME', 'CONTRACT', 'REMOTE')),
   experience_level TEXT NOT NULL DEFAULT 'Mid-Senior (3-7 Years)',
