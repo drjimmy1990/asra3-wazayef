@@ -1,4 +1,4 @@
-// ==============================================================================
+﻿// ==============================================================================
 // ASRA3.COM — Automated GCC Jobs Store, Ranking Engine & Employer Intake
 // Dual Persistence: Supabase PostgreSQL (`jobs` table) + `.data/jobs.json`
 // ==============================================================================
@@ -68,511 +68,17 @@ export function computeJobDedupeHash(params: {
   return crypto.createHash("sha256").update(raw).digest("hex").slice(0, 24);
 }
 
-function buildSeedJobs(): JobPostingRecord[] {
-  const now = Date.now();
-  const dayMs = 24 * 60 * 60 * 1000;
-
-  const rawSeeds: Array<{
-    id: string;
-    title_ar: string;
-    title_en: string;
-    company_name: string;
-    company_domain: string;
-    apply_email: string;
-    country_code: CountryCode;
-    city_id: string;
-    city_name_ar: string;
-    city_name_en: string;
-    industry_id: string;
-    employment_type: EmploymentType;
-    experience_level: string;
-    salary_min: number | null;
-    salary_max: number | null;
-    salary_currency: CurrencyCode;
-    summary_ar: string;
-    summary_en: string;
-    requirements_ar: string[];
-    requirements_en: string[];
-    skills: string[];
-    is_featured?: boolean;
-    hoursAgo: number;
-  }> = [
-    {
-      id: "seed-job-ae-01",
-      title_ar: "مدير مشاريع أول (الأنظمة الكهروميكانيكية MEP)",
-      title_en: "Senior MEP Project Manager",
-      company_name: "Sobha Realty & Construction",
-      company_domain: "sobha-realty.com",
-      apply_email: "careers@sobha-realty.com",
-      country_code: "AE",
-      city_id: "dubai",
-      city_name_ar: "دبي",
-      city_name_en: "Dubai",
-      industry_id: "engineering",
-      employment_type: "FULL_TIME",
-      experience_level: "Senior (7-12 Years)",
-      salary_min: 28000,
-      salary_max: 38000,
-      salary_currency: "AED",
-      summary_ar:
-        "قيادة تنفيذ وتسليم أعمال الأنظمة الكهروميكانيكية (HVAC, Firefighting, Electrical) للأبراج السكنية الفاخرة في دبي مع إدارة الجداول الزمنية والمقاولين الفرعيين.",
-      summary_en:
-        "Lead end-to-end MEP execution, authority approvals (DEWA/DCD), and commercial delivery across high-rise luxury developments in Dubai.",
-      requirements_ar: [
-        "خبرة لا تقل عن 8 سنوات في مشاريع الأبراج والمباني الكبرى في الإمارات أو الخليج",
-        "اعتماد PMP أو عضوية جمعية المهندسين مع إلمام كامل باشتراطات DEWA والدفاع المدني",
-        "إجادة إدارة العقود (FIDIC) ومراقبة التكاليف والجودة الميدانية",
-      ],
-      requirements_en: [
-        "8+ years leading large-scale high-rise MEP packages across the UAE or GCC",
-        "Strong command of DEWA, Dubai Civil Defense, and Municipality approvals",
-        "PMP certification and FIDIC commercial contract administration experience",
-      ],
-      skills: ["MEP Management", "HVAC", "DEWA Approvals", "FIDIC", "Primavera P6", "PMP"],
-      is_featured: true,
-      hoursAgo: 2,
-    },
-    {
-      id: "seed-job-sa-01",
-      title_ar: "معماري حلول سحابية وأمن سيبراني أول",
-      title_en: "Principal Cloud & Cybersecurity Architect",
-      company_name: "Elm Digital Solutions",
-      company_domain: "elm.sa",
-      apply_email: "talent@elm.sa",
-      country_code: "SA",
-      city_id: "riyadh",
-      city_name_ar: "الرياض",
-      city_name_en: "Riyadh",
-      industry_id: "it-software",
-      employment_type: "FULL_TIME",
-      experience_level: "Lead / Principal (6-10 Years)",
-      salary_min: 32000,
-      salary_max: 45000,
-      salary_currency: "SAR",
-      summary_ar:
-        "تصميم البنية السحابية السيادية ومنظومات الأمن السيبراني المتوافقة مع ضوابط الهيئة الوطنية للأمن السيبراني (NCA ECC) لمشاريع التحول الرقمي الكبرى في الرياض.",
-      summary_en:
-        "Design resilient hybrid-cloud architectures and zero-trust security frameworks aligned with Saudi NCA ECC controls for flagship digital platforms in Riyadh.",
-      requirements_ar: [
-        "خبرة عملية عميقة في Kubernetes و AWS/Azure وهندسة الخدمات المصغرة",
-        "معرفة تطبيقية بمعايير الامتثال السعودية (NCA ECC / SAMA / PDPL)",
-        "إجادة اللغتين العربية والإنجليزية في إعداد الوثائق المعمارية التنفيذية",
-      ],
-      requirements_en: [
-        "6+ years architecting enterprise Kubernetes, AWS/Azure, and zero-trust infrastructure",
-        "Direct experience with Saudi NCA ECC, SAMA, or PDPL regulatory compliance",
-        "Bilingual executive communication in Arabic and English preferred",
-      ],
-      skills: ["Cloud Architecture", "Kubernetes", "NCA ECC", "Zero Trust", "AWS", "DevSecOps"],
-      is_featured: true,
-      hoursAgo: 4,
-    },
-    {
-      id: "seed-job-qa-01",
-      title_ar: "مراقب مالي أول وتقارير دولية (IFRS)",
-      title_en: "Senior Financial Controller (IFRS)",
-      company_name: "Mannai Corporation QPSC",
-      company_domain: "mannai.com.qa",
-      apply_email: "careers@mannai.com.qa",
-      country_code: "QA",
-      city_id: "doha",
-      city_name_ar: "الدوحة",
-      city_name_en: "Doha",
-      industry_id: "finance-accounting",
-      employment_type: "FULL_TIME",
-      experience_level: "Senior (6-10 Years)",
-      salary_min: 24000,
-      salary_max: 33000,
-      salary_currency: "QAR",
-      summary_ar:
-        "الإشراف على الإقفال المالي الشهري، القوائم المالية الموحدة وفق معايير IFRS، وإدارة التدفقات النقدية والتدقيق الخارجي للمجموعة في الدوحة.",
-      summary_en:
-        "Oversee multi-entity financial consolidation, IFRS statutory reporting, budgeting, and executive treasury analytics in Doha.",
-      requirements_ar: [
-        "زمالة مهنية معتمدة (CPA أو ACCA أو CMA) مع خبرة 6 سنوات على الأقل",
-        "إتقان أنظمة ERP المؤسسية (Oracle Fusion أو SAP S/4HANA)",
-        "خبرة سابقة في شركات المساهمة أو مكاتب المراجعة الكبرى (Big 4)",
-      ],
-      requirements_en: [
-        "CPA, ACCA, or CMA qualification with 6+ years of progressive financial control experience",
-        "Hands-on mastery of SAP S/4HANA or Oracle Fusion Financials",
-        "Prior GCC conglomerate or Big 4 audit background strongly preferred",
-      ],
-      skills: ["IFRS", "CPA", "SAP S/4HANA", "Financial Consolidation", "FP&A", "Audit"],
-      is_featured: true,
-      hoursAgo: 6,
-    },
-    {
-      id: "seed-job-kw-01",
-      title_ar: "مدير إقليمي للعمليات وتطوير العلامات التجارية",
-      title_en: "Regional Retail & Brand Operations Manager",
-      company_name: "Alshaya Enterprises Group",
-      company_domain: "alshaya.com",
-      apply_email: "recruitment@alshaya.com",
-      country_code: "KW",
-      city_id: "kuwaitcity",
-      city_name_ar: "مدينة الكويت",
-      city_name_en: "Kuwait City",
-      industry_id: "hospitality-retail",
-      employment_type: "FULL_TIME",
-      experience_level: "Manager (5-9 Years)",
-      salary_min: 1850,
-      salary_max: 2600,
-      salary_currency: "KWD",
-      summary_ar:
-        "قيادة الأداء التشغيلي والتجاري لسلسلة فروع العلامات العالمية في مدينة الكويت والسالمية، وتحقيق مستهدفات المبيعات وتجربة العملاء.",
-      summary_en:
-        "Drive multi-store P&L growth, visual merchandising standards, and operational excellence across flagship retail destinations in Kuwait.",
-      requirements_ar: [
-        "خبرة 5 سنوات فأكثر في إدارة التجزئة متعددة الفروع أو الضيافة في الخليج",
-        "قدرة مثبتة على إدارة حسابات الأرباح والخسائر (P&L) وقيادة فرق تزيد عن 50 موظفاً",
-        "مهارات تفاوض وتحليل مخزون ومؤشرات أداء بيعية عالية",
-      ],
-      requirements_en: [
-        "5+ years managing multi-unit retail, F&B, or franchise operations in the GCC",
-        "Proven P&L ownership and leadership of 50+ store operations staff",
-        "Strong KPI analytics, inventory turnover, and merchandising execution",
-      ],
-      skills: ["Retail Operations", "P&L Management", "Franchise Growth", "Merchandising", "Team Leadership"],
-      is_featured: false,
-      hoursAgo: 9,
-    },
-    {
-      id: "seed-job-ae-02",
-      title_ar: "مهندس برمجيات متكامل أول (Next.js / Node.js / AI)",
-      title_en: "Senior Full-Stack AI Product Engineer",
-      company_name: "Careem Technologies",
-      company_domain: "careem.com",
-      apply_email: "talent.acquisition@careem.com",
-      country_code: "AE",
-      city_id: "dubai",
-      city_name_ar: "دبي",
-      city_name_en: "Dubai",
-      industry_id: "it-software",
-      employment_type: "FULL_TIME",
-      experience_level: "Senior (5-8 Years)",
-      salary_min: 25000,
-      salary_max: 35000,
-      salary_currency: "AED",
-      summary_ar:
-        "بناء وتوسيع تطبيقات ومنتجات رقمية عالية الاعتمادية مدعومة بالذكاء الاصطناعي لخدمة ملايين المستخدمين في الشرق الأوسط انطلاقاً من دبي.",
-      summary_en:
-        "Architect high-throughput TypeScript, Next.js, and LLM-powered customer experiences serving millions of users across the MENAP region from Dubai.",
-      requirements_ar: [
-        "إتقان TypeScript و React/Next.js وبناء واجهات برمجية موزعة عالية الأداء",
-        "خبرة عملية في دمج نماذج الذكاء الاصطناعي التوليدي وقواعد البيانات المتجهة",
-        "شغف بجودة الكود والاختبارات الآلية وتحسين زمن الاستجابة",
-      ],
-      requirements_en: [
-        "5+ years shipping production TypeScript, React/Next.js, and distributed Node/Go microservices",
-        "Practical experience with LLM orchestration, RAG pipelines, and PostgreSQL",
-        "Track record owning high-scale consumer or FinTech systems",
-      ],
-      skills: ["TypeScript", "Next.js", "Node.js", "PostgreSQL", "LLM Integration", "System Design"],
-      hoursAgo: 11,
-    },
-    {
-      id: "seed-job-sa-02",
-      title_ar: "مدير عقود ومشتريات هندسية (مشاريع رؤية 2030)",
-      title_en: "Contracts & Procurement Manager — Giga Projects",
-      company_name: "Nesma & Partners Contracting",
-      company_domain: "nesma-partners.com",
-      apply_email: "careers@nesma-partners.com",
-      country_code: "SA",
-      city_id: "neom",
-      city_name_ar: "نيوم وتبوك",
-      city_name_en: "NEOM & Tabuk",
-      industry_id: "logistics-supply",
-      employment_type: "FULL_TIME",
-      experience_level: "Manager (7-12 Years)",
-      salary_min: 29000,
-      salary_max: 40000,
-      salary_currency: "SAR",
-      summary_ar:
-        "إدارة استراتيجيات التوريد الاستراتيجي والمناقصات وعقود المقاولين لمشاريع البنية التحتية الكبرى في نيوم والرياض.",
-      summary_en:
-        "Lead strategic sourcing, EPC tender evaluation, and FIDIC subcontract administration for flagship giga-project packages in NEOM and Riyadh.",
-      requirements_ar: [
-        "خبرة 7 سنوات في إدارة العقود والمشتريات الهندسية في مشاريع البنية التحتية",
-        "شهادة MCIPS أو PMP مع خبرة تفاوض مع الموردين الدوليين والمحليين",
-        "إلمام بنظام المنافسات والمشتريات ومتطلبات المحتوى المحلي في السعودية",
-      ],
-      requirements_en: [
-        "7+ years in EPC procurement, strategic sourcing, and subcontract management",
-        "MCIPS or PMP credential with strong vendor negotiation track record",
-        "Familiarity with Saudi Local Content (iktva) and giga-project governance",
-      ],
-      skills: ["Strategic Sourcing", "EPC Procurement", "FIDIC Contracts", "SAP Ariba", "Supply Chain"],
-      hoursAgo: 15,
-    },
-    {
-      id: "seed-job-ae-03",
-      title_ar: "أخصائي أول استقطاب كفاءات وموارد بشرية",
-      title_en: "Senior Talent Acquisition & HR Business Partner",
-      company_name: "Al-Futtaim Group",
-      company_domain: "alfuttaim.com",
-      apply_email: "hr.careers@alfuttaim.com",
-      country_code: "AE",
-      city_id: "abudhabi",
-      city_name_ar: "أبوظبي",
-      city_name_en: "Abu Dhabi",
-      industry_id: "hr-admin",
-      employment_type: "FULL_TIME",
-      experience_level: "Mid-Senior (4-7 Years)",
-      salary_min: 18000,
-      salary_max: 24000,
-      salary_currency: "AED",
-      summary_ar:
-        "إدارة دورة الاستقطاب والتوظيف التنفيذي وبرامج التوطين وتطوير الأداء لوحدات الأعمال في أبوظبي ودبي.",
-      summary_en:
-        "Partner with business leaders in Abu Dhabi and Dubai to execute executive hiring, Emiratisation initiatives, and workforce planning.",
-      requirements_ar: [
-        "خبرة 4 سنوات على الأقل في التوظيف المؤسسي وشراكة أعمال الموارد البشرية في الإمارات",
-        "معرفة دقيقة بقانون العمل الإماراتي وأنظمة ATS الحديثة مثل Workday أو SuccessFactors",
-        "مهارات تواصل وتقييم كفاءات احترافية باللغتين العربية والإنجليزية",
-      ],
-      requirements_en: [
-        "4+ years in corporate talent acquisition and HRBP roles within the UAE",
-        "Proficiency with SAP SuccessFactors or Workday ATS and UAE Labour Law",
-        "Fluent Arabic and English communication skills",
-      ],
-      skills: ["Talent Acquisition", "HRBP", "UAE Labour Law", "SAP SuccessFactors", "Workforce Planning"],
-      hoursAgo: 18,
-    },
-    {
-      id: "seed-job-sa-03",
-      title_ar: "طبيب أخصائي / مدير جودة طبية معتمد (SCFHS)",
-      title_en: "Healthcare Quality & Clinical Operations Lead (SCFHS)",
-      company_name: "Dr. Sulaiman Al Habib Medical Group",
-      company_domain: "drsulaimanalhabib.com",
-      apply_email: "medical.recruitment@drsulaimanalhabib.com",
-      country_code: "SA",
-      city_id: "jeddah",
-      city_name_ar: "جدة",
-      city_name_en: "Jeddah",
-      industry_id: "healthcare",
-      employment_type: "FULL_TIME",
-      experience_level: "Senior (5-9 Years)",
-      salary_min: 22000,
-      salary_max: 32000,
-      salary_currency: "SAR",
-      summary_ar:
-        "قيادة برامج الاعتماد الصحي (CBAHI / JCI) وسلامة المرضى وتحسين العمليات السريرية في المجمع الطبي بمدينة جدة.",
-      summary_en:
-        "Lead JCI/CBAHI hospital accreditation, clinical governance, and patient safety excellence across specialty medical facilities in Jeddah.",
-      requirements_ar: [
-        "تصنيف ساري أو قابلية التسجيل في الهيئة السعودية للتخصصات الصحية (SCFHS)",
-        "خبرة عملية في معايير CBAHI و JCI ومؤشرات الأداء الإكلينيكي",
-        "شهادة CPHQ مفضلة بشدة مع خبرة قيادية في المستشفيات الكبرى",
-      ],
-      requirements_en: [
-        "Eligible or active Saudi Commission for Health Specialties (SCFHS) registration",
-        "5+ years leading CBAHI and JCI hospital quality accreditation programs",
-        "CPHQ certification and multidisciplinary clinical leadership",
-      ],
-      skills: ["CBAHI", "JCI Accreditation", "CPHQ", "Patient Safety", "SCFHS", "Clinical Governance"],
-      hoursAgo: 22,
-    },
-    {
-      id: "seed-job-ae-04",
-      title_ar: "مستشار استثمار وتطوير مبيعات عقارية دولية",
-      title_en: "Senior Luxury Property Investment Advisor",
-      company_name: "Aldar Properties PJSC",
-      company_domain: "aldar.com",
-      apply_email: "careers@aldar.com",
-      country_code: "AE",
-      city_id: "abudhabi",
-      city_name_ar: "أبوظبي",
-      city_name_en: "Abu Dhabi",
-      industry_id: "real-estate",
-      employment_type: "FULL_TIME",
-      experience_level: "Mid-Senior (3-6 Years)",
-      salary_min: 16000,
-      salary_max: 30000,
-      salary_currency: "AED",
-      summary_ar:
-        "إدارة محفظة كبار المستثمرين وتقديم الاستشارات العقارية للمشاريع الساحلية والسكنية الفاخرة في جزيرة السعديات وياس بأبوظبي.",
-      summary_en:
-        "Advise HNW regional and international investors on prime waterfront and master-planned developments across Saadiyat and Yas Island in Abu Dhabi.",
-      requirements_ar: [
-        "سجل مبيعات موثق في القطاع العقاري الفاخر أو إدارة الثروات في الإمارات",
-        "مهارات عرض وتفاوض عالية وبناء علاقات طويلة الأمد مع المستثمرين",
-        "إجادة العربية والإنجليزية والعمل على أنظمة Salesforce CRM",
-      ],
-      requirements_en: [
-        "Proven sales track record in UAE off-plan luxury real estate or private wealth advisory",
-        "Strong investor portfolio management and Salesforce CRM discipline",
-        "Bilingual fluency in Arabic and English (additional languages a plus)",
-      ],
-      skills: ["Luxury Real Estate", "HNW Advisory", "Property Sales", "Salesforce CRM", "Negotiation"],
-      hoursAgo: 27,
-    },
-    {
-      id: "seed-job-qa-02",
-      title_ar: "مهندس تخطيط ومشاريع طاقة وغاز مسال (LNG)",
-      title_en: "Senior Project Planning Engineer — Energy & LNG",
-      company_name: "Nakilat Maritime & Energy",
-      company_domain: "nakilat.com",
-      apply_email: "recruitment@nakilat.com",
-      country_code: "QA",
-      city_id: "lusail",
-      city_name_ar: "لوسيل",
-      city_name_en: "Lusail",
-      industry_id: "engineering",
-      employment_type: "FULL_TIME",
-      experience_level: "Senior (7-11 Years)",
-      salary_min: 26000,
-      salary_max: 36000,
-      salary_currency: "QAR",
-      summary_ar:
-        "تطوير ومراقبة الجداول الزمنية المتكاملة وتحليل المسار الحرج والمخاطر لمشاريع الطاقة والبنية البحرية في لوسيل وراس لفان.",
-      summary_en:
-        "Develop integrated EPC master schedules, earned-value analytics, and schedule risk models for strategic LNG and marine infrastructure in Qatar.",
-      requirements_ar: [
-        "بكالوريوس هندسة مع خبرة 7 سنوات في مشاريع النفط والغاز والطاقة (EPC)",
-        "إتقان تام لبرنامج Primavera P6 وتحليل القيمة المكتسبة (EVM)",
-        "خبرة في إعداد التقارير التنفيذية للإدارة العليا باللغة الإنجليزية",
-      ],
-      requirements_en: [
-        "Engineering degree with 7+ years in Oil, Gas, LNG, or marine EPC project controls",
-        "Expert command of Primavera P6, Earned Value Management, and delay analysis",
-        "Strong executive reporting and stakeholder alignment skills",
-      ],
-      skills: ["Primavera P6", "Project Controls", "LNG / Oil & Gas", "Earned Value", "EPC Scheduling"],
-      hoursAgo: 31,
-    },
-    {
-      id: "seed-job-sa-04",
-      title_ar: "مدير تسويق رقمي ونمو الأداء (Performance Growth)",
-      title_en: "Head of Digital Performance & Growth Marketing",
-      company_name: "Jarir Marketing Company",
-      company_domain: "jarir.com",
-      apply_email: "careers@jarir.com",
-      country_code: "SA",
-      city_id: "riyadh",
-      city_name_ar: "الرياض",
-      city_name_en: "Riyadh",
-      industry_id: "sales-marketing",
-      employment_type: "FULL_TIME",
-      experience_level: "Manager (5-8 Years)",
-      salary_min: 20000,
-      salary_max: 28000,
-      salary_currency: "SAR",
-      summary_ar:
-        "قيادة حملات الاستحواذ الرقمي، تحسين محركات البحث (SEO)، ومضاعفة العائد الإعلاني (ROAS) لمنصات التجارة الإلكترونية في السوق السعودي والخليجي.",
-      summary_en:
-        "Scale omnichannel customer acquisition, programmatic SEO, paid search/social ROAS, and conversion rate optimization across Saudi Arabia and the GCC.",
-      requirements_ar: [
-        "خبرة 5 سنوات في قيادة التسويق الرقمي للتجارة الإلكترونية بميزانيات مليونية",
-        "إتقان Google Ads و Meta Ads و GA4 وتحليل قمع التحويل (CRO)",
-        "فهم عميق لسلوك المستهلك الخليجي والمواسم البيعية في السعودية",
-      ],
-      requirements_en: [
-        "5+ years leading high-budget e-commerce growth marketing in KSA/GCC",
-        "Deep analytical command of GA4, Google Ads, Meta/TikTok Ads, and technical SEO",
-        "Bilingual Arabic/English creative and analytical mindset",
-      ],
-      skills: ["Performance Marketing", "Technical SEO", "GA4", "ROAS Optimization", "E-Commerce Growth"],
-      hoursAgo: 36,
-    },
-    {
-      id: "seed-job-kw-02",
-      title_ar: "مدقق داخلي أول ومخاطر مصرفية",
-      title_en: "Senior Internal Auditor — Corporate Banking",
-      company_name: "Gulf Bank Kuwait",
-      company_domain: "e-gulfbank.com",
-      apply_email: "careers@e-gulfbank.com",
-      country_code: "KW",
-      city_id: "kuwaitcity",
-      city_name_ar: "مدينة الكويت",
-      city_name_en: "Kuwait City",
-      industry_id: "finance-accounting",
-      employment_type: "FULL_TIME",
-      experience_level: "Senior (5-8 Years)",
-      salary_min: 1650,
-      salary_max: 2300,
-      salary_currency: "KWD",
-      summary_ar:
-        "تنفيذ مهام التدقيق الداخلي وتقييم الضوابط الرقابية ومخاطر الائتمان والامتثال لتعليمات بنك الكويت المركزي.",
-      summary_en:
-        "Execute risk-based internal audits across corporate credit, treasury, and AML compliance in alignment with Central Bank of Kuwait standards.",
-      requirements_ar: [
-        "شهادة CIA أو CPA أو ACCA مع خبرة مصرفية لا تقل عن 5 سنوات",
-        "إلمام بالمعايير الرقابية المصرفية في دول الخليج ومكافحة غسل الأموال",
-        "قدرة عالية على صياغة تقارير لجان التدقيق باللغتين العربية والإنجليزية",
-      ],
-      requirements_en: [
-        "CIA, CPA, or ACCA certification with 5+ years in banking audit or risk advisory",
-        "Strong command of GCC central bank governance, credit risk, and AML controls",
-        "Clear executive report writing in English and Arabic",
-      ],
-      skills: ["Internal Audit", "CIA", "Banking Risk", "AML Compliance", "Credit Controls"],
-      hoursAgo: 42,
-    },
-  ];
-
-  return rawSeeds.map((item) => {
-    const publishedMs = now - item.hoursAgo * 3600 * 1000;
-    const publishedIso = new Date(publishedMs).toISOString();
-    const expiresIso = new Date(publishedMs + 35 * dayMs).toISOString();
-    const dedupe_hash = computeJobDedupeHash({
-      titleEn: item.title_en,
-      titleAr: item.title_ar,
-      companyDomain: item.company_domain,
-      companyName: item.company_name,
-      countryCode: item.country_code,
-      cityId: item.city_id,
-    });
-    const slug = `${slugifyJobSegment(item.title_en)}-${item.city_id}-${item.country_code.toLowerCase()}-${dedupe_hash.slice(0, 6)}`;
-
-    return {
-      id: item.id,
-      slug,
-      dedupe_hash,
-      title_ar: item.title_ar,
-      title_en: item.title_en,
-      company_name: item.company_name,
-      company_domain: item.company_domain,
-      company_website: `https://${item.company_domain}`,
-      apply_email: item.apply_email,
-      masked_apply_email: maskEmail(item.apply_email),
-      apply_url: null,
-      apply_whatsapp: null,
-      country_code: item.country_code,
-      city_id: item.city_id,
-      city_name_ar: item.city_name_ar,
-      city_name_en: item.city_name_en,
-      industry_id: item.industry_id,
-      employment_type: item.employment_type,
-      experience_level: item.experience_level,
-      salary_min: item.salary_min,
-      salary_max: item.salary_max,
-      salary_currency: item.salary_currency,
-      summary_ar: item.summary_ar,
-      summary_en: item.summary_en,
-      requirements_ar: item.requirements_ar,
-      requirements_en: item.requirements_en,
-      skills: item.skills,
-      source_type: "verified_harvester",
-      source_channel: "asra3_verified_seed",
-      is_mx_verified: true,
-      is_featured: Boolean(item.is_featured),
-      quality_score: 92,
-      views_count: 40 + (item.hoursAgo % 17) * 9,
-      apply_clicks_count: 8 + (item.hoursAgo % 11) * 3,
-      status: "published",
-      fb_post_id: null,
-      fb_posted_at: null,
-      tg_message_id: null,
-      tg_posted_at: null,
-      published_at: publishedIso,
-      expires_at: expiresIso,
-      created_at: publishedIso,
-    };
-  });
+/**
+ * Early builds shipped fabricated demo listings (ids `seed-job-*`, channel
+ * `asra3_verified_seed`). They are never real vacancies, so they are purged
+ * from the local store on read and never shown publicly.
+ */
+function isLegacyDemoSeed(job: Partial<JobPostingRecord>): boolean {
+  return (
+    String(job.id || "").startsWith("seed-job-") ||
+    job.source_channel === "asra3_verified_seed"
+  );
 }
-
-export const INITIAL_GCC_JOBS: JobPostingRecord[] = buildSeedJobs();
 
 function readLocalJobs(): JobPostingRecord[] {
   try {
@@ -580,18 +86,20 @@ function readLocalJobs(): JobPostingRecord[] {
       fs.mkdirSync(DATA_DIR, { recursive: true });
     }
     if (!fs.existsSync(JOBS_FILE)) {
-      fs.writeFileSync(JOBS_FILE, JSON.stringify(INITIAL_GCC_JOBS, null, 2), "utf8");
-      return INITIAL_GCC_JOBS;
+      return [];
     }
-    const raw = fs.readFileSync(JOBS_FILE, "utf8");
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed) || parsed.length === 0) {
-      fs.writeFileSync(JOBS_FILE, JSON.stringify(INITIAL_GCC_JOBS, null, 2), "utf8");
-      return INITIAL_GCC_JOBS;
+    const parsed = JSON.parse(fs.readFileSync(JOBS_FILE, "utf8"));
+    if (!Array.isArray(parsed)) return [];
+
+    const real = (parsed as JobPostingRecord[]).filter(
+      (j) => !isLegacyDemoSeed(j)
+    );
+    if (real.length !== parsed.length) {
+      fs.writeFileSync(JOBS_FILE, JSON.stringify(real, null, 2), "utf8");
     }
-    return parsed as JobPostingRecord[];
+    return real;
   } catch {
-    return INITIAL_GCC_JOBS;
+    return [];
   }
 }
 
@@ -644,7 +152,19 @@ function normalizeJobRow(row: JobPostingRecord): JobPostingRecord {
   };
 }
 
+/**
+ * Single source of truth for reads: merges the Supabase `jobs` table with the
+ * local `.data/jobs.json` volume (keyed by dedupe_hash) so a job that exists in
+ * either store always resolves — no more 404s from the two stores drifting.
+ * Supabase wins on status/social fields; local keeps `secondary_industries`.
+ */
 export async function getAllJobsRaw(): Promise<JobPostingRecord[]> {
+  const merged = new Map<string, JobPostingRecord>();
+
+  for (const row of readLocalJobs()) {
+    merged.set(row.dedupe_hash || row.id, row);
+  }
+
   if (isSupabaseConfigured()) {
     try {
       const sb = getSupabaseJobsClient();
@@ -653,15 +173,30 @@ export async function getAllJobsRaw(): Promise<JobPostingRecord[]> {
         .select("*")
         .order("published_at", { ascending: false })
         .limit(1000);
-      if (!error && Array.isArray(data) && data.length > 0) {
-        return (data as JobPostingRecord[]).map(normalizeJobRow);
+      if (!error && Array.isArray(data)) {
+        for (const row of data as JobPostingRecord[]) {
+          if (isLegacyDemoSeed(row)) continue;
+          const key = row.dedupe_hash || row.id;
+          const local = merged.get(key);
+          merged.set(key, {
+            ...local,
+            ...row,
+            secondary_industries:
+              local?.secondary_industries || row.secondary_industries,
+          });
+        }
       }
     } catch {
-      // Fallback cleanly to local volume store if `jobs` table is not created yet
+      // `jobs` table not created yet — local volume store still serves jobs
     }
   }
 
-  return readLocalJobs().map(normalizeJobRow);
+  return Array.from(merged.values())
+    .map(normalizeJobRow)
+    .sort(
+      (a, b) =>
+        new Date(b.published_at).getTime() - new Date(a.published_at).getTime()
+    );
 }
 
 /**
@@ -1361,8 +896,14 @@ export async function performAdminJobAction(
     | "delete"
 ): Promise<{ ok: boolean; job?: JobPostingRecord }> {
   const jobs = readLocalJobs();
-  const idx = jobs.findIndex((j) => j.id === id);
-  if (idx === -1) return { ok: false };
+  let idx = jobs.findIndex((j) => j.id === id);
+  if (idx === -1) {
+    // Job lives only in Supabase (e.g. local volume was reset) — adopt it locally
+    const remote = (await getAllJobsRaw()).find((j) => j.id === id);
+    if (!remote) return { ok: false };
+    jobs.unshift(remote);
+    idx = 0;
+  }
 
   const target = { ...jobs[idx] };
 
