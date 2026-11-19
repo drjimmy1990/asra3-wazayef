@@ -20,6 +20,9 @@ Asra3.com scans candidate PDF/DOCX CVs against GCC Applicant Tracking Systems (A
 
 - [Asra3.com Main Arabic Hub](${SITE_URL}/): Primary Arabic platform for UAE, Saudi Arabia, Qatar & Kuwait CV optimization and direct HR outreach.
 - [Asra3.com English GCC Hub](${SITE_URL}/en): Full English experience for GCC AI ATS CV scanning and direct HR inbox placement.
+- [Live Verified GCC Jobs Board](${SITE_URL}/jobs): Continuously updated, DNS MX-verified corporate HR job vacancies across Dubai, Abu Dhabi, Riyadh, Jeddah, Doha, and Kuwait City.
+- [Employer Direct Job Portal](${SITE_URL}/employers): Free corporate job posting portal with instant DNS MX verification and Google Jobs schema.
+- [Live Jobs RSS 2.0 Feed](${SITE_URL}/jobs/rss.xml): Machine-readable feed of verified Gulf job vacancies.
 - [Platform Methodology & About](${SITE_URL}/about): Entity identity, DNS MX verification workflow, ATS evaluation criteria, and confidential distribution standards.
 - [Live Campaign Tracking Ledger](${SITE_URL}/track): Real-time company placement progress, open tracking metrics, and CSV export portal.
 

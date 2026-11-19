@@ -84,8 +84,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const currentRouteCountry = getCountryCodeFromPathname(livePath);
 
       if (currentRouteCountry && currentRouteCountry !== code) {
+        const subMatch = livePath?.match(/^\/(?:ae|sa|qa|kw)(\/.*)?$/i);
+        const suffix = subMatch?.[1] || "";
         const hash = typeof window !== "undefined" ? window.location.hash : "";
-        const nextUrl = `/${code.toLowerCase()}${hash}`;
+        const nextUrl = `/${code.toLowerCase()}${suffix}${hash}`;
         if (options?.shallow && typeof window !== "undefined") {
           window.history.pushState(null, "", nextUrl);
         } else {

@@ -80,7 +80,7 @@ export const Scene06LiveLedger: React.FC<{
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        padding: isReels ? "80px 52px 290px" : "48px 52px 175px",
+        padding: isReels ? "140px 72px 560px" : "48px 52px 175px",
         fontFamily: THEME.fontArabic,
         overflow: "hidden",
       }}

@@ -208,3 +208,96 @@ export interface SmtpAccountConfig {
   created_at: string;
 }
 
+// ==============================================================================
+// Automated GCC Jobs Board, Search Ranking & Employer Portal Models
+// ==============================================================================
+
+export type EmploymentType =
+  | "FULL_TIME"
+  | "PART_TIME"
+  | "CONTRACT"
+  | "REMOTE";
+
+export type JobSourceType =
+  | "employer_direct"
+  | "verified_harvester"
+  | "admin_curated";
+
+export type JobPostingStatus =
+  | "published"
+  | "pending_review"
+  | "expired"
+  | "rejected";
+
+export type JobSortOption = "rank" | "newest" | "salary" | "verified";
+
+export interface JobPostingRecord {
+  id: string;
+  slug: string;
+  dedupe_hash: string;
+  title_ar: string;
+  title_en: string;
+  company_name: string;
+  company_domain: string;
+  company_website?: string | null;
+  apply_email?: string | null;
+  masked_apply_email?: string | null;
+  apply_url?: string | null;
+  apply_whatsapp?: string | null;
+  country_code: CountryCode;
+  city_id: string;
+  city_name_ar: string;
+  city_name_en: string;
+  industry_id: string;
+  employment_type: EmploymentType;
+  experience_level: string;
+  salary_min?: number | null;
+  salary_max?: number | null;
+  salary_currency: CurrencyCode;
+  summary_ar: string;
+  summary_en: string;
+  requirements_ar: string[];
+  requirements_en: string[];
+  skills: string[];
+  source_type: JobSourceType;
+  source_channel?: string | null;
+  is_mx_verified: boolean;
+  is_featured: boolean;
+  quality_score: number;
+  views_count: number;
+  apply_clicks_count: number;
+  status: JobPostingStatus;
+  fb_post_id?: string | null;
+  fb_posted_at?: string | null;
+  tg_message_id?: string | null;
+  tg_posted_at?: string | null;
+  published_at: string;
+  expires_at: string;
+  created_at: string;
+  rank_score?: number;
+}
+
+export interface JobSearchParams {
+  q?: string;
+  country?: CountryCode | "";
+  city?: string;
+  industry?: string;
+  employmentType?: EmploymentType | "";
+  verifiedOnly?: boolean;
+  sort?: JobSortOption;
+  page?: number;
+  limit?: number;
+  includePending?: boolean;
+}
+
+export interface JobSearchResponse {
+  jobs: JobPostingRecord[];
+  total: number;
+  page: number;
+  totalPages: number;
+  totalActiveJobs: number;
+  countsByCountry: Record<CountryCode, number>;
+  countsByIndustry: Record<string, number>;
+}
+
+

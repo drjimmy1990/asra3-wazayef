@@ -53,8 +53,15 @@ export function Navbar() {
         {/* Desktop Navigation Links */}
         <nav
           aria-label="Primary Navigation"
-          className="hidden xl:flex items-center gap-7 text-[13px] font-semibold text-zinc-600 dark:text-zinc-400"
+          className="hidden xl:flex items-center gap-6 text-[13px] font-semibold text-zinc-600 dark:text-zinc-400"
         >
+          <Link
+            href="/jobs"
+            className="inline-flex items-center gap-1.5 font-extrabold text-zinc-950 dark:text-[#D4AF37] hover:opacity-80 transition-opacity"
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-[#D4AF37]" />
+            <span>{lang === "ar" ? "الوظائف المتاحة" : "Live Jobs"}</span>
+          </Link>
           <Link
             href="/#wizard-section"
             className="hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors"
@@ -68,22 +75,16 @@ export function Navbar() {
             {t.navCountries}
           </Link>
           <Link
-            href="/#how-it-works"
-            className="hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors"
-          >
-            {t.navHowItWorks}
-          </Link>
-          <Link
             href="/#pricing-section"
             className="hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors"
           >
             {t.navPricing}
           </Link>
           <Link
-            href="/#faq-section"
+            href="/employers"
             className="hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors"
           >
-            {lang === "ar" ? "الأسئلة الشائعة" : "FAQ"}
+            {lang === "ar" ? "نشر وظيفة (للشركات)" : "Post a Job"}
           </Link>
         </nav>
 
@@ -235,11 +236,25 @@ export function Navbar() {
 
           <div className="grid grid-cols-2 gap-2 text-xs font-bold">
             <Link
+              href="/jobs"
+              onClick={() => setMobileMenuOpen(false)}
+              className="rounded-lg bg-[#09090B] text-[#D4AF37] border border-[#D4AF37]/50 px-3.5 py-2.5 text-center"
+            >
+              {lang === "ar" ? "⚡ الوظائف الموثقة" : "⚡ Live GCC Jobs"}
+            </Link>
+            <Link
               href="/#wizard-section"
               onClick={() => setMobileMenuOpen(false)}
-              className="rounded-lg bg-[#09090B] text-white dark:bg-[#D4AF37] dark:text-[#09090B] px-3.5 py-2.5 text-center"
+              className="rounded-lg bg-[#D4AF37] text-[#09090B] px-3.5 py-2.5 text-center"
             >
               {lang === "ar" ? "ابدأ حملتك الآن" : "Start Campaign"}
+            </Link>
+            <Link
+              href="/employers"
+              onClick={() => setMobileMenuOpen(false)}
+              className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-[#121215] px-3.5 py-2.5 text-center text-zinc-900 dark:text-zinc-100"
+            >
+              {lang === "ar" ? "نشر وظيفة (للشركات)" : "Post a Job Free"}
             </Link>
             <Link
               href="/track"
@@ -247,20 +262,6 @@ export function Navbar() {
               className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-[#121215] px-3.5 py-2.5 text-center text-zinc-900 dark:text-zinc-100"
             >
               {t.navTrackOrder}
-            </Link>
-            <Link
-              href="/#countries-section"
-              onClick={() => setMobileMenuOpen(false)}
-              className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-[#121215] px-3.5 py-2.5 text-center text-zinc-700 dark:text-zinc-300"
-            >
-              {t.navCountries}
-            </Link>
-            <Link
-              href="/#pricing-section"
-              onClick={() => setMobileMenuOpen(false)}
-              className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-[#121215] px-3.5 py-2.5 text-center text-zinc-700 dark:text-zinc-300"
-            >
-              {t.navPricing}
             </Link>
           </div>
 

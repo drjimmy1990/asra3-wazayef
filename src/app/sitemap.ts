@@ -1,15 +1,12 @@
 import type { MetadataRoute } from "next";
+import { INITIAL_COUNTRIES, INITIAL_INDUSTRIES } from "@/lib/seed-data";
+import { searchAndRankJobs } from "@/lib/jobs-store";
+import { getCanonicalSiteUrl } from "@/lib/seo-indexer";
 
-const SITE_URL =
-  (
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    (process.env.NEXT_PUBLIC_APP_URL &&
-    !process.env.NEXT_PUBLIC_APP_URL.includes("localhost")
-      ? process.env.NEXT_PUBLIC_APP_URL
-      : "https://asra3.com")
-  ).replace(/\/+$/, "");
+export const dynamic = "force-dynamic";
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const SITE_URL = getCanonicalSiteUrl();
   const now = new Date();
   const bilingualAlternates = {
     languages: {
@@ -18,7 +15,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
   };
 
-  return [
+  const staticEntries: MetadataRoute.Sitemap = [
     {
       url: `${SITE_URL}/`,
       lastModified: now,
@@ -32,6 +29,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "daily",
       priority: 0.98,
       alternates: bilingualAlternates,
+    },
+    {
+      url: `${SITE_URL}/jobs`,
+      lastModified: now,
+      changeFrequency: "hourly",
+      priority: 0.99,
+    },
+    {
+      url: `${SITE_URL}/employers`,
+      lastModified: now,
+      changeFrequency: "weekly",
+      priority: 0.9,
     },
     {
       url: `${SITE_URL}/ae`,
@@ -94,4 +103,35 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.5,
     },
   ];
+
+  // 4 Country Job Hubs + 48 Country x Industry Programmatic SEO Hubs
+  const programmaticEntries: MetadataRoute.Sitemap = [];
+  for (const country of INITIAL_COUNTRIES) {
+    const cSlug = country.code.toLowerCase();
+    programmaticEntries.push({
+      url: `${SITE_URL}/${cSlug}/jobs`,
+      lastModified: now,
+      changeFrequency: "hourly",
+      priority: 0.94,
+    });
+    for (const ind of INITIAL_INDUSTRIES) {
+      programmaticEntries.push({
+        url: `${SITE_URL}/${cSlug}/jobs/${ind.id}`,
+        lastModified: now,
+        changeFrequency: "daily",
+        priority: 0.86,
+      });
+    }
+  }
+
+  // Active Individual Job Postings (/jobs/[slug])
+  const { jobs } = await searchAndRankJobs({ sort: "newest", limit: 100 });
+  const jobEntries: MetadataRoute.Sitemap = jobs.map((job) => ({
+    url: `${SITE_URL}/jobs/${job.slug}`,
+    lastModified: new Date(job.published_at),
+    changeFrequency: "daily",
+    priority: job.is_featured ? 0.92 : 0.88,
+  }));
+
+  return [...staticEntries, ...programmaticEntries, ...jobEntries];
 }

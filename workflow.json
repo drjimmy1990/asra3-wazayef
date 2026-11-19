@@ -1,0 +1,1088 @@
+{
+    "nodes": [
+        {
+            "parameters": {
+                "jsCode": "// Code node (Run Once for All Items)\n\nconst chatIds = [\n  -1001204458164,\n  -1001225434380,\n  -1001649236628,\n  -1001037426634,\n  -1001364540874,\n  -1002707351079\n];\n\nreturn chatIds.map(id => ({\n  json: {\n    chatId: id\n  }\n}));"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                -8496,
+                2896
+            ],
+            "id": "ca031dc0-fd0f-4acd-ba51-a33f9fe4fc15",
+            "name": "Code5"
+        },
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "minutes",
+                            "minutesInterval": 60
+                        }
+                    ]
+                }
+            },
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1.2,
+            "position": [
+                -8720,
+                2896
+            ],
+            "id": "bb72b42c-16f4-4483-9bc5-507242a9eaad",
+            "name": "Schedule Trigger2"
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "loose",
+                        "version": 2
+                    },
+                    "conditions": [
+                        {
+                            "id": "414920a8-f94b-43d3-9279-97cb0df0da8a",
+                            "leftValue": "={{ $json.photo.url }}",
+                            "rightValue": "",
+                            "operator": {
+                                "type": "boolean",
+                                "operation": "notEmpty",
+                                "singleValue": true
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "looseTypeValidation": true,
+                "options": {}
+            },
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.2,
+            "position": [
+                -7728,
+                2896
+            ],
+            "id": "717387ea-9377-45fb-b656-7a9b6cbbdd15",
+            "name": "If4"
+        },
+        {
+            "parameters": {
+                "assignments": {
+                    "assignments": [
+                        {
+                            "id": "072fd0db-e0ab-45af-8168-9cbed54f3ce8",
+                            "name": "photo.url",
+                            "value": "={{ $json.photo.url }}",
+                            "type": "string"
+                        },
+                        {
+                            "id": "bea280d5-1e92-4a2f-8c02-f175858a35ec",
+                            "name": "text",
+                            "value": "={{ $json.text }}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 3.4,
+            "position": [
+                -7360,
+                2496
+            ],
+            "id": "762b24d2-bfdf-4409-a8e0-8c9763809ea2",
+            "name": "Edit Fields17"
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict",
+                        "version": 2
+                    },
+                    "conditions": [
+                        {
+                            "id": "55af187a-b47c-4aed-a84f-5e351c66070c",
+                            "leftValue": "={{ $json.date }}",
+                            "rightValue": "={{ new Date(Date.now() - 3600000).toISOString() }}",
+                            "operator": {
+                                "type": "dateTime",
+                                "operation": "after"
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.filter",
+            "typeVersion": 2.2,
+            "position": [
+                -7904,
+                2896
+            ],
+            "id": "6e1ae110-3d0e-48b1-a596-328082b8c4a3",
+            "name": "Filter1"
+        },
+        {
+            "parameters": {
+                "jsCode": "// === إعدادات التشابه ===\nconst HAMMING_MAX = 6;   // كلما قلّ الرقم صار أشد (4-6 جيد)\nconst SHINGLE_N   = 3;   // 3-grams\nconst JACCARD_MIN = 0.80;\n\n// === أدوات مساعدة ===\nfunction normalizeText(s) {\n  return s.toString()\n    .replace(/https?:\\/\\/\\S+/gi, ' ')\n    .replace(/[@#]\\S+/g, ' ')\n    .replace(/\\b\\d{7,}\\b/g, ' ') // أرقام طويلة (تليفونات)\n    .replace(/[\\u200e\\u200f\\u202a-\\u202e]/g, '')\n    .replace(/[ـ]+/g, '')\n    .replace(/[\\u0610-\\u061A\\u064B-\\u065F\\u0670\\u06D6-\\u06ED]/g, '') // تشكيل\n    .toLowerCase()\n    .replace(/[^a-z0-9\\u0600-\\u06FF\\s]/g, ' ')\n    .replace(/\\s{2,}/g, ' ')\n    .trim();\n}\n\nconst STOP = new Set([\n  'في','من','على','الى','إلى','و','يا','عن','مع','او','أو','ثم','هذا','هذه','ذلك','تلك','كان','كانت',\n  'the','a','an','and','or','of','for','to','in','on','at','by','with','is','are','be','as','this','that','these','those'\n]);\n\nfunction tokenize(txt) {\n  return txt.split(/\\s+/).filter(t => t && !STOP.has(t));\n}\n\nfunction makeShingles(tokens, n = SHINGLE_N) {\n  const out = [];\n  for (let i = 0; i <= tokens.length - n; i++) out.push(tokens.slice(i, i + n).join(' '));\n  return out.length ? out : tokens; // fallback للنصوص القصيرة\n}\n\nfunction hash32(str) {\n  let h = 2166136261 >>> 0;\n  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }\n  return h >>> 0;\n}\n\nfunction simhash64(features) {\n  const weights = {};\n  for (const f of features) weights[f] = (weights[f] || 0) + 1;\n  const vec = new Array(64).fill(0);\n  for (const [feat, w] of Object.entries(weights)) {\n    const h1 = hash32(feat);\n    const h2 = hash32(feat + '#');\n    const hi = (BigInt(h1) << 32n) | BigInt(h2);\n    for (let b = 0; b < 64; b++) vec[b] += ((hi >> BigInt(b)) & 1n) ? w : -w;\n  }\n  let fp = 0n;\n  for (let b = 0; b < 64; b++) if (vec[b] > 0) fp |= (1n << BigInt(b));\n  return fp;\n}\n\nfunction hamming(a, b) {\n  let x = a ^ b, c = 0;\n  while (x) { x &= (x - 1n); c++; }\n  return c;\n}\n\nfunction jaccard(aSet, bSet) {\n  let inter = 0; const b = new Set(bSet);\n  for (const x of aSet) if (b.has(x)) inter++;\n  const uni = aSet.size + b.size - inter;\n  return uni === 0 ? 1 : inter / uni;\n}\n\n// === نبني عناقيد تشابه داخل نفس التشغيل ===\nconst clusters = []; // كل عنصر: {repFp, shingles, items: [itemIdxs], bestIdx}\nconst prepared = items.map((it, idx) => {\n  const text = (it.json.text ?? it.json.text_raw ?? '').toString();\n  const norm = normalizeText(text);\n  const toks = tokenize(norm);\n  const shingles = makeShingles(toks, SHINGLE_N);\n  const fp = simhash64(shingles);\n  return { idx, it, text, norm, toks, shingles, fp };\n});\n\n// قارن كل عنصر بعناقيد موجودة\nfor (const p of prepared) {\n  if (!p.norm) continue;\n\n  let placed = false;\n  for (const cl of clusters) {\n    const ham = Number(hamming(p.fp, cl.repFp));\n    if (ham <= HAMMING_MAX) {\n      // احتياط: قياس Jaccard كمان للنصوص القصيرة\n      const jac = jaccard(new Set(p.shingles), new Set(cl.shingles));\n      if (jac >= JACCARD_MIN || p.shingles.length < 4) {\n        cl.items.push(p);\n        // اختار \"أفضل\" نسخة: الأطول ثم الأعلى views إن موجود\n        const best = cl.items.reduce((a, b) => {\n          const lenA = (a.text || '').length, lenB = (b.text || '').length;\n          if (lenA !== lenB) return lenB > lenA ? b : a;\n          const va = Number(a.it.json.views ?? 0), vb = Number(b.it.json.views ?? 0);\n          return vb > va ? b : a;\n        });\n        cl.best = best;\n        placed = true;\n        break;\n      }\n    }\n  }\n\n  if (!placed) {\n    clusters.push({ repFp: p.fp, shingles: p.shingles, items: [p], best: p });\n  }\n}\n\n// رجّع عنصر واحد لكل عنقود + قائمة المصادر اللي اتجمعت\nconst out = clusters.map(cl => {\n  const best = cl.best;\n  const sources = cl.items.map(x => ({\n    channel: x.it.json.author ?? x.it.json.channel ?? null,\n    id: x.it.json.msg_id ?? x.it.json.id ?? null,\n    date: x.it.json.date ?? null\n  }));\n  return {\n    json: {\n      ...best.it.json,\n      text: best.it.json.text ?? best.it.json.text_raw ?? '',\n      dedupeSmart: true,\n      sources // كل القنوات اللي نشرت نفس الإعلان\n    }\n  };\n});\n\nreturn out;\n"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                -7536,
+                3152
+            ],
+            "id": "c57d413a-6dd2-498f-abaa-173c83664ea4",
+            "name": "Code13"
+        },
+        {
+            "parameters": {
+                "options": {}
+            },
+            "type": "n8n-nodes-base.splitInBatches",
+            "typeVersion": 3,
+            "position": [
+                -7168,
+                2496
+            ],
+            "id": "844b166a-a3c2-43b9-baa1-e798b198d6eb",
+            "name": "Loop Over Items"
+        },
+        {
+            "parameters": {
+                "promptType": "define",
+                "text": "={{ JSON.stringify($json.text) }} or {{ $json.DATA }}",
+                "hasOutputParser": true,
+                "messages": {
+                    "messageValues": [
+                        {
+                            "message": "=You are an expert Data Extraction and Formatting Agent for UAE job postings.\n\nYour task is to classify the post, remove spam/promotional content, extract only explicitly available job details, validate the application method, and return one strict JSON object.\n\n---\n\n### 1. OUTPUT FORMAT\n\nReturn ONLY one valid JSON object inside a Markdown `json` code block. No text before or after it.\n\n```json\n{\n  \"postType\": \"JOB_OFFER\" | \"JOB_REQUEST\" | \"OTHER\",\n  \"isValidJob\": true | false,\n  \"arabic_title\": \"String or null\",\n  \"english_title\": \"String or null\",\n  \"formatted_html\": {\n    \"ar\": \"String or null\",\n    \"en\": \"String or null\"\n  },\n  \"clean_text\": {\n    \"ar\": \"String or null\",\n    \"en\": \"String or null\"\n  }\n}\n```\n\nUse valid JSON escaping. Inside JSON strings, escape HTML quotes as `\\\"` and represent line breaks using `\\n`.\n\n---\n\n### 2. CLASSIFICATION\n\n- `JOB_OFFER`: A company/recruiter is offering a specific job.\n- `JOB_REQUEST`: A person is looking for work or sharing their CV/skills.\n- `OTHER`: Spam, courses, advertisements, promotions, or posts without a real job vacancy.\n\n`JOB_REQUEST` and `OTHER` must always have:\n\n- `isValidJob: false`\n- `arabic_title: null`\n- `english_title: null`\n- `formatted_html.ar/en: null`\n- `clean_text.ar/en: null`\n\n---\n\n### 3. CLEANING RULES\n\nBefore extraction:\n\n- Remove promotional noise such as Follow us, Subscribe, social handles, Telegram channels, giveaways, generic promotional links, and similar content.\n- If a real job exists inside promotional content, keep only the job information.\n- Never include `https://linkjar.co/jobss_ae` or any variation of that URL.\n- Do not treat WhatsApp links, Telegram links, social profiles, generic homepages, or promotional links as valid application links.\n- Valid application links include direct job application forms, careers pages, recruitment portals, or direct job URLs.\n\nNever invent or infer missing information.\n\n---\n\n### 4. VALIDATION\n\nSet `isValidJob: true` ONLY when ALL conditions are met:\n\n1. `postType` = `JOB_OFFER`.\n2. A clear job title exists.\n3. The post contains the job title plus at least one additional job detail such as:\n   Location, Nationality, Gender, Qualification, Experience, Working Hours, Work Days, Salary, Languages, Employer/Sector, or Notes.\n4. A valid application channel exists:\n   - Email\n   - Valid application link\n5. Phone number or WhatsApp alone is NOT valid.\n6. If Email/Link exists together with Phone/WhatsApp:\n   - Use only Email and/or Link.\n   - Completely omit Phone/WhatsApp from all outputs.\n7. If the only contact is `+971525288761`, the job is invalid.\n8. If no valid Email or application Link exists, the job is invalid.\n\nIf `isValidJob` is false, stop content generation and set all titles/content fields to `null`.\n\n---\n\n### 5. EXTRACTION RULES\n\nExtract only details explicitly present in the source.\n\nDo not output placeholders such as:\n- Not specified\n- N/A\n- Unknown\n\nIf a detail does not exist, omit its line from the generated content. The next processing node may further filter missing fields.\n\n#### Location\nNormalize clear UAE locations to:\n- Dubai\n- Abu Dhabi\n- Sharjah\n- Ajman\n- Ras Al Khaimah\n- Fujairah\n- Umm Al Quwain\n- Al Ain\n- UAE\n\nConvert neighborhoods to their emirate only when unambiguous. Never guess ambiguous locations.\n\n#### Contact\nIf both Email and Link exist, include both.\n\nEmail must be syntactically valid.\n\nApplication links must be valid `http://` or `https://` URLs.\n\n#### Translation\nAlways generate both Arabic and English versions.\n\nTranslate naturally while preserving:\n- Company names\n- Emails\n- URLs\n- Acronyms\n- Technical terms where translation may reduce accuracy\n\nDo not add information that is not in the original post.\n\n---\n\n### 6. TITLES\n\nUse nationality eligibility only when explicitly stated.\n\nExamples:\n\n- UAE Nationals only:\n  - Arabic: `وظائف للمواطنين الإماراتيين`\n  - English: `UAE Nationals Only`\n\n- UAE residents:\n  - Arabic: `وظائف للمقيمين`\n  - English: `Jobs for UAE Residents`\n\n- All/Any nationalities:\n  - Arabic: `وظائف للمقيمين والمواطنين`\n  - English: `Open to All Nationalities`\n\n- Specific nationality:\n  - Arabic: `وظائف للجنسية {Nationality}`\n  - English: `Jobs for {Nationality} Nationals`\n\n- Nationality not mentioned:\n  - Arabic: `فرصة عمل في الإمارات`\n  - English: `UAE Job Opportunity`\n\nDo not infer nationality eligibility.\n\n---\n\n### 7. CONTENT RULES\n\n`formatted_html`:\n- Use `<b>` for labels and important values.\n- Use clickable `<a href=\\\"...\\\">` for Email and application URLs.\n- Salary may appear here if explicitly provided.\n\n`clean_text`:\n- Same wording, order, emojis, and lines as HTML after removing HTML tags.\n- EXCEPTION: completely remove the Salary line.\n- Convert Email/Links to plain text.\n- Do not include any HTML tags.\n\nOther than the removed Salary line, emoji order and placement must remain identical.\n\n---\n\n### 8. ARABIC TEMPLATE\n\nHTML:\n\n```html\n🟢 فرصة وظيفية {Nationality} – {Location}\n🎯 <b>{JobTitle}</b>\n🔹 <b>الجنسية:</b> {Nationality}\n🔹 <b>الجنس:</b> {Gender}\n🔹 <b>المؤهل:</b> {Qualification}\n🔹 <b>الخبرة:</b> {Experience}\n🔹 <b>ساعات العمل:</b> {WorkingHours}\n🔹 <b>أيام العمل:</b> {WorkDays}\n🔹 <b>الراتب:</b> {Salary}\n🔹 <b>اللغات:</b> {Languages}\n🔹 <b>جهة العمل/القطاع:</b> {EmployerType}\n🔹 <b>ملاحظة:</b> {Notes}\n📩 للتقديم:\n📧 <a href=\"mailto:{Email}\"><b>{Email}</b></a>\n🔗 <a href=\"{Link}\"><b>{Link}</b></a>\n```\n\nClean Text:\n\n```text\n🟢 فرصة وظيفية {Nationality} – {Location}\n🎯 {JobTitle}\n🔹 الجنسية: {Nationality}\n🔹 الجنس: {Gender}\n🔹 المؤهل: {Qualification}\n🔹 الخبرة: {Experience}\n🔹 ساعات العمل: {WorkingHours}\n🔹 أيام العمل: {WorkDays}\n🔹 اللغات: {Languages}\n🔹 جهة العمل/القطاع: {EmployerType}\n🔹 ملاحظة: {Notes}\n📩 للتقديم:\n📧 {Email}\n🔗 {Link}\n```\n\nIf Nationality or Location is missing, remove only that missing part from the first line without deleting the entire header.\n\nExamples:\n- `🟢 فرصة وظيفية – دبي`\n- `🟢 فرصة وظيفية جميع الجنسيات`\n- `🟢 فرصة وظيفية`\n\n---\n\n### 9. ENGLISH TEMPLATE\n\nHTML:\n\n```html\n🟢 Job Opportunity {Nationality} – {Location}\n🎯 <b>{JobTitle}</b>\n🔹 <b>Nationality:</b> {Nationality}\n🔹 <b>Gender:</b> {Gender}\n🔹 <b>Qualification:</b> {Qualification}\n🔹 <b>Experience:</b> {Experience}\n🔹 <b>Working Hours:</b> {WorkingHours}\n🔹 <b>Work Days:</b> {WorkDays}\n🔹 <b>Salary:</b> {Salary}\n🔹 <b>Languages:</b> {Languages}\n🔹 <b>Employer/Sector:</b> {EmployerType}\n🔹 <b>Note:</b> {Notes}\n📩 To Apply:\n📧 <a href=\"mailto:{Email}\"><b>{Email}</b></a>\n🔗 <a href=\"{Link}\"><b>{Link}</b></a>\n```\n\nClean Text:\n\n```text\n🟢 Job Opportunity {Nationality} – {Location}\n🎯 {JobTitle}\n🔹 Nationality: {Nationality}\n🔹 Gender: {Gender}\n🔹 Qualification: {Qualification}\n🔹 Experience: {Experience}\n🔹 Working Hours: {WorkingHours}\n🔹 Work Days: {WorkDays}\n🔹 Languages: {Languages}\n🔹 Employer/Sector: {EmployerType}\n🔹 Note: {Notes}\n📩 To Apply:\n📧 {Email}\n🔗 {Link}\n```\n\nIf Nationality or Location is missing, remove only that missing part from the header.\n\nNever hallucinate missing job details."
+                        }
+                    ]
+                },
+                "batching": {}
+            },
+            "type": "@n8n/n8n-nodes-langchain.chainLlm",
+            "typeVersion": 1.7,
+            "position": [
+                -6864,
+                3168
+            ],
+            "id": "253117f9-6c15-4ba9-aa86-dc0a4a90bef0",
+            "name": "Basic LLM Chain1"
+        },
+        {
+            "parameters": {
+                "options": {}
+            },
+            "type": "n8n-nodes-base.splitInBatches",
+            "typeVersion": 3,
+            "position": [
+                -7072,
+                3152
+            ],
+            "id": "1d96f543-71e4-44bd-a723-b0b55c00a76e",
+            "name": "Loop Over Items1"
+        },
+        {
+            "parameters": {
+                "jsCode": "// --- Robust JSON Parser (New Schema: HTML + Clean Text) ---\n\n// 1. GET INPUT\nconst rawOutputString = $input.first()?.json?.output || $input.first()?.json?.text;\n\n// 2. INPUT VALIDATION\nif (!rawOutputString || typeof rawOutputString !== 'string') {\n  return [{ \n    json: { \n      error: true,\n      message: \"Input field from AI Agent is missing or not a string.\" \n    } \n  }];\n}\n\nlet jsonString = null;\n\n// --- STRATEGY 1: Find Markdown Code Fence (Best for Multiline Strings) ---\nconst markdownRegex = /`{3,}(?:json|JSON)?\\s*([\\s\\S]*?)\\s*`{3,}/;\nconst markdownMatch = rawOutputString.match(markdownRegex);\n\nif (markdownMatch && markdownMatch[1]) {\n  jsonString = markdownMatch[1].trim();\n}\n\n// --- STRATEGY 2: Fallback (Brute Force) ---\nif (!jsonString) {\n  const startIndex = rawOutputString.indexOf('{');\n  const endIndex = rawOutputString.lastIndexOf('}');\n  if (startIndex > -1 && endIndex > -1 && endIndex > startIndex) {\n    jsonString = rawOutputString.substring(startIndex, endIndex + 1).trim();\n  }\n}\n\n// 3. CHECK IF EXTRACTION FAILED\nif (!jsonString) {\n  return [{ \n    json: { \n      error: true,\n      message: \"Could not locate a JSON object in the AI response.\",\n      rawOutput: rawOutputString\n    }\n  }];\n}\n\n// 4. ATTEMPT PARSING\ntry {\n  const parsedJson = JSON.parse(jsonString);\n\n  // -------------------------------------------------------\n  // 5. STRUCTURE VALIDATION & STANDARDIZATION\n  // -------------------------------------------------------\n  \n  // Ensure the object structure is predictable for the next nodes\n  const finalOutput = {\n    postType: parsedJson.postType || \"OTHER\",\n    isValidJob: parsedJson.isValidJob === true, // Force Boolean\n    \n    // Titles\n    arabic_title: parsedJson.arabic_title || null,\n    english_title: parsedJson.english_title || null,\n\n    // Formatted HTML (For Telegram)\n    // Note: Footer is already included by the AI System Prompt in these fields\n    formatted_html: {\n      ar: parsedJson.formatted_html?.ar || null,\n      en: parsedJson.formatted_html?.en || null\n    },\n\n    // Clean Text (For specific use cases/plain text)\n    clean_text: {\n      ar: parsedJson.clean_text?.ar || null,\n      en: parsedJson.clean_text?.en || null\n    }\n  };\n\n  return [{ json: finalOutput }];\n\n} catch (parseError) {\n  return [{ \n    json: {\n      error: true,\n      message: \"Failed to parse JSON.\",\n      extractedString: jsonString,\n      rawOutput: rawOutputString\n    }\n  }];\n}"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                -6464,
+                3168
+            ],
+            "id": "e0f4139f-0a8b-4382-9db6-44b5e95aa3fe",
+            "name": "Code14"
+        },
+        {
+            "parameters": {
+                "operation": "sendPhoto",
+                "chatId": "@jobs_uae",
+                "binaryData": true,
+                "additionalFields": {
+                    "caption": "={{ $json.formatted_html.ar }}\n\n—\nFor job ads, contact WhatsApp: <a href=\"https://wa.me/971504081478\">Click Here</a>\n\n<b>🇦🇪 وفر وقتك، وخلي سيرتك توصل لأكثر من 1000 جهة في الإمارات 👇</b>\n<a href=\"https://jobsform.uae4jobs.ae\">Uae4jobs</a>\n\n\n#وظائف_الإمارات #وظائف_دبي #وظائف_للمواطنين #خدمة_المتعاملين  #UAEJobs #توظيف_المواطنين",
+                    "parse_mode": "HTML"
+                }
+            },
+            "type": "n8n-nodes-base.telegram",
+            "typeVersion": 1.2,
+            "position": [
+                -5600,
+                3072
+            ],
+            "id": "ca03b7e2-fcad-4ca1-99b9-9675f0029ba1",
+            "name": "arabic4",
+            "webhookId": "f2d67641-3de8-44f2-83fb-73a879e73fb6",
+            "credentials": {
+                "telegramApi": {
+                    "id": "xknMS7gHcHIUiNdi",
+                    "name": "butti"
+                }
+            }
+        },
+        {
+            "parameters": {},
+            "type": "n8n-nodes-base.noOp",
+            "typeVersion": 1,
+            "position": [
+                -6176,
+                2832
+            ],
+            "id": "286d08c9-2182-41d0-aa0d-cded09213231",
+            "name": "No Operation, do nothing3"
+        },
+        {
+            "parameters": {
+                "assignments": {
+                    "assignments": [
+                        {
+                            "id": "fbfd2c64-f659-4510-bc7d-fd78653d94d1",
+                            "name": "text",
+                            "value": "={{ $json.text }}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 3.4,
+            "position": [
+                -7264,
+                3152
+            ],
+            "id": "6e7dfd84-cf81-4ad7-b9a2-445e9d98270d",
+            "name": "Edit Fields"
+        },
+        {
+            "parameters": {
+                "url": "=https://drive.google.com/uc?export=download&id=1yPo70V5DhWXAbga2iFtKCvVJwGrSsjSB",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.3,
+            "position": [
+                -5952,
+                3152
+            ],
+            "id": "f9809909-d4a1-4b8c-8b2d-52d401b8f3a8",
+            "name": "HTTP Request"
+        },
+        {
+            "parameters": {
+                "operation": "sendPhoto",
+                "chatId": "@jobs_uae",
+                "binaryData": true,
+                "additionalFields": {
+                    "caption": "={{ $('Code14').item.json.formatted_html.en }}\n\n—\nFor job ads, contact WhatsApp: <a href=\"https://wa.me/971504081478\">Click Here</a>\n\n<b>📌 Save time! Let your CV reach 1000+ top companies in the UAE 👇</b>\n<a href=\"https://jobsform.uae4jobs.ae\">Uae4jobs</a>\n\n\n#وظائف_الإمارات #وظائف_دبي #وظائف_للمواطنين #خدمة_المتعاملين  #UAEJobs #توظيف_المواطنين",
+                    "parse_mode": "HTML"
+                }
+            },
+            "type": "n8n-nodes-base.telegram",
+            "typeVersion": 1.2,
+            "position": [
+                -5600,
+                3264
+            ],
+            "id": "05cf5803-fca6-43ea-b00d-0f381c7ff502",
+            "name": "english",
+            "webhookId": "f2d67641-3de8-44f2-83fb-73a879e73fb6",
+            "credentials": {
+                "telegramApi": {
+                    "id": "xknMS7gHcHIUiNdi",
+                    "name": "butti"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "mode": "combine",
+                "combineBy": "combineByPosition",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.merge",
+            "typeVersion": 3.2,
+            "position": [
+                -5280,
+                3184
+            ],
+            "id": "96b88196-a09f-47c9-8344-e1f9cd10be48",
+            "name": "Merge4"
+        },
+        {
+            "parameters": {
+                "promptType": "define",
+                "text": "={{ $json.ParsedResults[0].ParsedText }}",
+                "hasOutputParser": true,
+                "messages": {
+                    "messageValues": [
+                        {
+                            "message": "=You are an expert Data Extraction and Formatting Agent for UAE job postings.\n\nYour task is to classify the post, remove spam/promotional content, extract only explicitly available job details, validate the application method, and return one strict JSON object.\n\n---\n\n### 1. OUTPUT FORMAT\n\nReturn ONLY one valid JSON object inside a Markdown `json` code block. No text before or after it.\n\n```json\n{\n  \"postType\": \"JOB_OFFER\" | \"JOB_REQUEST\" | \"OTHER\",\n  \"isValidJob\": true | false,\n  \"arabic_title\": \"String or null\",\n  \"english_title\": \"String or null\",\n  \"formatted_html\": {\n    \"ar\": \"String or null\",\n    \"en\": \"String or null\"\n  },\n  \"clean_text\": {\n    \"ar\": \"String or null\",\n    \"en\": \"String or null\"\n  }\n}\n```\n\nUse valid JSON escaping:\n- Escape quotes inside HTML attributes as `\\\"`.\n- Represent line breaks inside JSON strings as `\\n`.\n- Never output invalid JSON.\n\n---\n\n### 2. CLASSIFICATION\n\n- `JOB_OFFER`: A company, recruiter, or employer is offering a specific job vacancy.\n- `JOB_REQUEST`: A person is looking for employment, sharing a CV, or advertising their own skills/services.\n- `OTHER`: Spam, courses, advertisements, promotions, generic announcements, or posts without a specific job vacancy.\n\nFor `JOB_REQUEST` and `OTHER` always return:\n\n- `isValidJob: false`\n- `arabic_title: null`\n- `english_title: null`\n- `formatted_html.ar: null`\n- `formatted_html.en: null`\n- `clean_text.ar: null`\n- `clean_text.en: null`\n\n---\n\n### 3. CLEANING RULES\n\nBefore extraction:\n\n- Remove promotional noise such as:\n  - Follow us\n  - Subscribe\n  - Social media handles\n  - Telegram channels\n  - Giveaways\n  - Generic promotional links\n  - Marketing text unrelated to the vacancy\n- If a valid job vacancy is mixed with promotional content, keep only the actual job information.\n- Never include `https://linkjar.co/jobss_ae` or any variation of that URL.\n- Do not treat WhatsApp links, Telegram links, social profiles, generic homepages, or promotional/aggregator links as valid application links.\n- Valid application links include:\n  - Direct job application forms\n  - Company careers pages\n  - Recruitment portals\n  - Direct job vacancy URLs\n  - LinkedIn job URLs\n\nNever invent, assume, or infer missing job details.\n\n---\n\n### 4. VALIDATION\n\nSet `isValidJob: true` ONLY when ALL conditions are met:\n\n1. `postType` is `JOB_OFFER`.\n2. A clear job title exists.\n3. The post contains the job title plus at least one additional job detail, such as:\n   - Location\n   - Nationality\n   - Gender\n   - Qualification\n   - Experience\n   - Working Hours\n   - Work Days\n   - Salary\n   - Languages\n   - Employer/Sector\n   - Notes\n4. At least one valid application channel exists:\n   - Email\n   - Valid application link\n5. Phone number or WhatsApp alone is NOT a valid application method.\n6. If Phone/WhatsApp appears together with Email and/or Link:\n   - Keep only Email and/or Link.\n   - Completely omit Phone/WhatsApp from all generated output.\n7. If the only contact method is `+971525288761`, set `isValidJob: false`.\n8. If no valid Email or valid application Link exists, set `isValidJob: false`.\n\nIf `isValidJob` is false, stop generation and set all titles and content fields to `null`.\n\n---\n\n### 5. EXTRACTION RULES\n\nExtract only information explicitly present in the source post.\n\nDo not output placeholders such as:\n- Not specified\n- N/A\n- Unknown\n- Not mentioned\n\nIf a detail is missing, omit that line from the generated content. Do not create a value for it. A later processing node may further remove empty or unused fields.\n\n#### Job Title\nA job title must be clearly identifiable.\n\nValid examples:\n- Hiring Accountant\n- Registered Nurse Required\n- Looking for Sales Executive\n\nGeneric phrases such as `We are hiring` without a specific role are not enough.\n\n#### Location\nNormalize clear UAE locations to:\n\n- Dubai\n- Abu Dhabi\n- Sharjah\n- Ajman\n- Ras Al Khaimah\n- Fujairah\n- Umm Al Quwain\n- Al Ain\n- UAE\n\nConvert neighborhoods to their emirate only when unambiguous.\n\nDo not guess ambiguous locations.\n\n#### Contact\n- If Email and Link both exist, include both.\n- Email must be syntactically valid.\n- Application links must use `http://` or `https://`.\n- WhatsApp and Phone may be inspected for validation only and must never be shown when a valid Email or Link exists.\n\n#### Translation\nAlways generate both Arabic and English versions.\n\nTranslate naturally while preserving:\n- Company names\n- Emails\n- URLs\n- Acronyms\n- Technical job titles or terms when translation may reduce accuracy\n\nDo not add information that does not exist in the source.\n\n#### Notes\nUse Notes only for explicit requirements or conditions that do not fit another field.\n\nDo not create explanatory notes or assumptions.\n\n---\n\n### 6. TITLES\n\nUse nationality eligibility only when explicitly stated.\n\n#### UAE Nationals only\n- Arabic: `وظائف للمواطنين الإماراتيين`\n- English: `UAE Nationals Only`\n\n#### UAE Residents only\n- Arabic: `وظائف للمقيمين`\n- English: `Jobs for UAE Residents`\n\n#### All / Any Nationalities\n- Arabic: `وظائف للمقيمين والمواطنين`\n- English: `Open to All Nationalities`\n\n#### Specific Nationality\n- Arabic: `وظائف للجنسية {Nationality}`\n- English: `Jobs for {Nationality} Nationals`\n\n#### Nationality Not Mentioned\n- Arabic: `فرصة عمل في الإمارات`\n- English: `UAE Job Opportunity`\n\nNever infer nationality or residency eligibility.\n\n---\n\n### 7. CONTENT RULES\n\n#### `formatted_html`\n- Use `<b>` for labels and important values.\n- Use clickable `<a href=\\\"...\\\">` tags for Email and application URLs.\n- Salary may appear only here when explicitly present.\n\n#### `clean_text`\n- Must preserve the same wording, line order, and emojis as `formatted_html` after removing HTML tags.\n- EXCEPTION: completely remove the Salary line.\n- Email and URLs must appear as plain text.\n- No HTML tags are allowed.\n\nExcept for the removed Salary line, emoji placement and line order must remain consistent.\n\n---\n\n### 8. ARABIC TEMPLATE\n\n#### HTML\n\n```html\n🟢 فرصة وظيفية {Nationality} – {Location}\n🎯 <b>{JobTitle}</b>\n🔹 <b>الجنسية:</b> {Nationality}\n🔹 <b>الجنس:</b> {Gender}\n🔹 <b>المؤهل:</b> {Qualification}\n🔹 <b>الخبرة:</b> {Experience}\n🔹 <b>ساعات العمل:</b> {WorkingHours}\n🔹 <b>أيام العمل:</b> {WorkDays}\n🔹 <b>الراتب:</b> {Salary}\n🔹 <b>اللغات:</b> {Languages}\n🔹 <b>جهة العمل/القطاع:</b> {EmployerType}\n🔹 <b>ملاحظة:</b> {Notes}\n📩 للتقديم:\n📧 <a href=\"mailto:{Email}\"><b>{Email}</b></a>\n🔗 <a href=\"{Link}\"><b>{Link}</b></a>\n```\n\n#### Clean Text\n\n```text\n🟢 فرصة وظيفية {Nationality} – {Location}\n🎯 {JobTitle}\n🔹 الجنسية: {Nationality}\n🔹 الجنس: {Gender}\n🔹 المؤهل: {Qualification}\n🔹 الخبرة: {Experience}\n🔹 ساعات العمل: {WorkingHours}\n🔹 أيام العمل: {WorkDays}\n🔹 اللغات: {Languages}\n🔹 جهة العمل/القطاع: {EmployerType}\n🔹 ملاحظة: {Notes}\n📩 للتقديم:\n📧 {Email}\n🔗 {Link}\n```\n\nIf Nationality or Location is missing, remove only the missing part from the first line.\n\nExamples:\n\n- `🟢 فرصة وظيفية جميع الجنسيات – دبي`\n- `🟢 فرصة وظيفية – دبي`\n- `🟢 فرصة وظيفية جميع الجنسيات`\n- `🟢 فرصة وظيفية`\n\nIf Email is missing, remove the Email line.\n\nIf Link is missing, remove the Link line.\n\nKeep `📩 للتقديم:` only when at least one valid Email or Link exists.\n\n---\n\n### 9. ENGLISH TEMPLATE\n\n#### HTML\n\n```html\n🟢 Job Opportunity {Nationality} – {Location}\n🎯 <b>{JobTitle}</b>\n🔹 <b>Nationality:</b> {Nationality}\n🔹 <b>Gender:</b> {Gender}\n🔹 <b>Qualification:</b> {Qualification}\n🔹 <b>Experience:</b> {Experience}\n🔹 <b>Working Hours:</b> {WorkingHours}\n🔹 <b>Work Days:</b> {WorkDays}\n🔹 <b>Salary:</b> {Salary}\n🔹 <b>Languages:</b> {Languages}\n🔹 <b>Employer/Sector:</b> {EmployerType}\n🔹 <b>Note:</b> {Notes}\n📩 To Apply:\n📧 <a href=\"mailto:{Email}\"><b>{Email}</b></a>\n🔗 <a href=\"{Link}\"><b>{Link}</b></a>\n```\n\n#### Clean Text\n\n```text\n🟢 Job Opportunity {Nationality} – {Location}\n🎯 {JobTitle}\n🔹 Nationality: {Nationality}\n🔹 Gender: {Gender}\n🔹 Qualification: {Qualification}\n🔹 Experience: {Experience}\n🔹 Working Hours: {WorkingHours}\n🔹 Work Days: {WorkDays}\n🔹 Languages: {Languages}\n🔹 Employer/Sector: {EmployerType}\n🔹 Note: {Notes}\n📩 To Apply:\n📧 {Email}\n🔗 {Link}\n```\n\nIf Nationality or Location is missing, remove only the missing part from the first line.\n\nExamples:\n\n- `🟢 Job Opportunity All Nationalities – Dubai`\n- `🟢 Job Opportunity – Dubai`\n- `🟢 Job Opportunity All Nationalities`\n- `🟢 Job Opportunity`\n\nIf Email is missing, remove the Email line.\n\nIf Link is missing, remove the Link line.\n\nKeep `📩 To Apply:` only when at least one valid Email or Link exists.\n\nNever hallucinate missing job details."
+                        }
+                    ]
+                },
+                "batching": {}
+            },
+            "type": "@n8n/n8n-nodes-langchain.chainLlm",
+            "typeVersion": 1.7,
+            "position": [
+                -6544,
+                2512
+            ],
+            "id": "74493ff1-7609-40b0-9c65-aa484ba7718e",
+            "name": "Basic LLM Chain5"
+        },
+        {
+            "parameters": {
+                "jsCode": "// --- Robust JSON Parser (New Schema: HTML + Clean Text) ---\n\n// 1. GET INPUT\nconst rawOutputString = $input.first()?.json?.output || $input.first()?.json?.text;\n\n// 2. INPUT VALIDATION\nif (!rawOutputString || typeof rawOutputString !== 'string') {\n  return [{ \n    json: { \n      error: true,\n      message: \"Input field from AI Agent is missing or not a string.\" \n    } \n  }];\n}\n\nlet jsonString = null;\n\n// --- STRATEGY 1: Find Markdown Code Fence (Best for Multiline Strings) ---\nconst markdownRegex = /`{3,}(?:json|JSON)?\\s*([\\s\\S]*?)\\s*`{3,}/;\nconst markdownMatch = rawOutputString.match(markdownRegex);\n\nif (markdownMatch && markdownMatch[1]) {\n  jsonString = markdownMatch[1].trim();\n}\n\n// --- STRATEGY 2: Fallback (Brute Force) ---\nif (!jsonString) {\n  const startIndex = rawOutputString.indexOf('{');\n  const endIndex = rawOutputString.lastIndexOf('}');\n  if (startIndex > -1 && endIndex > -1 && endIndex > startIndex) {\n    jsonString = rawOutputString.substring(startIndex, endIndex + 1).trim();\n  }\n}\n\n// 3. CHECK IF EXTRACTION FAILED\nif (!jsonString) {\n  return [{ \n    json: { \n      error: true,\n      message: \"Could not locate a JSON object in the AI response.\",\n      rawOutput: rawOutputString\n    }\n  }];\n}\n\n// 4. ATTEMPT PARSING\ntry {\n  const parsedJson = JSON.parse(jsonString);\n\n  // -------------------------------------------------------\n  // 5. STRUCTURE VALIDATION & STANDARDIZATION\n  // -------------------------------------------------------\n  \n  // Ensure the object structure is predictable for the next nodes\n  const finalOutput = {\n    postType: parsedJson.postType || \"OTHER\",\n    isValidJob: parsedJson.isValidJob === true, // Force Boolean\n    \n    // Titles\n    arabic_title: parsedJson.arabic_title || null,\n    english_title: parsedJson.english_title || null,\n\n    // Formatted HTML (For Telegram)\n    // Note: Footer is already included by the AI System Prompt in these fields\n    formatted_html: {\n      ar: parsedJson.formatted_html?.ar || null,\n      en: parsedJson.formatted_html?.en || null\n    },\n\n    // Clean Text (For specific use cases/plain text)\n    clean_text: {\n      ar: parsedJson.clean_text?.ar || null,\n      en: parsedJson.clean_text?.en || null\n    }\n  };\n\n  return [{ json: finalOutput }];\n\n} catch (parseError) {\n  return [{ \n    json: {\n      error: true,\n      message: \"Failed to parse JSON.\",\n      extractedString: jsonString,\n      rawOutput: rawOutputString\n    }\n  }];\n}"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                -6224,
+                2512
+            ],
+            "id": "8ce40450-5d7f-4632-aeb0-75f9822c9917",
+            "name": "Code17"
+        },
+        {
+            "parameters": {
+                "operation": "sendPhoto",
+                "chatId": "@jobs_uae",
+                "binaryData": true,
+                "additionalFields": {
+                    "caption": "={{ $json.formatted_html.ar }}\n\n—\nFor job ads, contact WhatsApp: <a href=\"https://wa.me/971504081478\">Click Here</a>\n\n<b>🇦🇪 وفر وقتك، وخلي سيرتك توصل لأكثر من 1000 جهة في الإمارات 👇</b>\n<a href=\"https://jobsform.uae4jobs.ae\">Uae4jobs</a>\n\n#وظائف_الإمارات #وظائف_دبي #وظائف_للمواطنين #خدمة_المتعاملين  #UAEJobs #توظيف_المواطنين",
+                    "parse_mode": "HTML"
+                }
+            },
+            "type": "n8n-nodes-base.telegram",
+            "typeVersion": 1.2,
+            "position": [
+                -5472,
+                2400
+            ],
+            "id": "ba5755b9-4a97-48de-b76d-29ba300f6dea",
+            "name": "arabic5",
+            "webhookId": "f2d67641-3de8-44f2-83fb-73a879e73fb6",
+            "credentials": {
+                "telegramApi": {
+                    "id": "xknMS7gHcHIUiNdi",
+                    "name": "butti"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "url": "=https://drive.google.com/uc?export=download&id=1yPo70V5DhWXAbga2iFtKCvVJwGrSsjSB",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.3,
+            "position": [
+                -5760,
+                2496
+            ],
+            "id": "cf6e4ad7-bb1b-491b-9daa-c1ecd2e585b4",
+            "name": "HTTP Request8"
+        },
+        {
+            "parameters": {
+                "operation": "sendPhoto",
+                "chatId": "@jobs_uae",
+                "binaryData": true,
+                "additionalFields": {
+                    "caption": "={{ $('Code17').item.json.formatted_html.en }}\n\n—\nFor job ads, contact WhatsApp: <a href=\"https://wa.me/971504081478\">Click Here</a>\n\n<b>📌 Save time! Let your CV reach 1000+ top companies in the UAE 👇</b>\n<a href=\"https://jobsform.uae4jobs.ae\">Uae4jobs</a>\n\n\n#وظائف_الإمارات #وظائف_دبي #وظائف_للمواطنين #خدمة_المتعاملين  #UAEJobs #توظيف_المواطنين",
+                    "parse_mode": "HTML"
+                }
+            },
+            "type": "n8n-nodes-base.telegram",
+            "typeVersion": 1.2,
+            "position": [
+                -5472,
+                2608
+            ],
+            "id": "f279c1fd-948a-4463-95ca-c80a2720eede",
+            "name": "english2",
+            "webhookId": "f2d67641-3de8-44f2-83fb-73a879e73fb6",
+            "credentials": {
+                "telegramApi": {
+                    "id": "xknMS7gHcHIUiNdi",
+                    "name": "butti"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "mode": "combine",
+                "combineBy": "combineByPosition",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.merge",
+            "typeVersion": 3.2,
+            "position": [
+                -5248,
+                2528
+            ],
+            "id": "b0f55ab1-2322-4f76-80d9-b8f8f3cc83f8",
+            "name": "Merge7"
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict",
+                        "version": 2
+                    },
+                    "conditions": [
+                        {
+                            "id": "d8853204-24ba-4b91-a471-7473a8b64f22",
+                            "leftValue": "={{ $json.isValidJob }}",
+                            "rightValue": "",
+                            "operator": {
+                                "type": "boolean",
+                                "operation": "true",
+                                "singleValue": true
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.2,
+            "position": [
+                -6288,
+                3168
+            ],
+            "id": "54ff3997-385c-4f8e-a912-ae150ca6c292",
+            "name": "If1"
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict",
+                        "version": 2
+                    },
+                    "conditions": [
+                        {
+                            "id": "719e1644-c698-4aed-9fb3-1dc5bbc914a0",
+                            "leftValue": "={{ $json.isValidJob }}",
+                            "rightValue": "",
+                            "operator": {
+                                "type": "boolean",
+                                "operation": "true",
+                                "singleValue": true
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.2,
+            "position": [
+                -6000,
+                2512
+            ],
+            "id": "50de44c7-5fba-4b48-bb14-43dec4c908d5",
+            "name": "If2"
+        },
+        {
+            "parameters": {
+                "model": "openai/gpt-6-luna",
+                "options": {}
+            },
+            "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+            "typeVersion": 1,
+            "position": [
+                -5856,
+                2880
+            ],
+            "id": "60075df3-6874-45d1-aafd-296ba8bd7cc9",
+            "name": "OpenRouter Chat Model",
+            "credentials": {
+                "openRouterApi": {
+                    "id": "qY7KYjJMUXzMN9n5",
+                    "name": "OpenRouter account 2"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "url": "https://telegram.kodia-ai.online/api/v1/messages",
+                "sendQuery": true,
+                "queryParameters": {
+                    "parameters": [
+                        {
+                            "name": "order",
+                            "value": "desc"
+                        },
+                        {
+                            "name": "limit",
+                            "value": "20"
+                        },
+                        {
+                            "name": "chatId",
+                            "value": "={{ $json.chatId }}"
+                        }
+                    ]
+                },
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer tgl_v1_tWd5MP_aHsLs4ypDkaxAOxA1J_PlIBZE0b8haK4Xstw"
+                        },
+                        {
+                            "name": "Accept",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "fc596a7c-d1b1-4e62-858e-6eef7493611c",
+            "name": "Check Kodia API1",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                -8256,
+                2896
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const inputs = $input.all();\nconst output = [];\n\nfor (const input of inputs) {\n  const messages = input.json.data ?? [];\n\n  for (const item of messages) {\n    const message = item.message ?? {};\n    const media = message.media ?? {};\n\n    output.push({\n      json: {\n        ...item,\n\n        id: message.id ?? null,\n        text: message.text ?? message.message ?? \"\",\n        date: message.date ?? null,\n\n        chatId: item.chat?.id ?? null,\n        chatTitle: item.chat?.title ?? null,\n        username: item.chat?.username ?? null,\n\n        hasMedia: media.hasMedia ?? false,\n        mediaType: media.type ?? media.mediaType ?? null,\n        mediaDownloadStatus: media.downloadStatus ?? null,\n        mediaDownloadUrl: media.downloadUrl ?? null,\n\n        photo: {\n          url:\n            media.hasMedia === true &&\n            media.downloadStatus === \"ready\" &&\n            media.downloadUrl\n              ? media.downloadUrl\n              : null\n        }\n      }\n    });\n  }\n}\n\nreturn output;"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                -8064,
+                2896
+            ],
+            "id": "e12a6f95-2b7f-4954-9974-df7695b708fc",
+            "name": "Code"
+        },
+        {
+            "parameters": {
+                "url": "={{ $json.photo.url }}",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer tgl_v1_tWd5MP_aHsLs4ypDkaxAOxA1J_PlIBZE0b8haK4Xstw"
+                        }
+                    ]
+                },
+                "options": {
+                    "response": {
+                        "response": {
+                            "responseFormat": "file",
+                            "outputPropertyName": "telegram-media"
+                        }
+                    }
+                }
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.3,
+            "position": [
+                -6912,
+                2512
+            ],
+            "id": "e9ca5a80-15c3-4e21-9bab-c53cbebbae8f",
+            "name": "HTTP Request1"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.ocr.space/parse/image",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "K83858248788957"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "contentType": "multipart-form-data",
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "parameterType": "formBinaryData",
+                            "name": "file",
+                            "inputDataFieldName": "telegram-media"
+                        },
+                        {
+                            "name": "language",
+                            "value": "ara"
+                        },
+                        {
+                            "name": "isOverlayRequired",
+                            "value": "false"
+                        },
+                        {
+                            "name": "OCREngine",
+                            "value": "3"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                -6736,
+                2512
+            ],
+            "id": "e2dc5693-e10b-4ce2-8955-5013983b4002",
+            "name": "HTTP Request16"
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict",
+                        "version": 3
+                    },
+                    "conditions": [
+                        {
+                            "id": "1611efe8-c1c0-46f9-9d94-9c122fcfbf60",
+                            "leftValue": "={{ $json.message.media.type }}",
+                            "rightValue": "MessageMediaPhoto",
+                            "operator": {
+                                "type": "string",
+                                "operation": "equals"
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.filter",
+            "typeVersion": 2.3,
+            "position": [
+                -7552,
+                2496
+            ],
+            "id": "020c5eda-c751-4f42-a454-8886205153aa",
+            "name": "Filter2"
+        }
+    ],
+    "connections": {
+        "Code5": {
+            "main": [
+                [
+                    {
+                        "node": "Check Kodia API1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Schedule Trigger2": {
+            "main": [
+                [
+                    {
+                        "node": "Code5",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "If4": {
+            "main": [
+                [
+                    {
+                        "node": "Filter2",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Code13",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Edit Fields17": {
+            "main": [
+                [
+                    {
+                        "node": "Loop Over Items",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Filter1": {
+            "main": [
+                [
+                    {
+                        "node": "If4",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Code13": {
+            "main": [
+                [
+                    {
+                        "node": "Edit Fields",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Loop Over Items": {
+            "main": [
+                [
+                    {
+                        "node": "No Operation, do nothing3",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "HTTP Request1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Basic LLM Chain1": {
+            "main": [
+                [
+                    {
+                        "node": "Code14",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Loop Over Items1": {
+            "main": [
+                [
+                    {
+                        "node": "No Operation, do nothing3",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Basic LLM Chain1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Code14": {
+            "main": [
+                [
+                    {
+                        "node": "If1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "arabic4": {
+            "main": [
+                [
+                    {
+                        "node": "Merge4",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Edit Fields": {
+            "main": [
+                [
+                    {
+                        "node": "Loop Over Items1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "HTTP Request": {
+            "main": [
+                [
+                    {
+                        "node": "arabic4",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "english",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "english": {
+            "main": [
+                [
+                    {
+                        "node": "Merge4",
+                        "type": "main",
+                        "index": 1
+                    }
+                ]
+            ]
+        },
+        "Merge4": {
+            "main": [
+                [
+                    {
+                        "node": "Loop Over Items1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Basic LLM Chain5": {
+            "main": [
+                [
+                    {
+                        "node": "Code17",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Code17": {
+            "main": [
+                [
+                    {
+                        "node": "If2",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "arabic5": {
+            "main": [
+                [
+                    {
+                        "node": "Merge7",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "HTTP Request8": {
+            "main": [
+                [
+                    {
+                        "node": "arabic5",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "english2",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "english2": {
+            "main": [
+                [
+                    {
+                        "node": "Merge7",
+                        "type": "main",
+                        "index": 1
+                    }
+                ]
+            ]
+        },
+        "Merge7": {
+            "main": [
+                [
+                    {
+                        "node": "Loop Over Items",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "If1": {
+            "main": [
+                [
+                    {
+                        "node": "HTTP Request",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Loop Over Items1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "If2": {
+            "main": [
+                [
+                    {
+                        "node": "HTTP Request8",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Loop Over Items",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "OpenRouter Chat Model": {
+            "ai_languageModel": [
+                [
+                    {
+                        "node": "Basic LLM Chain1",
+                        "type": "ai_languageModel",
+                        "index": 0
+                    },
+                    {
+                        "node": "Basic LLM Chain5",
+                        "type": "ai_languageModel",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Check Kodia API1": {
+            "main": [
+                [
+                    {
+                        "node": "Code",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Code": {
+            "main": [
+                [
+                    {
+                        "node": "Filter1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "HTTP Request1": {
+            "main": [
+                [
+                    {
+                        "node": "HTTP Request16",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "HTTP Request16": {
+            "main": [
+                [
+                    {
+                        "node": "Basic LLM Chain5",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Filter2": {
+            "main": [
+                [
+                    {
+                        "node": "Edit Fields17",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "pinData": {
+        "Schedule Trigger2": [
+            {
+                "timestamp": "2026-05-22T08:00:47.035-04:00",
+                "Readable date": "May 22nd 2026, 8:00:47 am",
+                "Readable time": "8:00:47 am",
+                "Day of week": "Friday",
+                "Year": "2026",
+                "Month": "May",
+                "Day of month": "22",
+                "Hour": "08",
+                "Minute": "00",
+                "Second": "47",
+                "Timezone": "America/New_York (UTC-04:00)"
+            }
+        ]
+    },
+    "meta": {
+        "templateCredsSetupCompleted": true,
+        "instanceId": "1f93206801c7ceb58ccb70936720a5e2fe4da9557a148f95a36bf8c902fa3d27"
+    }
+}

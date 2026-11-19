@@ -1,6 +1,6 @@
 import React from "react";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
-import { CAPTION_SEGMENTS, THEME } from "../theme";
+import { CAPTION_SEGMENTS, CaptionSegment, THEME } from "../theme";
 
 /**
  * Arabic RTL word-by-word kinetic caption engine:
@@ -9,12 +9,13 @@ import { CAPTION_SEGMENTS, THEME } from "../theme";
  */
 export const ArabicCaptions: React.FC<{
   readonly isReels?: boolean;
-}> = ({ isReels = false }) => {
+  readonly segments?: ReadonlyArray<CaptionSegment>;
+}> = ({ isReels = false, segments = CAPTION_SEGMENTS }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const timeMs = (frame / fps) * 1000;
 
-  const activeSegment = CAPTION_SEGMENTS.find(
+  const activeSegment = segments.find(
     (seg) => timeMs >= seg.startMs && timeMs <= seg.endMs
   );
 
@@ -48,8 +49,9 @@ export const ArabicCaptions: React.FC<{
     <div
       style={{
         position: "absolute",
-        insetInline: 48,
-        bottom: isReels ? 185 : 54,
+        left: isReels ? 96 : 48,
+        right: isReels ? 96 : 48,
+        bottom: isReels ? 500 : 54,
         display: "flex",
         justifyContent: "center",
         pointerEvents: "none",
@@ -62,17 +64,17 @@ export const ArabicCaptions: React.FC<{
         style={{
           opacity: fadeIn,
           translate: `0px ${riseY}px`,
-          backgroundColor: "#09090B",
-          border: `2px solid ${THEME.goldSolid}`,
-          borderRadius: 18,
-          padding: "14px 26px",
-          boxShadow: "0 16px 36px rgba(0, 0, 0, 0.45)",
+          backgroundColor: "rgba(9, 9, 11, 0.94)",
+          border: `2.5px solid ${THEME.goldSolid}`,
+          borderRadius: isReels ? 22 : 18,
+          padding: isReels ? "18px 26px" : "15px 28px",
+          boxShadow: "0 18px 42px rgba(0, 0, 0, 0.58)",
           display: "inline-flex",
           flexWrap: "wrap",
           justifyContent: "center",
           alignItems: "center",
-          gap: 10,
-          maxWidth: 940,
+          gap: isReels ? 12 : 10,
+          maxWidth: isReels ? 888 : 940,
         }}
       >
         {activeSegment.words.map((word, idx) => {
@@ -81,7 +83,7 @@ export const ArabicCaptions: React.FC<{
           const isSpoken = timeMs >= word.startMs;
 
           const wordScale = isCurrent
-            ? interpolate(timeMs, [word.startMs, word.startMs + 90], [0.96, 1.06], {
+            ? interpolate(timeMs, [word.startMs, word.startMs + 90], [0.97, 1.06], {
                 extrapolateLeft: "clamp",
                 extrapolateRight: "clamp",
               })
@@ -94,11 +96,17 @@ export const ArabicCaptions: React.FC<{
               style={{
                 display: "inline-block",
                 fontFamily: word.isLtr ? THEME.fontLatin : THEME.fontArabic,
-                fontSize: isReels ? 34 : 31,
-                fontWeight: word.isAccent ? 800 : 700,
-                lineHeight: 1.3,
-                padding: isCurrent ? "2px 10px" : "2px 4px",
-                borderRadius: 8,
+                fontSize: isReels ? 44 : 34,
+                fontWeight: word.isAccent ? 900 : 800,
+                lineHeight: 1.38,
+                padding: isCurrent
+                  ? isReels
+                    ? "3px 12px"
+                    : "2px 10px"
+                  : isReels
+                  ? "3px 5px"
+                  : "2px 4px",
+                borderRadius: 10,
                 scale: `${wordScale}`,
                 backgroundColor: isCurrent
                   ? THEME.goldSolid
@@ -108,8 +116,8 @@ export const ArabicCaptions: React.FC<{
                   : word.isAccent && isSpoken
                   ? THEME.goldSolid
                   : isSpoken
-                  ? "#FAFAFA"
-                  : "#A1A1AA",
+                  ? "#FFFFFF"
+                  : "#E4E4E7",
               }}
             >
               {word.text}

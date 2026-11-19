@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
+import { trackGaEvent } from "@/components/GoogleAnalytics";
 import { CountryCode, CvScanResult, PackageId } from "@/lib/types";
 import { RadialProgressGauge } from "@/components/MotionPrimitives";
 import {
@@ -90,6 +91,32 @@ export function DistributionWizard({
     }
   }, [externalPackageId]);
 
+  // Pre-fill target market, city, sector & role when arriving from /jobs/[slug]
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const qCountry = (params.get("country") || "").toUpperCase();
+    const qCity = params.get("city") || "";
+    const qInd = params.get("industry") || "";
+    const qRole = params.get("role") || "";
+
+    if (["AE", "SA", "QA", "KW"].includes(qCountry)) {
+      selectCountry(qCountry as CountryCode, { shallow: true });
+    }
+    if (qInd && industries.some((i) => i.id === qInd)) {
+      setSelectedIndustryId(qInd);
+    }
+    if (qRole.trim()) {
+      setJobTitle(qRole.trim());
+    }
+    if (qCity) {
+      setTimeout(() => {
+        setSelectedCities([qCity]);
+      }, 50);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Sync default cities & phone prefix ONLY when selected country changes
   useEffect(() => {
     const allCityIds = selectedCountry.cities.map((c) => c.id);
@@ -154,6 +181,11 @@ export function DistributionWizard({
 
       const typed = data as CvScanResult;
       setScanResult(typed);
+      trackGaEvent("cv_scan_complete", {
+        country: selectedCountryCode,
+        industry: typed.detected_industry_id,
+        ats_score: typed.ats_score,
+      });
       setSelectedIndustryId(typed.detected_industry_id);
       setJobTitle(typed.job_title);
       setYearsExp(typed.years_experience);
@@ -362,6 +394,13 @@ export function DistributionWizard({
         localStorage.setItem("asra3_last_token", data.trackingToken);
         localStorage.setItem("wazayef_last_token", data.trackingToken);
       }
+
+      trackGaEvent("begin_checkout", {
+        package_id: selectedPackageId,
+        country: selectedCountryCode,
+        currency,
+        value: finalTotal,
+      });
 
       window.location.href = data.redirectUrl;
     } catch (err) {

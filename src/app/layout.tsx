@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./fonts.css";
 import "./globals.css";
 import { AppProvider } from "@/context/AppContext";
+import { GoogleAnalytics } from "@/components/GoogleAnalytics";
 
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ||
@@ -166,6 +167,7 @@ export default function RootLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(globalJsonLd) }}
         />
+        <GoogleAnalytics />
         <AppProvider>{children}</AppProvider>
       </body>
     </html>

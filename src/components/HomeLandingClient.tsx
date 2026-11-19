@@ -1490,6 +1490,26 @@ export function HomeLandingClient({
               </h3>
               <ul className="space-y-2.5 text-xs">
                 <li>
+                  <Link
+                    href="/jobs"
+                    className="text-[#D4AF37] font-bold hover:text-white transition-colors"
+                  >
+                    {lang === "ar"
+                      ? "الوظائف الموثقة اليوم (Live)"
+                      : "Verified GCC Jobs Board"}
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/employers"
+                    className="hover:text-white transition-colors"
+                  >
+                    {lang === "ar"
+                      ? "بوابة الشركات — نشر وظيفة"
+                      : "Employers — Post a Job Free"}
+                  </Link>
+                </li>
+                <li>
                   <a
                     href="#wizard-section"
                     className="hover:text-white transition-colors"

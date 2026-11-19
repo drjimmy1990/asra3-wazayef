@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
+import { AdminJobsManagerTab } from "@/components/AdminJobsManagerTab";
 import {
   AnimatedCounter,
   LiveSignalEqualizer,
@@ -58,7 +59,7 @@ export default function AdminDashboardPage() {
   const [loggingIn, setLoggingIn] = useState(false);
 
   const [activeTab, setActiveTab] = useState<
-    "companies" | "campaigns" | "smtp" | "settings"
+    "companies" | "jobs" | "campaigns" | "smtp" | "settings"
   >("companies");
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastSyncedAt, setLastSyncedAt] = useState<string>("");
@@ -994,6 +995,14 @@ export default function AdminDashboardPage() {
                   icon: Building2,
                 },
                 {
+                  id: "jobs",
+                  label:
+                    lang === "ar"
+                      ? "الوظائف وطلبات الشركات"
+                      : "Jobs & Employers",
+                  icon: FileText,
+                },
+                {
                   id: "campaigns",
                   label:
                     lang === "ar"
@@ -1028,6 +1037,7 @@ export default function AdminDashboardPage() {
                       setActiveTab(
                         tItem.id as
                           | "companies"
+                          | "jobs"
                           | "campaigns"
                           | "smtp"
                           | "settings"
@@ -2645,6 +2655,10 @@ export default function AdminDashboardPage() {
               </div>
             </div>
           </div>
+        )}
+
+        {activeTab === "jobs" && (
+          <AdminJobsManagerTab appUrl={systemHealth.appUrl} />
         )}
       </main>
     </div>

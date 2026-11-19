@@ -67,7 +67,7 @@ export const Scene07EndCard: React.FC<{
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        padding: isReels ? "80px 56px 290px" : "56px 56px 175px",
+        padding: isReels ? "140px 76px 560px" : "56px 56px 175px",
         fontFamily: THEME.fontArabic,
         overflow: "hidden",
       }}
