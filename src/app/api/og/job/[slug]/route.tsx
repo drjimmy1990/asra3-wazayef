@@ -101,7 +101,7 @@ export async function GET(
                 letterSpacing: "1px",
               }}
             >
-              {countryCode} • {cityEn.toUpperCase()}
+              {`${countryCode} • ${cityEn.toUpperCase()}`}
             </div>
             <div
               style={{
