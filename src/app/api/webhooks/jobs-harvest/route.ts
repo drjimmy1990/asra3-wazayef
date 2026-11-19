@@ -89,6 +89,7 @@ export async function POST(req: NextRequest) {
       jobsPublished: 0,
       duplicatesSkipped: 0,
       companiesEnriched: 0,
+      categoriesUpdated: 0,
       publishedSlugs: [] as string[],
     };
 

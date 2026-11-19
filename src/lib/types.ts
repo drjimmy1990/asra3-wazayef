@@ -48,6 +48,7 @@ export interface CompanyRecord {
   city_name_ar: string;
   city_name_en: string;
   industry_id: string;
+  secondary_industries?: string[];
   sub_specialty: string;
   company_size: string;
   is_verified: boolean;
@@ -249,6 +250,7 @@ export interface JobPostingRecord {
   city_name_ar: string;
   city_name_en: string;
   industry_id: string;
+  secondary_industries?: string[];
   employment_type: EmploymentType;
   experience_level: string;
   salary_min?: number | null;

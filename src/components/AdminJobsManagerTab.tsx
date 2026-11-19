@@ -73,8 +73,8 @@ export function AdminJobsManagerTab({ appUrl }: { appUrl: string }) {
       if (res.ok) {
         setFeedback(
           lang === "ar"
-            ? `✓ اكتمل الحصاد الحي: فُحص ${data.postsScanned} منشور، نُشرت ${data.jobsPublished} وظيفة جديدة، وأُضيفت ${data.companiesEnriched} شركة موثقة.`
-            : `✓ Harvest complete: scanned ${data.postsScanned} posts, published ${data.jobsPublished} new jobs, enriched ${data.companiesEnriched} companies.`
+            ? `✓ اكتمل الحصاد الحي: فُحص ${data.postsScanned} منشور، نُشرت ${data.jobsPublished} وظيفة جديدة، أُضيفت ${data.companiesEnriched} شركة جديدة، وتحدّثت تخصصات ${data.categoriesUpdated || 0} شركة حالية.`
+            : `✓ Harvest complete: scanned ${data.postsScanned} posts, published ${data.jobsPublished} new jobs, added ${data.companiesEnriched} new companies, and expanded categories on ${data.categoriesUpdated || 0} existing companies.`
         );
         loadJobs();
       }

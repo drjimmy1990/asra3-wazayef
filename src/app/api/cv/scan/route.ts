@@ -1,6 +1,11 @@
 import path from "path";
 import { NextRequest, NextResponse } from "next/server";
-import { getCatalogData, listCompanies } from "@/lib/store";
+import {
+  doesCompanyHireInIndustry,
+  getActiveJobIndustriesByCompany,
+  getCatalogData,
+  listCompanies,
+} from "@/lib/store";
 import {
   analyzeExtractedCvText,
   extractTextFromCvBuffer,
@@ -101,11 +106,14 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const companiesInCountry = await listCompanies({
-      country_code: countryCode,
-    });
+    const [companiesInCountry, jobCategoryMap] = await Promise.all([
+      listCompanies({ country_code: countryCode }),
+      getActiveJobIndustriesByCompany(),
+    ]);
     const exactIndustryCompanies = companiesInCountry.filter(
-      (c) => c.industry_id === detectedIndustry.id && c.is_active !== false
+      (c) =>
+        c.is_active !== false &&
+        doesCompanyHireInIndustry(c, detectedIndustry.id, jobCategoryMap)
     );
     const hrMultiSectorCompanies = companiesInCountry.filter(
       (c) => c.industry_id === "hr-admin" && c.is_active !== false

@@ -121,16 +121,17 @@ function detectLocation(
   return { countryCode, cityId: cObj.cities[0].id };
 }
 
-function extractStructuredRoleFromPost(
+function extractStructuredRolesFromPost(
   plainText: string,
   domain: string,
+  email: string,
   countryCode: CountryCode,
-  cityId: string,
-  industryId: string
-): {
+  cityId: string
+): Array<{
   titleEn: string;
   titleAr: string;
   companyName: string;
+  industryId: string;
   experienceLevel: string;
   employmentType: EmploymentType;
   salaryMin: number | null;
@@ -141,14 +142,17 @@ function extractStructuredRoleFromPost(
   summaryAr: string;
   requirementsEn: string[];
   requirementsAr: string[];
-} | null {
+}> {
   const lines = plainText
     .split(/\r?\n/)
     .map((l) => l.replace(/\s+/g, " ").trim())
     .filter(Boolean);
 
-  let titleEn = "";
+  const ROLE_NOUN =
+    /\b(engineer|accountant|auditor|developer|programmer|manager|specialist|officer|coordinator|supervisor|architect|designer|pharmacist|nurse|doctor|physician|analyst|consultant|recruiter|controller|surveyor|draftsman|foreman|estimator|purchaser|buyer|technician|secretary|receptionist|executive|lawyer|teacher)\b/i;
+
   let companyName = "";
+  const rawRoleTitles: string[] = [];
 
   for (const line of lines) {
     if (!companyName) {
@@ -159,48 +163,72 @@ function extractStructuredRoleFromPost(
         companyName = m[1].trim();
       }
     }
-    if (!titleEn) {
-      const r = line.match(
-        /(?:position|role|job\s*title|designation|vacancy)\s*[:\-–—]\s*([A-Za-z0-9\s/&+.,()-]{4,62})/i
-      );
-      if (r?.[1]) {
-        titleEn = r[1]
-          .replace(/^[\s•\-*⚡🔥📌📢✅👉0-9.)]+/, "")
-          .replace(/\b(urgent|urgently|hiring|required|apply\s+now)\b[:\s\-]*/gi, "")
-          .trim();
+
+    const explicitRole = line.match(
+      /(?:position|role|job\s*title|designation|vacancy)\s*[:\-–—]\s*([A-Za-z0-9\s/&+.,()-]{4,62})/i
+    );
+    if (explicitRole?.[1]) {
+      const cleaned = explicitRole[1]
+        .replace(/^[\s•\-*⚡🔥📌📢✅👉0-9.)]+/, "")
+        .replace(/\b(urgent|urgently|hiring|required|apply\s+now)\b[:\s\-]*/gi, "")
+        .trim();
+      if (cleaned.length >= 4) rawRoleTitles.push(cleaned);
+      continue;
+    }
+
+    // Detect multi-vacancy numbered or bulleted role lines (e.g. "1. Civil Engineer", "• Senior Accountant")
+    const bulletMatch = line.match(
+      /^(?:[0-9]{1,2}[.)\-]|[•\-–—*⚡🔥📌✅👉])\s*([A-Za-z0-9\s/&+.,()-]{4,58})$/
+    );
+    if (bulletMatch?.[1] && ROLE_NOUN.test(bulletMatch[1])) {
+      const cleaned = bulletMatch[1]
+        .replace(/\s*\([0-9]+\s*(?:nos?|positions?|vacancies|yrs?|years?).*\)$/i, "")
+        .replace(/\b(urgent|urgently|hiring|required|apply\s+now)\b[:\s\-]*/gi, "")
+        .trim();
+      if (cleaned.length >= 4 && !/@/.test(cleaned)) {
+        rawRoleTitles.push(cleaned);
       }
     }
   }
 
-  if (!titleEn) {
+  if (rawRoleTitles.length === 0) {
     const nat = plainText.match(
       /(?:hiring|looking\s+for|seeking|required)\s+(?:a\s+|an\s+|experienced\s+)*([A-Za-z0-9\s/&+.-]{5,52}?)(?:\s+(?:in\s+|for\s+|with\s+|to\s+join|immediately)|[.,!\n\r|]|$)/i
     );
     if (nat?.[1]) {
-      titleEn = nat[1].trim();
+      rawRoleTitles.push(nat[1].trim());
     }
   }
 
-  if (!titleEn) {
-    const ROLE_NOUN =
-      /\b(engineer|accountant|auditor|developer|manager|specialist|officer|coordinator|supervisor|architect|designer|pharmacist|nurse|doctor|analyst|consultant|recruiter|controller|surveyor)\b/i;
-    const candidateLine = lines.find(
-      (l) => l.length >= 6 && l.length <= 62 && ROLE_NOUN.test(l)
-    );
-    if (candidateLine) {
-      titleEn = candidateLine
-        .replace(/^[\s•\-*⚡🔥📌📢✅👉0-9.)]+/, "")
-        .trim();
+  if (rawRoleTitles.length === 0) {
+    for (const l of lines) {
+      if (l.length >= 6 && l.length <= 62 && ROLE_NOUN.test(l) && !/@/.test(l)) {
+        const cleaned = l.replace(/^[\s•\-*⚡🔥📌📢✅👉0-9.)]+/, "").trim();
+        if (cleaned.length >= 4) {
+          rawRoleTitles.push(cleaned);
+          if (rawRoleTitles.length >= 4) break;
+        }
+      }
     }
   }
 
-  if (!titleEn || titleEn.length < 4) return null;
+  // Deduplicate extracted role titles within the same company post (up to 5 roles)
+  const uniqueTitles: string[] = [];
+  const seenKeys = new Set<string>();
+  for (const t of rawRoleTitles) {
+    const normalized = t
+      .replace(/\s{2,}/g, " ")
+      .slice(0, 68)
+      .replace(/\b[a-z]/g, (ch) => ch.toUpperCase());
+    const key = normalized.toLowerCase();
+    if (normalized.length >= 4 && !seenKeys.has(key)) {
+      seenKeys.add(key);
+      uniqueTitles.push(normalized);
+      if (uniqueTitles.length >= 5) break;
+    }
+  }
 
-  // Normalize title casing
-  titleEn = titleEn
-    .replace(/\s{2,}/g, " ")
-    .slice(0, 68)
-    .replace(/\b[a-z]/g, (ch) => ch.toUpperCase());
+  if (uniqueTitles.length === 0) return [];
 
   if (!companyName) {
     companyName = formatCompanyFromDomain(domain);
@@ -210,24 +238,7 @@ function extractStructuredRoleFromPost(
     INITIAL_COUNTRIES.find((c) => c.code === countryCode) || INITIAL_COUNTRIES[0];
   const cityObj =
     countryObj.cities.find((c) => c.id === cityId) || countryObj.cities[0];
-  const indObj =
-    INITIAL_INDUSTRIES.find((i) => i.id === industryId) || INITIAL_INDUSTRIES[0];
 
-  // Arabic localized title
-  let titleAr = "";
-  for (const item of ARABIC_ROLE_TRANSLATIONS) {
-    if (item.pattern.test(titleEn)) {
-      titleAr = /\bsr\.?|senior|lead\b/i.test(titleEn)
-        ? `${item.ar} أول`
-        : item.ar;
-      break;
-    }
-  }
-  if (!titleAr) {
-    titleAr = `${titleEn} — ${indObj.name_ar}`;
-  }
-
-  // Experience detection
   const expMatch = plainText.match(/(\d{1,2})\s*(?:\+|to|\-)\s*(\d{1,2})?\s*years?/i);
   const experienceLevel = expMatch
     ? expMatch[2]
@@ -235,7 +246,6 @@ function extractStructuredRoleFromPost(
       : `${expMatch[1]}+ Years Experience`
     : "Mid-Senior (3-7 Years)";
 
-  // Employment type detection
   const employmentType: EmploymentType = /\bremote\b/i.test(plainText)
     ? "REMOTE"
     : /\bpart[\s-]?time\b/i.test(plainText)
@@ -244,7 +254,6 @@ function extractStructuredRoleFromPost(
     ? "CONTRACT"
     : "FULL_TIME";
 
-  // Optional salary extraction (e.g. AED 12,000 - 18,000)
   let salaryMin: number | null = null;
   let salaryMax: number | null = null;
   const salMatch = plainText.match(
@@ -264,20 +273,12 @@ function extractStructuredRoleFromPost(
     }
   }
 
-  // Skills extraction
-  const skills: string[] = [];
+  const postSkills: string[] = [];
   for (const s of SKILL_DICTIONARY) {
-    if (s.pattern.test(plainText) && !skills.includes(s.label)) {
-      skills.push(s.label);
+    if (s.pattern.test(plainText) && !postSkills.includes(s.label)) {
+      postSkills.push(s.label);
     }
   }
-  if (skills.length < 2) {
-    skills.push(indObj.name_en.split(",")[0].trim(), "GCC Market Experience");
-  }
-
-  // Clean bilingual summaries (avoids raw duplicate thin content for Google SEO)
-  const summaryEn = `${companyName} is actively recruiting a ${titleEn} based in ${cityObj.name_en}, ${countryObj.name_en} within the ${indObj.name_en} sector. Direct MX-verified corporate HR inbox open for qualified candidates (${experienceLevel}).`;
-  const summaryAr = `تعلن شركة ${companyName} عن توفر شاغر وظيفي بمسمى (${titleAr}) للعمل في ${cityObj.name_ar} — ${countryObj.name_ar} ضمن قطاع ${indObj.name_ar}. التقديم متاح مباشرة لصندوق بريد الموارد البشرية الموثق بسجلات DNS MX (${experienceLevel}).`;
 
   const cleanBulletCandidates = lines
     .filter(
@@ -289,36 +290,72 @@ function extractStructuredRoleFromPost(
     )
     .slice(0, 4);
 
-  const requirementsEn =
-    cleanBulletCandidates.length >= 2
-      ? cleanBulletCandidates
-      : [
-          `${experienceLevel} in ${indObj.name_en} within the GCC or comparable markets`,
-          `Demonstrated proficiency in ${skills.slice(0, 3).join(", ")}`,
-          `Available for interview coordination with ${companyName} HR in ${cityObj.name_en}`,
-        ];
+  return uniqueTitles.map((titleEn) => {
+    // Classify each role into its own exact category independently!
+    const industryId = classifyCompanyIndustry({
+      subSpecialty: titleEn,
+      companyName,
+      domain,
+      email,
+      rawIndustry: uniqueTitles.length === 1 ? plainText.slice(0, 500) : titleEn,
+    });
+    const indObj =
+      INITIAL_INDUSTRIES.find((i) => i.id === industryId) ||
+      INITIAL_INDUSTRIES[0];
 
-  const requirementsAr = [
-    `خبرة مهنية (${experienceLevel}) في قطاع ${indObj.name_ar} داخل ${countryObj.name_ar} أو دول الخليج`,
-    `إتقان المهارات الأساسية المطلوبة للشاغر: ${skills.slice(0, 3).join("، ")}`,
-    `جاهزية للتواصل المباشر مع قسم استقطاب الكفاءات في ${cityObj.name_ar}`,
-  ];
+    let titleAr = "";
+    for (const item of ARABIC_ROLE_TRANSLATIONS) {
+      if (item.pattern.test(titleEn)) {
+        titleAr = /\bsr\.?|senior|lead\b/i.test(titleEn)
+          ? `${item.ar} أول`
+          : item.ar;
+        break;
+      }
+    }
+    if (!titleAr) {
+      titleAr = `${titleEn} — ${indObj.name_ar}`;
+    }
 
-  return {
-    titleEn,
-    titleAr,
-    companyName,
-    experienceLevel,
-    employmentType,
-    salaryMin,
-    salaryMax,
-    salaryCurrency: countryObj.currency_code,
-    skills: skills.slice(0, 6),
-    summaryEn,
-    summaryAr,
-    requirementsEn,
-    requirementsAr,
-  };
+    const roleSkills = [...postSkills];
+    if (roleSkills.length < 2) {
+      roleSkills.push(indObj.name_en.split(",")[0].trim(), "GCC Market Experience");
+    }
+
+    const summaryEn = `${companyName} is actively recruiting a ${titleEn} based in ${cityObj.name_en}, ${countryObj.name_en} within the ${indObj.name_en} sector. Direct MX-verified corporate HR inbox open for qualified candidates (${experienceLevel}).`;
+    const summaryAr = `تعلن شركة ${companyName} عن توفر شاغر وظيفي بمسمى (${titleAr}) للعمل في ${cityObj.name_ar} — ${countryObj.name_ar} ضمن قطاع ${indObj.name_ar}. التقديم متاح مباشرة لصندوق بريد الموارد البشرية الموثق بسجلات DNS MX (${experienceLevel}).`;
+
+    const requirementsEn =
+      cleanBulletCandidates.length >= 2 && uniqueTitles.length === 1
+        ? cleanBulletCandidates
+        : [
+            `${experienceLevel} in ${indObj.name_en} within the GCC or comparable markets`,
+            `Demonstrated proficiency in ${roleSkills.slice(0, 3).join(", ")}`,
+            `Available for interview coordination with ${companyName} HR in ${cityObj.name_en}`,
+          ];
+
+    const requirementsAr = [
+      `خبرة مهنية (${experienceLevel}) في قطاع ${indObj.name_ar} داخل ${countryObj.name_ar} أو دول الخليج`,
+      `إتقان المهارات الأساسية المطلوبة للشاغر: ${roleSkills.slice(0, 3).join("، ")}`,
+      `جاهزية للتواصل المباشر مع قسم استقطاب الكفاءات في ${cityObj.name_ar}`,
+    ];
+
+    return {
+      titleEn,
+      titleAr,
+      companyName,
+      industryId,
+      experienceLevel,
+      employmentType,
+      salaryMin,
+      salaryMax,
+      salaryCurrency: countryObj.currency_code,
+      skills: roleSkills.slice(0, 6),
+      summaryEn,
+      summaryAr,
+      requirementsEn,
+      requirementsAr,
+    };
+  });
 }
 
 export async function harvestLiveGccJobs(options?: {
@@ -330,6 +367,7 @@ export async function harvestLiveGccJobs(options?: {
   jobsPublished: number;
   duplicatesSkipped: number;
   companiesEnriched: number;
+  categoriesUpdated: number;
   publishedSlugs: string[];
 }> {
   const pagesPerChannel = Math.min(
@@ -453,21 +491,16 @@ export async function harvestLiveGccJobs(options?: {
           cand.domain,
           cand.defaultCountry
         );
-        const industryId = classifyCompanyIndustry({
-          rawIndustry: cand.postText.slice(0, 500),
-          domain: cand.domain,
-          email: cand.email,
-        });
-        const parsed = extractStructuredRoleFromPost(
+        const parsedRoles = extractStructuredRolesFromPost(
           cand.postText,
           cand.domain,
+          cand.email,
           loc.countryCode,
-          loc.cityId,
-          industryId
+          loc.cityId
         );
-        if (!parsed) return null;
+        if (parsedRoles.length === 0) return null;
 
-        return {
+        return parsedRoles.map((parsed) => ({
           jobInput: {
             title_ar: parsed.titleAr,
             title_en: parsed.titleEn,
@@ -476,7 +509,7 @@ export async function harvestLiveGccJobs(options?: {
             apply_email: cand.email,
             country_code: loc.countryCode,
             city_id: loc.cityId,
-            industry_id: industryId,
+            industry_id: parsed.industryId,
             employment_type: parsed.employmentType,
             experience_level: parsed.experienceLevel,
             salary_min: parsed.salaryMin,
@@ -497,18 +530,20 @@ export async function harvestLiveGccJobs(options?: {
             hr_email: cand.email,
             country_code: loc.countryCode,
             city_id: loc.cityId,
-            industry_id: industryId,
+            industry_id: parsed.industryId,
             sub_specialty: parsed.titleEn,
           },
-        };
+        }));
       })
     );
 
-    for (const item of verifiedBatch) {
-      if (!item) continue;
-      if (structuredInputs.length < maxJobs) {
-        structuredInputs.push(item.jobInput);
-        discoveredCompanies.push(item.companyInput);
+    for (const roleGroup of verifiedBatch) {
+      if (!roleGroup) continue;
+      for (const item of roleGroup) {
+        if (structuredInputs.length < maxJobs) {
+          structuredInputs.push(item.jobInput);
+          discoveredCompanies.push(item.companyInput);
+        }
       }
     }
   }
@@ -517,6 +552,7 @@ export async function harvestLiveGccJobs(options?: {
     await upsertJobPostings(structuredInputs);
 
   let companiesEnriched = 0;
+  let categoriesUpdated = 0;
   if (discoveredCompanies.length > 0) {
     try {
       const compRes = await bulkImportCompanies(discoveredCompanies, {
@@ -524,6 +560,7 @@ export async function harvestLiveGccJobs(options?: {
         allowPersonalWebmail: false,
       });
       companiesEnriched = compRes.imported;
+      categoriesUpdated = compRes.updatedCategories || 0;
     } catch {
       companiesEnriched = 0;
     }
@@ -535,6 +572,7 @@ export async function harvestLiveGccJobs(options?: {
     jobsPublished: inserted.length,
     duplicatesSkipped: skippedDuplicates,
     companiesEnriched,
+    categoriesUpdated,
     publishedSlugs: inserted.map((j) => j.slug),
   };
 }

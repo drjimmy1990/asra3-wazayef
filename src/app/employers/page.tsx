@@ -15,9 +15,11 @@ import {
   Clock,
   Globe2,
   Loader2,
+  Plus,
   Send,
   ShieldCheck,
   Sparkles,
+  Trash2,
 } from "lucide-react";
 
 export default function EmployerPostJobPage() {
@@ -33,6 +35,14 @@ export default function EmployerPostJobPage() {
   );
   const [cityId, setCityId] = useState("dubai");
   const [industryId, setIndustryId] = useState("engineering");
+  const [secondaryIndustries, setSecondaryIndustries] = useState<string[]>([]);
+  const [additionalRoles, setAdditionalRoles] = useState<
+    Array<{
+      title_ar: string;
+      title_en: string;
+      industry_id: string;
+    }>
+  >([]);
   const [employmentType, setEmploymentType] =
     useState<EmploymentType>("FULL_TIME");
   const [experienceLevel, setExperienceLevel] = useState(
@@ -51,6 +61,7 @@ export default function EmployerPostJobPage() {
   const [result, setResult] = useState<{
     autoPublished: boolean;
     slug?: string;
+    publishedCount?: number;
     isMxVerified?: boolean;
   } | null>(null);
 
@@ -84,6 +95,8 @@ export default function EmployerPostJobPage() {
           country_code: countryCode,
           city_id: cityId,
           industry_id: industryId,
+          secondary_industries: secondaryIndustries,
+          additional_roles: additionalRoles,
           employment_type: employmentType,
           experience_level: experienceLevel,
           title_ar: titleAr,
@@ -116,6 +129,7 @@ export default function EmployerPostJobPage() {
       setResult({
         autoPublished: Boolean(data.autoPublished),
         slug: data.job?.slug,
+        publishedCount: Number(data.publishedCount) || 1,
         isMxVerified: Boolean(data.job?.is_mx_verified),
       });
     } catch {
@@ -219,8 +233,8 @@ export default function EmployerPostJobPage() {
                 <CheckCircle2 className="h-12 w-12 text-[#D4AF37] mx-auto" />
                 <h2 className="text-2xl font-extrabold">
                   {lang === "ar"
-                    ? "تم التحقق من نطاق شركتك ونشر الوظيفة فوراً! ✓"
-                    : "Corporate Domain Verified — Your Job Is Live! ✓"}
+                    ? `تم التحقق من نطاق شركتك ونشر (${result.publishedCount || 1}) وظيفة فوراً! ✓`
+                    : `Corporate Domain Verified — ${result.publishedCount || 1} Role(s) Live! ✓`}
                 </h2>
                 <p className="text-sm text-zinc-300 max-w-xl mx-auto">
                   {lang === "ar"
@@ -512,6 +526,151 @@ export default function EmployerPostJobPage() {
                   className="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-[#09090B] px-4 py-3 text-sm font-mono"
                 />
               </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold mb-1.5">
+                {lang === "ar"
+                  ? "تخصصات إضافية ذات صلة بهذه الوظيفة (اختياري — إذا كانت الوظيفة مشتركة بين أكثر من قطاع)"
+                  : "Additional Related Categories (Optional — for cross-functional roles)"}
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {industries
+                  .filter((ind) => ind.id !== industryId)
+                  .map((ind) => {
+                    const checked = secondaryIndustries.includes(ind.id);
+                    return (
+                      <button
+                        key={ind.id}
+                        type="button"
+                        onClick={() =>
+                          setSecondaryIndustries((prev) =>
+                            checked
+                              ? prev.filter((x) => x !== ind.id)
+                              : [...prev, ind.id]
+                          )
+                        }
+                        className={`rounded-lg border px-2.5 py-1 text-[11px] font-bold transition-colors cursor-pointer ${
+                          checked
+                            ? "bg-[#09090B] text-[#D4AF37] border-[#D4AF37]"
+                            : "bg-zinc-50 dark:bg-[#09090B] text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-800"
+                        }`}
+                      >
+                        {checked ? "✓ " : "+ "}
+                        {lang === "ar" ? ind.name_ar : ind.name_en}
+                      </button>
+                    );
+                  })}
+              </div>
+            </div>
+
+            {/* Multi-Vacancy / Multi-Category Batch Repeater */}
+            <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-[#09090B] p-4 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="text-xs font-extrabold">
+                    {lang === "ar"
+                      ? "هل تطلب شركتكم شواغر أخرى في تخصصات مختلفة في نفس الوقت؟"
+                      : "Hiring across multiple departments or categories simultaneously?"}
+                  </p>
+                  <p className="text-[11px] text-zinc-500">
+                    {lang === "ar"
+                      ? "أضف شواغر إضافية (مثل: محاسب + مهندس + موارد بشرية) ليُنشر كل شاغر في قسمه المخصص."
+                      : "Add extra open roles below—each publishes as its own ranked listing in its exact category."}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setAdditionalRoles((prev) => [
+                      ...prev,
+                      {
+                        title_ar: "",
+                        title_en: "",
+                        industry_id:
+                          industries.find((i) => i.id !== industryId)?.id ||
+                          "finance-accounting",
+                      },
+                    ])
+                  }
+                  className="inline-flex items-center gap-1 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#141418] px-3 py-1.5 text-xs font-bold hover:border-[#D4AF37] cursor-pointer"
+                >
+                  <Plus className="h-3.5 w-3.5 text-[#D4AF37]" />
+                  <span>
+                    {lang === "ar"
+                      ? "إضافة وظيفة بتخصص آخر"
+                      : "Add Another Role / Category"}
+                  </span>
+                </button>
+              </div>
+
+              {additionalRoles.map((role, idx) => (
+                <div
+                  key={idx}
+                  className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center pt-2 border-t border-zinc-200 dark:border-zinc-800"
+                >
+                  <input
+                    type="text"
+                    value={role.title_ar}
+                    onChange={(e) =>
+                      setAdditionalRoles((prev) =>
+                        prev.map((r, i) =>
+                          i === idx ? { ...r, title_ar: e.target.value } : r
+                        )
+                      )
+                    }
+                    placeholder={
+                      lang === "ar"
+                        ? "المسمى بالعربية (مثال: محاسب أول)"
+                        : "Arabic Title (optional)"
+                    }
+                    className="sm:col-span-4 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#121215] px-3 py-2 text-xs"
+                  />
+                  <input
+                    type="text"
+                    dir="ltr"
+                    value={role.title_en}
+                    onChange={(e) =>
+                      setAdditionalRoles((prev) =>
+                        prev.map((r, i) =>
+                          i === idx ? { ...r, title_en: e.target.value } : r
+                        )
+                      )
+                    }
+                    placeholder="English Title (e.g. Senior Accountant)"
+                    className="sm:col-span-4 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#121215] px-3 py-2 text-xs"
+                  />
+                  <select
+                    value={role.industry_id}
+                    onChange={(e) =>
+                      setAdditionalRoles((prev) =>
+                        prev.map((r, i) =>
+                          i === idx ? { ...r, industry_id: e.target.value } : r
+                        )
+                      )
+                    }
+                    className="sm:col-span-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#121215] px-2.5 py-2 text-xs font-bold"
+                  >
+                    {industries.map((ind) => (
+                      <option key={ind.id} value={ind.id}>
+                        {lang === "ar" ? ind.name_ar : ind.name_en}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setAdditionalRoles((prev) =>
+                        prev.filter((_, i) => i !== idx)
+                      )
+                    }
+                    className="sm:col-span-1 flex items-center justify-center rounded-lg border border-red-500/30 p-2 text-red-500 cursor-pointer"
+                    aria-label="Remove role"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
             </div>
 
             <div>

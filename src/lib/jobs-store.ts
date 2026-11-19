@@ -614,9 +614,29 @@ function normalizeJobRow(row: JobPostingRecord): JobPostingRecord {
       ? "expired"
       : row.status;
 
+  let cleanSourceChannel = row.source_channel || null;
+  const parsedSecondary: string[] = Array.isArray(row.secondary_industries)
+    ? [...row.secondary_industries]
+    : [];
+
+  if (cleanSourceChannel && cleanSourceChannel.includes("|sectors:")) {
+    const [baseChan, secRaw] = cleanSourceChannel.split("|sectors:");
+    cleanSourceChannel = baseChan || null;
+    if (secRaw) {
+      for (const s of secRaw.split(",")) {
+        const trimmed = s.trim();
+        if (trimmed && !parsedSecondary.includes(trimmed)) {
+          parsedSecondary.push(trimmed);
+        }
+      }
+    }
+  }
+
   return {
     ...row,
     status: autoStatus,
+    source_channel: cleanSourceChannel,
+    secondary_industries: parsedSecondary,
     masked_apply_email: row.apply_email ? maskEmail(row.apply_email) : null,
     requirements_ar: Array.isArray(row.requirements_ar) ? row.requirements_ar : [],
     requirements_en: Array.isArray(row.requirements_en) ? row.requirements_en : [],
@@ -760,7 +780,13 @@ export async function searchAndRankJobs(
     if (countsByCountry[j.country_code] !== undefined) {
       countsByCountry[j.country_code]++;
     }
-    countsByIndustry[j.industry_id] = (countsByIndustry[j.industry_id] || 0) + 1;
+    const allCats = new Set([
+      j.industry_id,
+      ...(j.secondary_industries || []),
+    ]);
+    for (const cat of allCats) {
+      countsByIndustry[cat] = (countsByIndustry[cat] || 0) + 1;
+    }
   }
 
   const scored: JobPostingRecord[] = [];
@@ -768,7 +794,13 @@ export async function searchAndRankJobs(
   for (const job of activePool) {
     if (params.country && job.country_code !== params.country) continue;
     if (params.city && job.city_id !== params.city) continue;
-    if (params.industry && job.industry_id !== params.industry) continue;
+    if (
+      params.industry &&
+      job.industry_id !== params.industry &&
+      !job.secondary_industries?.includes(params.industry)
+    ) {
+      continue;
+    }
     if (params.employmentType && job.employment_type !== params.employmentType) {
       continue;
     }
@@ -878,6 +910,7 @@ export interface NewJobInput {
   country_code: CountryCode;
   city_id?: string;
   industry_id?: string;
+  secondary_industries?: string[];
   employment_type?: EmploymentType;
   experience_level?: string;
   salary_min?: number | null;
@@ -986,6 +1019,11 @@ export async function upsertJobPostings(
       city_name_ar: cityObj.name_ar,
       city_name_en: cityObj.name_en,
       industry_id: industryId,
+      secondary_industries: (item.secondary_industries || []).filter(
+        (s) =>
+          s !== industryId &&
+          INITIAL_INDUSTRIES.some((ind) => ind.id === s)
+      ),
       employment_type: item.employment_type || "FULL_TIME",
       experience_level: item.experience_level || "Mid-Senior (3-7 Years)",
       salary_min: item.salary_min ?? null,
@@ -1037,6 +1075,10 @@ export async function upsertJobPostings(
         const sb = getSupabaseJobsClient();
         const dbRows = inserted.map((r) => {
           const copy = { ...r };
+          if (copy.secondary_industries?.length) {
+            copy.source_channel = `${copy.source_channel || "asra3"}|sectors:${copy.secondary_industries.join(",")}`;
+          }
+          delete copy.secondary_industries;
           delete copy.masked_apply_email;
           delete copy.rank_score;
           return copy;
@@ -1079,6 +1121,7 @@ export async function submitEmployerJobRequest(payload: {
   country_code: CountryCode;
   city_id: string;
   industry_id: string;
+  secondary_industries?: string[];
   employment_type: EmploymentType;
   experience_level: string;
   title_ar?: string;
@@ -1087,10 +1130,18 @@ export async function submitEmployerJobRequest(payload: {
   salary_max?: number | null;
   description: string;
   skills?: string[];
+  additional_roles?: Array<{
+    title_ar?: string;
+    title_en?: string;
+    industry_id: string;
+    salary_min?: number | null;
+    salary_max?: number | null;
+  }>;
 }): Promise<{
   ok: boolean;
   autoPublished: boolean;
   job?: JobPostingRecord;
+  jobs?: JobPostingRecord[];
   errorReason?: string;
 }> {
   const cleanEmail = (payload.hr_email || "").trim().toLowerCase();
@@ -1139,10 +1190,43 @@ export async function submitEmployerJobRequest(payload: {
     .filter((l) => l.length >= 6)
     .slice(0, 6);
 
-  const { inserted } = await upsertJobPostings([
+  const allRolesToCreate: Array<{
+    titleAr: string;
+    titleEn: string;
+    industryId: string;
+    secondaryIndustries?: string[];
+    salaryMin?: number | null;
+    salaryMax?: number | null;
+  }> = [
     {
-      title_ar: titleAr,
-      title_en: titleEn,
+      titleAr,
+      titleEn,
+      industryId: payload.industry_id,
+      secondaryIndustries: payload.secondary_industries,
+      salaryMin: payload.salary_min ?? null,
+      salaryMax: payload.salary_max ?? null,
+    },
+  ];
+
+  if (Array.isArray(payload.additional_roles)) {
+    for (const extra of payload.additional_roles.slice(0, 8)) {
+      const exEn = (extra.title_en || extra.title_ar || "").trim();
+      const exAr = (extra.title_ar || extra.title_en || "").trim();
+      if (!exEn) continue;
+      allRolesToCreate.push({
+        titleAr: exAr,
+        titleEn: exEn,
+        industryId: extra.industry_id || payload.industry_id,
+        salaryMin: extra.salary_min ?? null,
+        salaryMax: extra.salary_max ?? null,
+      });
+    }
+  }
+
+  const { inserted } = await upsertJobPostings(
+    allRolesToCreate.map((r) => ({
+      title_ar: r.titleAr,
+      title_en: r.titleEn,
       company_name: payload.company_name,
       company_domain: isCorporateMxVerified ? corporateCheck.domain : "",
       company_website: payload.company_website || null,
@@ -1151,36 +1235,43 @@ export async function submitEmployerJobRequest(payload: {
       apply_whatsapp: payload.apply_whatsapp || null,
       country_code: payload.country_code,
       city_id: payload.city_id,
-      industry_id: payload.industry_id,
+      industry_id: r.industryId,
+      secondary_industries: r.secondaryIndustries,
       employment_type: payload.employment_type,
       experience_level: payload.experience_level,
-      salary_min: payload.salary_min ?? null,
-      salary_max: payload.salary_max ?? null,
+      salary_min: r.salaryMin ?? null,
+      salary_max: r.salaryMax ?? null,
       summary_ar: rawDesc.slice(0, 420),
       summary_en: rawDesc.slice(0, 420),
       requirements_ar: bulletLines,
       requirements_en: bulletLines,
       skills: payload.skills?.length ? payload.skills : ["Direct Employer Hiring"],
-      source_type: "employer_direct",
+      source_type: "employer_direct" as const,
       source_channel: "employer_portal",
       is_mx_verified: isCorporateMxVerified,
       status: targetStatus,
-    },
-  ]);
+    }))
+  );
 
-  // Automatically enrich the verified GCC Company HR directory when corporate MX passes!
+  // Automatically enrich the verified GCC Company HR directory across ALL submitted categories!
   if (isCorporateMxVerified) {
+    const allSubmittedIndustries = new Set<string>();
+    for (const r of allRolesToCreate) {
+      allSubmittedIndustries.add(r.industryId);
+      for (const sec of r.secondaryIndustries || []) {
+        allSubmittedIndustries.add(sec);
+      }
+    }
+
     bulkImportCompanies(
-      [
-        {
-          company_name: payload.company_name,
-          hr_email: cleanEmail,
-          country_code: payload.country_code,
-          city_id: payload.city_id,
-          industry_id: payload.industry_id,
-          sub_specialty: titleEn.slice(0, 65),
-        },
-      ],
+      Array.from(allSubmittedIndustries).map((indId) => ({
+        company_name: payload.company_name,
+        hr_email: cleanEmail,
+        country_code: payload.country_code,
+        city_id: payload.city_id,
+        industry_id: indId,
+        sub_specialty: titleEn.slice(0, 65),
+      })),
       { checkMx: false, allowPersonalWebmail: false }
     ).catch(() => {});
   }
@@ -1189,6 +1280,7 @@ export async function submitEmployerJobRequest(payload: {
     ok: true,
     autoPublished: targetStatus === "published",
     job: inserted[0],
+    jobs: inserted,
   };
 }
 

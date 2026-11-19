@@ -49,6 +49,122 @@ interface LocalStoreData {
 
 const DATA_DIR = path.join(process.cwd(), ".data");
 const STORE_FILE = path.join(DATA_DIR, "store.json");
+const JOBS_STORE_FILE = path.join(DATA_DIR, "jobs.json");
+
+export interface ActiveCompanyCategoryMap {
+  byEmail: Map<string, Set<string>>;
+  byDomain: Map<string, Set<string>>;
+}
+
+export async function getActiveJobIndustriesByCompany(): Promise<ActiveCompanyCategoryMap> {
+  const byEmail = new Map<string, Set<string>>();
+  const byDomain = new Map<string, Set<string>>();
+
+  const register = (
+    email: string | null | undefined,
+    domain: string | null | undefined,
+    indId: string | null | undefined,
+    extra?: string[]
+  ) => {
+    const allInds = [indId, ...(Array.isArray(extra) ? extra : [])].filter(
+      (x): x is string => Boolean(x)
+    );
+    if (allInds.length === 0) return;
+
+    const cleanEmail = (email || "").trim().toLowerCase();
+    const cleanDomain = (
+      domain ||
+      (cleanEmail.includes("@") ? cleanEmail.split("@")[1] : "")
+    )
+      .trim()
+      .toLowerCase();
+
+    if (cleanEmail) {
+      if (!byEmail.has(cleanEmail)) byEmail.set(cleanEmail, new Set());
+      const set = byEmail.get(cleanEmail)!;
+      allInds.forEach((i) => set.add(i));
+    }
+    if (cleanDomain) {
+      if (!byDomain.has(cleanDomain)) byDomain.set(cleanDomain, new Set());
+      const set = byDomain.get(cleanDomain)!;
+      allInds.forEach((i) => set.add(i));
+    }
+  };
+
+  if (isSupabaseConfigured()) {
+    try {
+      const sb = getSupabaseAdmin();
+      const { data } = await sb
+        .from("jobs")
+        .select("apply_email, company_domain, industry_id")
+        .eq("status", "published")
+        .limit(1000);
+      if (Array.isArray(data)) {
+        for (const row of data) {
+          register(row.apply_email, row.company_domain, row.industry_id);
+        }
+      }
+    } catch {
+      // Fallback to local jobs file below
+    }
+  }
+
+  try {
+    if (fs.existsSync(JOBS_STORE_FILE)) {
+      const parsed = JSON.parse(fs.readFileSync(JOBS_STORE_FILE, "utf8"));
+      if (Array.isArray(parsed)) {
+        for (const row of parsed) {
+          if (row?.status === "published") {
+            register(
+              row.apply_email,
+              row.company_domain,
+              row.industry_id,
+              row.secondary_industries
+            );
+          }
+        }
+      }
+    }
+  } catch {
+    // Ignore local read errors
+  }
+
+  return { byEmail, byDomain };
+}
+
+export function doesCompanyHireInIndustry(
+  company: CompanyRecord,
+  targetIndustryId: string,
+  jobCategoryMap?: ActiveCompanyCategoryMap
+): boolean {
+  if (!targetIndustryId) return true;
+  if (company.industry_id === targetIndustryId) return true;
+  if (
+    Array.isArray(company.secondary_industries) &&
+    company.secondary_industries.includes(targetIndustryId)
+  ) {
+    return true;
+  }
+  if (
+    company.sub_specialty &&
+    company.sub_specialty.toLowerCase().includes(`#${targetIndustryId.toLowerCase()}`)
+  ) {
+    return true;
+  }
+
+  if (jobCategoryMap) {
+    const email = (company.hr_email || "").trim().toLowerCase();
+    if (email && jobCategoryMap.byEmail.get(email)?.has(targetIndustryId)) {
+      return true;
+    }
+    const domain = email.includes("@") ? email.split("@")[1] : "";
+    if (domain && jobCategoryMap.byDomain.get(domain)?.has(targetIndustryId)) {
+      return true;
+    }
+  }
+
+  return false;
+}
 
 export function isSupabaseConfigured(): boolean {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -259,16 +375,22 @@ export async function bulkImportCompanies(
   options?: { checkMx?: boolean; allowPersonalWebmail?: boolean }
 ): Promise<{
   imported: number;
+  updatedCategories?: number;
   skippedDuplicates: number;
   rejectedInvalid: number;
   total: number;
 }> {
   const existingCompanies = await listCompanies();
-  const existingEmails = new Set(
-    existingCompanies.map((c) => c.hr_email.toLowerCase().trim())
-  );
+  const existingByEmail = new Map<string, CompanyRecord>();
+  for (const c of existingCompanies) {
+    existingByEmail.set(c.hr_email.toLowerCase().trim(), c);
+  }
 
   const newRows: CompanyRecord[] = [];
+  const categoryEnrichments = new Map<
+    string,
+    { company: CompanyRecord; addedIndustries: Set<string> }
+  >();
   let skippedDuplicates = 0;
   let rejectedInvalid = 0;
 
@@ -279,7 +401,27 @@ export async function bulkImportCompanies(
       continue;
     }
 
-    if (existingEmails.has(email)) {
+    const incomingIndustry = classifyCompanyIndustry({
+      rawIndustry: row.industry_id,
+      companyName: row.company_name,
+      subSpecialty: row.sub_specialty,
+      email,
+    });
+
+    const existingMatch = existingByEmail.get(email);
+    if (existingMatch) {
+      if (!doesCompanyHireInIndustry(existingMatch, incomingIndustry)) {
+        if (!categoryEnrichments.has(email)) {
+          categoryEnrichments.set(email, {
+            company: existingMatch,
+            addedIndustries: new Set(),
+          });
+        }
+        categoryEnrichments.get(email)!.addedIndustries.add(incomingIndustry);
+        existingMatch.secondary_industries = Array.from(
+          new Set([...(existingMatch.secondary_industries || []), incomingIndustry])
+        );
+      }
       skippedDuplicates++;
       continue;
     }
@@ -331,22 +473,41 @@ export async function bulkImportCompanies(
     };
 
     newRows.push(newCompany);
-    existingEmails.add(email);
+    existingByEmail.set(email, newCompany);
   }
 
-  if (isSupabaseConfigured() && newRows.length > 0) {
+  if (isSupabaseConfigured() && (newRows.length > 0 || categoryEnrichments.size > 0)) {
     try {
       const sb = getSupabaseAdmin();
+      const dbNewRows = newRows.map((r) => {
+        const copy = { ...r };
+        delete copy.secondary_industries;
+        return copy;
+      });
       const CHUNK_SIZE = 50;
-      for (let i = 0; i < newRows.length; i += CHUNK_SIZE) {
-        const chunk = newRows.slice(i, i + CHUNK_SIZE);
+      for (let i = 0; i < dbNewRows.length; i += CHUNK_SIZE) {
+        const chunk = dbNewRows.slice(i, i + CHUNK_SIZE);
         const { error } = await sb.from("companies").insert(chunk);
         if (error) {
-          // Fallback row-by-row so one duplicate/constraint never drops a batch
           for (const row of chunk) {
             await sb.from("companies").insert(row);
           }
         }
+      }
+
+      // Persist newly discovered secondary hiring categories onto existing Supabase rows via sub_specialty tags
+      for (const [email, item] of categoryEnrichments.entries()) {
+        const tags = Array.from(item.addedIndustries)
+          .map((ind) => `#${ind}`)
+          .join(" ");
+        const nextSpecialty = `${item.company.sub_specialty || "Direct HR"} ${tags}`.slice(
+          0,
+          140
+        );
+        await sb
+          .from("companies")
+          .update({ sub_specialty: nextSpecialty })
+          .ilike("hr_email", email);
       }
     } catch (e) {
       console.warn("Supabase bulk insert warning:", e);
@@ -354,11 +515,27 @@ export async function bulkImportCompanies(
   }
 
   const store = readLocalStore();
+  if (categoryEnrichments.size > 0) {
+    for (const comp of store.companies) {
+      const enrich = categoryEnrichments.get(comp.hr_email.toLowerCase().trim());
+      if (enrich) {
+        const added = Array.from(enrich.addedIndustries);
+        comp.secondary_industries = Array.from(
+          new Set([...(comp.secondary_industries || []), ...added])
+        );
+        const tags = added.map((ind) => `#${ind}`).join(" ");
+        if (!comp.sub_specialty.includes(tags)) {
+          comp.sub_specialty = `${comp.sub_specialty} ${tags}`.slice(0, 140);
+        }
+      }
+    }
+  }
   store.companies = [...newRows, ...store.companies];
   writeLocalStore(store);
 
   return {
     imported: newRows.length,
+    updatedCategories: categoryEnrichments.size,
     skippedDuplicates,
     rejectedInvalid,
     total: existingCompanies.length + newRows.length,
@@ -744,18 +921,22 @@ export async function createCampaignOrder(input: {
     return true;
   });
 
-  // Smart Cooldown & Relevance Ranking:
-  // 0. Exact industry match
+  // Smart Cooldown & Multi-Category Relevance Ranking:
+  // 0. Exact primary OR secondary/active-job category match for this company
   // 1. Multi-sector HR / Recruitment firms (`hr-admin`)
   // 2. Other active verified employers in target countries
-  // Tie-breakers: Selected cities -> Least-recently contacted -> Lowest volume
+  const jobCategoryMap = await getActiveJobIndustriesByCompany();
   const selectedCitySet = new Set(input.selected_cities || []);
-  const industryRank = (indId: string) =>
-    indId === input.industry_id ? 0 : indId === "hr-admin" ? 1 : 2;
+  const industryRank = (comp: CompanyRecord) =>
+    doesCompanyHireInIndustry(comp, input.industry_id, jobCategoryMap)
+      ? 0
+      : comp.industry_id === "hr-admin"
+      ? 1
+      : 2;
 
   const sortedPool = [...matchingPool].sort((a, b) => {
-    const aInd = industryRank(a.industry_id);
-    const bInd = industryRank(b.industry_id);
+    const aInd = industryRank(a);
+    const bInd = industryRank(b);
     if (aInd !== bInd) return aInd - bInd;
 
     const aPrimaryCountry =

@@ -105,6 +105,22 @@ export async function POST(req: NextRequest) {
           .map((s) => s.trim())
           .filter(Boolean);
 
+    const secondaryIndustries = Array.isArray(body.secondary_industries)
+      ? body.secondary_industries.map((s: unknown) => String(s).trim()).filter(Boolean)
+      : [];
+
+    const additionalRoles = Array.isArray(body.additional_roles)
+      ? body.additional_roles
+          .map((r: Record<string, unknown>) => ({
+            title_ar: r.title_ar ? String(r.title_ar).trim() : undefined,
+            title_en: r.title_en ? String(r.title_en).trim() : undefined,
+            industry_id: String(r.industry_id || body.industry_id || "engineering").trim(),
+            salary_min: r.salary_min ? Number(r.salary_min) : null,
+            salary_max: r.salary_max ? Number(r.salary_max) : null,
+          }))
+          .filter((r: { title_ar?: string; title_en?: string }) => r.title_ar || r.title_en)
+      : [];
+
     const submission = await submitEmployerJobRequest({
       company_name: companyName,
       company_website: body.company_website
@@ -118,6 +134,7 @@ export async function POST(req: NextRequest) {
       country_code,
       city_id: String(body.city_id || "").trim(),
       industry_id: String(body.industry_id || "engineering").trim(),
+      secondary_industries: secondaryIndustries,
       employment_type,
       experience_level: String(
         body.experience_level || "Mid-Senior (3-7 Years)"
@@ -134,6 +151,7 @@ export async function POST(req: NextRequest) {
           : null,
       description,
       skills,
+      additional_roles: additionalRoles,
     });
 
     if (!submission.ok) {
@@ -157,6 +175,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       autoPublished: submission.autoPublished,
+      publishedCount: submission.jobs?.length || (submission.job ? 1 : 0),
       job: submission.job
         ? {
             id: submission.job.id,
@@ -165,6 +184,13 @@ export async function POST(req: NextRequest) {
             is_mx_verified: submission.job.is_mx_verified,
           }
         : null,
+      jobs: (submission.jobs || []).map((j) => ({
+        id: j.id,
+        slug: j.slug,
+        title_en: j.title_en,
+        title_ar: j.title_ar,
+        industry_id: j.industry_id,
+      })),
     });
   } catch (err) {
     console.error("Employer job submission error:", err);
