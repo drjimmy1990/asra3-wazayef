@@ -3,6 +3,7 @@ import {
   advanceCampaignProgress,
   getCampaignByToken,
   markCampaignPaidAndStart,
+  rotateCampaignCustomerReference,
 } from "@/lib/store";
 import {
   initiateEasyKashPayment,
@@ -87,7 +88,7 @@ export async function POST(
   }
 
   if (body.action === "reinitiate_payment") {
-    const campaign = await getCampaignByToken(token);
+    let campaign = await getCampaignByToken(token);
     if (!campaign) {
       return NextResponse.json(
         { error: "Campaign not found" },
@@ -101,21 +102,73 @@ export async function POST(
       });
     }
 
-    const paymentSession = await initiateEasyKashPayment({
-      amount: campaign.amount_paid,
-      currency: campaign.currency,
-      name: campaign.candidate_name,
-      email: campaign.candidate_email,
-      mobile: campaign.candidate_phone,
-      customerReference: campaign.customer_reference,
-      trackingToken: campaign.tracking_token,
-      appBaseUrl: resolveRequestOrigin(req),
-    });
+    // 1. Check live EasyKash first so a delayed webhook never causes a double payment
+    if (
+      !campaign.tracking_token.startsWith("demo-") &&
+      isEasyKashLiveConfigured()
+    ) {
+      try {
+        const inquiry = await inquireEasyKashPayment(campaign.customer_reference);
+        if (inquiry.ok && inquiry.isPaid) {
+          await markCampaignPaidAndStart({
+            customerReference: campaign.customer_reference,
+            trackingToken: campaign.tracking_token,
+            easykashRef: inquiry.easykashRef,
+            paymentMethod: inquiry.paymentMethod || "EasyKash DirectPayV1",
+            voucher: inquiry.voucher,
+            paidAmount: inquiry.paidAmount,
+          });
+          return NextResponse.json({
+            alreadyPaid: true,
+            redirectUrl: `/track/${campaign.tracking_token}`,
+          });
+        }
+      } catch {
+        // Proceed to fresh retry session if inquiry fails transiently
+      }
+    }
 
-    return NextResponse.json({
-      redirectUrl: paymentSession.redirectUrl,
-      isLiveGateway: paymentSession.isLiveGateway,
-    });
+    // 2. Rotate customer_reference because EasyKash DirectPayV1 rejects reusing
+    //    a customerReference from a previous declined/failed/cancelled attempt
+    const rotated = await rotateCampaignCustomerReference(
+      campaign.tracking_token
+    );
+    if (rotated) {
+      campaign = rotated;
+    }
+
+    try {
+      const paymentSession = await initiateEasyKashPayment({
+        amount: campaign.amount_paid,
+        currency: campaign.currency,
+        name: campaign.candidate_name,
+        email: campaign.candidate_email,
+        mobile: campaign.candidate_phone,
+        customerReference: campaign.customer_reference,
+        trackingToken: campaign.tracking_token,
+        appBaseUrl: resolveRequestOrigin(req),
+      });
+
+      return NextResponse.json({
+        redirectUrl: paymentSession.redirectUrl,
+        isLiveGateway: paymentSession.isLiveGateway,
+        customerReference: campaign.customer_reference,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(
+        `[EasyKash] reinitiate_payment failed for ${campaign.customer_reference}:`,
+        msg
+      );
+      return NextResponse.json(
+        {
+          error:
+            "تعذر فتح جلسة سداد جديدة مع بوابة EasyKash حالياً. يرجى المحاولة مرة أخرى بعد ثوانٍ أو إنشاء طلب جديد.",
+          detail: msg.slice(0, 220),
+        },
+        { status: 502 }
+      );
+    }
   }
 
   if (body.action === "advance_batch") {

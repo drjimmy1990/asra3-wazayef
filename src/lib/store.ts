@@ -1489,6 +1489,51 @@ export async function getCampaignByToken(
   return await syncElapsedServerDrip(campaign);
 }
 
+/**
+ * Generates and persists a fresh unique numeric EasyKash `customer_reference`
+ * for an unpaid campaign when the candidate retries payment (EasyKash DirectPayV1
+ * rejects duplicate `customerReference` values after a failed/expired attempt).
+ */
+export async function rotateCampaignCustomerReference(
+  tokenOrRef: string
+): Promise<CampaignRecord | null> {
+  const existing = await getCampaignByToken(tokenOrRef);
+  if (!existing || existing.payment_status === "paid") {
+    return existing;
+  }
+
+  let nextRef = `${crypto.randomInt(100, 999)}${Date.now().toString().slice(-6)}`;
+  if (nextRef === existing.customer_reference) {
+    nextRef = `${crypto.randomInt(100, 999)}${(Date.now() + 17).toString().slice(-6)}`;
+  }
+
+  if (isSupabaseConfigured()) {
+    try {
+      const sb = getSupabaseAdmin();
+      await sb
+        .from("campaigns")
+        .update({ customer_reference: nextRef })
+        .eq("id", existing.id);
+    } catch (e) {
+      console.warn("Supabase rotateCampaignCustomerReference warning:", e);
+    }
+  }
+
+  const store = readLocalStore();
+  const idx = store.campaigns.findIndex(
+    (c) =>
+      c.id === existing.id ||
+      c.tracking_token.toLowerCase() === existing.tracking_token.toLowerCase()
+  );
+  if (idx !== -1) {
+    store.campaigns[idx].customer_reference = nextRef;
+    writeLocalStore(store);
+    return store.campaigns[idx];
+  }
+
+  return { ...existing, customer_reference: nextRef };
+}
+
 export async function findCampaignsByEmail(
   rawEmail: string
 ): Promise<CampaignRecord[]> {

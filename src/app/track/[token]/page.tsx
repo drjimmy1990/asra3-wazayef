@@ -226,7 +226,7 @@ export default function CampaignTrackingDashboard() {
           body: JSON.stringify({ action: "reinitiate_payment" }),
         }
       );
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (data.alreadyPaid) {
         await fetchCampaign();
         return;
@@ -448,7 +448,7 @@ export default function CampaignTrackingDashboard() {
 
       <main
         id="main-content"
-        className="mx-auto max-w-7xl w-full px-4 py-8 sm:py-10 sm:px-6 lg:px-8 space-y-6 sm:space-y-8"
+        className="mx-auto max-w-7xl w-full px-4 pt-8 pb-24 sm:py-10 sm:px-6 lg:px-8 space-y-6 sm:space-y-8"
       >
         {isDemoCampaign && (
           <div className="exec-card animate-panel-enter flex flex-wrap items-center justify-between gap-3 rounded-xl px-5 py-3.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300">
