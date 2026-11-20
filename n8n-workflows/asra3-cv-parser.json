@@ -1,0 +1,146 @@
+{
+  "name": "Asra3.com — AI CV Parser & ATS Analyzer",
+  "nodes": [
+    {
+      "id": "cv-parse-webhook",
+      "name": "cvParseWebhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "webhookId": "asra3-cv-parse-webhook-v1",
+      "position": [160, 300],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "asra3-cv-parse",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "prepare-cv-prompt",
+      "name": "prepareCvPrompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [420, 300],
+      "parameters": {
+        "jsCode": "const payload = $json.body || $json || {};\nconst extractedText = String(payload.extracted_text || '').trim().slice(0, 16000);\nconst fileName = String(payload.file_name || 'Candidate_CV.pdf').trim();\nconst countryCode = String(payload.country_code || 'AE').toUpperCase();\nconst countryNameAr = String(payload.country_name_ar || 'الإمارات العربية المتحدة');\nconst countryNameEn = String(payload.country_name_en || 'United Arab Emirates');\nconst manualIndustryId = String(payload.manual_industry_id || '').trim();\nconst hasTextLayer = payload.has_text_layer !== false && extractedText.replace(/\\s+/g, '').length >= 40;\nconst industries = Array.isArray(payload.industries) && payload.industries.length\n  ? payload.industries\n  : [\n      { id: 'engineering', name_en: 'Engineering & Construction', name_ar: 'الهندسة والإنشاءات' },\n      { id: 'it-software', name_en: 'IT, Software & AI', name_ar: 'تكنولوجيا المعلومات والبرمجيات' },\n      { id: 'finance-accounting', name_en: 'Finance & Accounting', name_ar: 'المالية والمحاسبة' },\n      { id: 'sales-marketing', name_en: 'Sales & Marketing', name_ar: 'المبيعات والتسويق' },\n      { id: 'healthcare', name_en: 'Healthcare & Medical', name_ar: 'الرعاية الصحية والطب' },\n      { id: 'hr-admin', name_en: 'HR & Administration', name_ar: 'الموارد البشرية والإدارة' },\n      { id: 'logistics-supply', name_en: 'Logistics & Supply Chain', name_ar: 'اللوجستيات وسلاسل الإمداد' },\n      { id: 'hospitality-retail', name_en: 'Hospitality & Retail', name_ar: 'الضيافة والتجزئة' },\n      { id: 'real-estate', name_en: 'Real Estate & Property', name_ar: 'العقارات وإدارة الأملاك' },\n      { id: 'legal', name_en: 'Legal & Compliance', name_ar: 'الشؤون القانونية والامتثال' },\n      { id: 'education', name_en: 'Education & Training', name_ar: 'التعليم والتدريب' },\n      { id: 'design-media', name_en: 'Design, Media & Creative', name_ar: 'التصميم والإعلام' }\n    ];\nconst fallback = (payload.fallback && typeof payload.fallback === 'object') ? payload.fallback : {};\n\nconst allowedIndustryIds = industries.map((i) => i.id);\nconst industriesListText = industries\n  .map((i) => `- \"${i.id}\": ${i.name_en || i.id} (${i.name_ar || ''})`)\n  .join('\\n');\n\nconst userPrompt = [\n  `FILE NAME: ${fileName}`,\n  `TARGET GCC COUNTRY: ${countryCode} (${countryNameEn} / ${countryNameAr})`,\n  manualIndustryId ? `USER SELECTED INDUSTRY HINT: ${manualIndustryId}` : `USER SELECTED INDUSTRY HINT: none (detect automatically)`,\n  `HAS READABLE TEXT LAYER: ${hasTextLayer ? 'yes' : 'no (scanned image / minimal text)'}`,\n  ``,\n  `ALLOWED INDUSTRY IDs (MUST PICK EXACTLY ONE OF THESE IDs):`,\n  industriesListText,\n  ``,\n  `RAW EXTRACTED CV TEXT:`,\n  extractedText || '(No selectable text extracted — likely a scanned image PDF. Infer conservatively from file name only and note low ATS readability.)',\n].join('\\n');\n\nreturn [{\n  json: {\n    userPrompt,\n    allowedIndustryIds,\n    manualIndustryId,\n    hasTextLayer,\n    fileName,\n    countryCode,\n    countryNameAr,\n    countryNameEn,\n    fallback,\n  },\n}];"
+      }
+    },
+    {
+      "id": "gemini-lite-model",
+      "name": "geminiLiteModel",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [680, 520],
+      "parameters": {
+        "modelName": "models/gemini-2.5-flash-lite",
+        "options": {
+          "temperature": 0.1
+        }
+      },
+      "credentials": {
+        "googlePalmApi": {
+          "id": "YOUR_GEMINI_CREDENTIAL_ID",
+          "name": "Google Gemini API"
+        }
+      }
+    },
+    {
+      "id": "ai-cv-parser-agent",
+      "name": "aiCvParserAgent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [680, 300],
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.userPrompt }}",
+        "options": {
+          "systemMessage": "You are an expert GCC Executive Recruiter and ATS Resume Parser for Asra3.com (أسرع).\nYour task is to read raw extracted CV/resume text (which may be in English, Arabic, or bilingual, and may have broken line breaks from PDF extraction) and extract highly accurate structured candidate data.\n\nSTRICT ACCURACY RULES:\n1. candidate_name: Extract the candidate's real full name (Arabic or English as written in the CV). NEVER return job titles, headers (\"Curriculum Vitae\", \"Resume\"), company names, or city names as the candidate_name. If genuinely absent, return \"\".\n2. candidate_email: Extract the candidate's personal email address in lowercase (ignore employer/reference emails if clearly different). If absent, return \"\".\n3. candidate_phone: Extract the candidate's primary phone/WhatsApp number in clean international format (e.g. \"+971 50 123 4567\" or \"+966 55 123 4567\" or \"+20 10 1234 5678\"). If absent, return \"\".\n4. job_title: Extract the candidate's exact most recent or target professional job title (e.g. \"Senior Civil & Structural Project Engineer\", \"Full-Stack Software Engineer\", \"Clinical Pharmacist\", \"Chief Accountant\"). Keep it crisp (2-7 words, no company name attached).\n5. detected_industry_id: Pick the SINGLE best-matching industry ID from the ALLOWED INDUSTRY IDs list based on their core career experience, roles, and skills. MUST match one of the exact allowed IDs verbatim.\n6. years_experience: Calculate realistic total professional work experience as an integer (0 to 40) from the candidate's actual employment date ranges (merge overlapping dates; do NOT count university education years as work experience; use current year 2026 for \"Present\"/\"Current\"/\"حتى الآن\"). If fresh graduate or student, return 0 or 1.\n7. detected_skills: Extract 6 to 10 REAL, specific technical skills, software tools, professional certifications, licenses, or domain competencies explicitly present in the CV (e.g. \"SAP S/4HANA\", \"Primavera P6\", \"React & TypeScript\", \"IFRS\", \"DHA License\", \"FIDIC Contracts\", \"B2B Sales\"). Keep each skill concise (1-4 words). NEVER invent unrelated skills.\n8. ats_score: Score objectively from 40 to 96 based on ATS readability (contact info completeness, measurable achievements/metrics, clear chronological roles, strong domain keywords, readable text layer). If HAS READABLE TEXT LAYER is \"no\", score between 42 and 58 and warn about image-based PDF.\n9. summary_ar: Write 2 concise, personalized Arabic sentences summarizing the candidate's real role, years of experience, strongest skills, and one actionable ATS improvement tip for GCC HR teams.\n10. summary_en: Write 2 concise, personalized English sentences summarizing the candidate's real role, years of experience, strongest skills, and one actionable ATS improvement tip for GCC HR teams.\n\nOUTPUT FORMAT (STRICT): Return ONLY a valid raw JSON object with NO markdown code fences and NO extra commentary:\n{\n  \"candidate_name\": \"\",\n  \"candidate_email\": \"\",\n  \"candidate_phone\": \"\",\n  \"detected_industry_id\": \"engineering\",\n  \"job_title\": \"\",\n  \"years_experience\": 5,\n  \"detected_skills\": [\"Skill 1\", \"Skill 2\"],\n  \"ats_score\": 82,\n  \"summary_ar\": \"\",\n  \"summary_en\": \"\"\n}"
+        }
+      }
+    },
+    {
+      "id": "format-cv-json",
+      "name": "formatCvJson",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 300],
+      "parameters": {
+        "jsCode": "const rawOutput = String($json.output || $json.text || '').trim();\nconst prep = $('prepareCvPrompt').first().json || {};\nconst allowed = new Set(Array.isArray(prep.allowedIndustryIds) ? prep.allowedIndustryIds : []);\nconst fb = prep.fallback || {};\n\nconst cleaned = rawOutput\n  .replace(/^```(?:json)?\\s*/i, '')\n  .replace(/\\s*```$/i, '')\n  .trim();\n\nlet parsed = null;\ntry {\n  parsed = JSON.parse(cleaned);\n} catch {\n  const match = cleaned.match(/\\{[\\s\\S]*\\}/);\n  if (match) {\n    try {\n      parsed = JSON.parse(match[0]);\n    } catch {\n      parsed = null;\n    }\n  }\n}\n\nif (!parsed || typeof parsed !== 'object') {\n  return [{\n    json: {\n      ok: false,\n      ai_parsed: false,\n      error: 'Unparseable AI output',\n    },\n  }];\n}\n\nconst cleanStr = (v, max = 160) => (typeof v === 'string' ? v.replace(/\\s+/g, ' ').trim().slice(0, max) : '');\n\nconst rawEmail = cleanStr(parsed.candidate_email, 120).toLowerCase();\nconst candidate_email = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$/.test(rawEmail)\n  ? rawEmail\n  : (fb.candidate_email || '');\n\nconst rawPhone = cleanStr(parsed.candidate_phone, 40);\nconst candidate_phone = rawPhone.replace(/[^\\d]/g, '').length >= 8\n  ? rawPhone\n  : (fb.candidate_phone || '');\n\nconst candidate_name = cleanStr(parsed.candidate_name, 90) || fb.candidate_name || '';\nconst job_title = cleanStr(parsed.job_title, 110) || fb.job_title || '';\n\nconst rawIndustry = cleanStr(parsed.detected_industry_id, 50);\nconst detected_industry_id = (prep.manualIndustryId && allowed.has(prep.manualIndustryId))\n  ? prep.manualIndustryId\n  : (allowed.has(rawIndustry) ? rawIndustry : (fb.detected_industry_id || 'it-software'));\n\nconst rawYears = Number(parsed.years_experience);\nconst years_experience = Number.isFinite(rawYears)\n  ? Math.max(0, Math.min(40, Math.round(rawYears)))\n  : (Number.isFinite(Number(fb.years_experience)) ? Number(fb.years_experience) : 3);\n\nconst rawScore = Number(parsed.ats_score);\nconst ats_score = Number.isFinite(rawScore)\n  ? Math.max(35, Math.min(98, Math.round(rawScore)))\n  : (Number.isFinite(Number(fb.ats_score)) ? Number(fb.ats_score) : 74);\n\nconst detected_skills = Array.isArray(parsed.detected_skills)\n  ? Array.from(new Set(\n      parsed.detected_skills\n        .map((s) => cleanStr(s, 48))\n        .filter((s) => s.length >= 2)\n    )).slice(0, 10)\n  : (Array.isArray(fb.detected_skills) ? fb.detected_skills : []);\n\nconst summary_ar = cleanStr(parsed.summary_ar, 450);\nconst summary_en = cleanStr(parsed.summary_en, 450);\n\nreturn [{\n  json: {\n    ok: true,\n    ai_parsed: true,\n    candidate_name,\n    candidate_email,\n    candidate_phone,\n    detected_industry_id,\n    job_title,\n    years_experience,\n    detected_skills,\n    ats_score,\n    summary_ar,\n    summary_en,\n  },\n}];"
+      }
+    },
+    {
+      "id": "respond-cv-json",
+      "name": "respondCvJson",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [1220, 300],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    }
+  ],
+  "connections": {
+    "cvParseWebhook": {
+      "main": [
+        [
+          {
+            "node": "prepareCvPrompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "prepareCvPrompt": {
+      "main": [
+        [
+          {
+            "node": "aiCvParserAgent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "geminiLiteModel": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "aiCvParserAgent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "aiCvParserAgent": {
+      "main": [
+        [
+          {
+            "node": "formatCvJson",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "formatCvJson": {
+      "main": [
+        [
+          {
+            "node": "respondCvJson",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

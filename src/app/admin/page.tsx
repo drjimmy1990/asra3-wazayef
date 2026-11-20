@@ -2695,6 +2695,12 @@ export default function AdminDashboardPage() {
                       url: "https://n8n.asra3.com/webhook/asra3-support-chat",
                       copyable: true,
                     },
+                    {
+                      id: "n8n-cv-parse",
+                      title: "6. AI CV Parser & ATS Analyzer (Set in VPS .env as N8N_CV_ANALYZE_WEBHOOK):",
+                      url: "https://n8n.asra3.com/webhook/asra3-cv-parse",
+                      copyable: true,
+                    },
                   ].map((ep) => (
                     <div
                       key={ep.id}
