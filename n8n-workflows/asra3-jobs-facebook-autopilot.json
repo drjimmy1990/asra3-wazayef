@@ -1,5 +1,5 @@
 {
-  "name": "Asra3.com — Automated 3h GCC Jobs Harvester, Website & Facebook Autopilot",
+  "name": "Asra3.com — Automated 2h GCC Jobs Harvester, Website & Facebook Autopilot",
   "nodes": [
     {
       "id": "schedule-3h",
@@ -12,7 +12,7 @@
           "interval": [
             {
               "field": "hours",
-              "hoursInterval": 3
+              "hoursInterval": 2
             }
           ]
         }
@@ -110,7 +110,7 @@
       "position": [940, 300],
       "parameters": {
         "method": "GET",
-        "url": "={{ $('configCredentials').first().json.asra3BaseUrl }}/api/webhooks/jobs-social?limit=2",
+        "url": "={{ $('configCredentials').first().json.asra3BaseUrl }}/api/webhooks/jobs-social?limit=1",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
