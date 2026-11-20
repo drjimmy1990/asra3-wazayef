@@ -95,53 +95,116 @@ export function DistributionWizard({
   const [isSubmittingCheckout, setIsSubmittingCheckout] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
+  // Concurrency & race-condition guards
+  const prevCountryCodeRef = useRef<CountryCode>(selectedCountryCode);
+  const pendingCityPrefillRef = useRef<{
+    country: CountryCode;
+    city: string;
+  } | null>(null);
+  const cvScanSeqRef = useRef(0);
+  const cvScanAbortRef = useRef<AbortController | null>(null);
+  const promoSeqRef = useRef(0);
+  const promoAbortRef = useRef<AbortController | null>(null);
+  const checkoutLockRef = useRef(false);
+
   useEffect(() => {
     if (externalPackageId) {
       setSelectedPackageId(externalPackageId);
     }
   }, [externalPackageId]);
 
-  // Pre-fill target market, city, sector & role when arriving from /jobs/[slug]
+  // Clean up any in-flight requests on unmount
+  useEffect(() => {
+    return () => {
+      cvScanAbortRef.current?.abort();
+      promoAbortRef.current?.abort();
+    };
+  }, []);
+
+  // Pre-fill target market, city, sector & role when arriving from /jobs or /jobs/[slug]
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     const qCountry = (params.get("country") || "").toUpperCase();
-    const qCity = params.get("city") || "";
-    const qInd = params.get("industry") || "";
-    const qRole = params.get("role") || "";
+    const qCity = (params.get("city") || "").trim().toLowerCase();
+    const qInd = (params.get("industry") || "").trim();
+    const qRole = (params.get("role") || "").trim();
 
-    if (["AE", "SA", "QA", "KW"].includes(qCountry)) {
-      selectCountry(qCountry as CountryCode, { shallow: true });
+    const hasValidCountry = ["AE", "SA", "QA", "KW"].includes(qCountry);
+    const targetCountry = (
+      hasValidCountry ? qCountry : selectedCountryCode
+    ) as CountryCode;
+
+    if (qCity) {
+      pendingCityPrefillRef.current = { country: targetCountry, city: qCity };
     }
+
+    if (hasValidCountry && targetCountry !== selectedCountryCode) {
+      selectCountry(targetCountry, { shallow: true });
+    } else if (qCity) {
+      const countryObj =
+        countries.find((c) => c.code === targetCountry) || selectedCountry;
+      if (countryObj.cities.some((c) => c.id === qCity)) {
+        setSelectedCities([qCity]);
+        pendingCityPrefillRef.current = null;
+      }
+    }
+
     if (qInd && industries.some((i) => i.id === qInd)) {
       setSelectedIndustryId(qInd);
     }
-    if (qRole.trim()) {
-      setJobTitle(qRole.trim());
+    if (qRole) {
+      setJobTitle(qRole);
     }
-    if (qCity) {
-      setTimeout(() => {
-        setSelectedCities([qCity]);
-      }, 50);
+
+    if (
+      window.location.hash === "#wizard-section" ||
+      hasValidCountry ||
+      qInd ||
+      qRole
+    ) {
+      requestAnimationFrame(() => {
+        const el = document.getElementById("wizard-section");
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Sync default cities & phone prefix ONLY when selected country changes
+  // Sync default cities & phone prefix ONLY when selectedCountryCode actually changes
+  // (never wipes user-selected or pre-filled cities when /api/catalog refreshes countries)
   useEffect(() => {
-    const allCityIds = selectedCountry.cities.map((c) => c.id);
-    setSelectedCities(allCityIds);
+    const countryChanged = prevCountryCodeRef.current !== selectedCountryCode;
+    prevCountryCodeRef.current = selectedCountryCode;
+
+    const countryObj =
+      countries.find((c) => c.code === selectedCountryCode) || selectedCountry;
+    const allCityIds = countryObj.cities.map((c) => c.id);
+
+    const pending = pendingCityPrefillRef.current;
+    if (
+      pending &&
+      pending.country === selectedCountryCode &&
+      allCityIds.includes(pending.city)
+    ) {
+      setSelectedCities([pending.city]);
+      pendingCityPrefillRef.current = null;
+    } else if (countryChanged || selectedCities.length === 0) {
+      setSelectedCities(allCityIds);
+    }
+
     setExtraCountries((prev) =>
       prev.filter((code) => code !== selectedCountryCode)
     );
     setCandidatePhone((prev) => {
       const stripped = prev.trim();
       if (!stripped || /^\+\d{2,4}$/.test(stripped)) {
-        return `${selectedCountry.phone_prefix} `;
+        return `${countryObj.phone_prefix} `;
       }
       return prev;
     });
-  }, [selectedCountryCode, selectedCountry]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCountryCode]);
 
   const toggleCity = (cityId: string) => {
     setSelectedCities((prev) =>
@@ -165,6 +228,11 @@ export function DistributionWizard({
     .reduce((acc, c) => acc + c.companies_count, 0);
 
   const handleCvScan = async (fileToScan: File) => {
+    cvScanAbortRef.current?.abort();
+    const controller = new AbortController();
+    cvScanAbortRef.current = controller;
+    const seq = ++cvScanSeqRef.current;
+
     setIsScanning(true);
     setStep2Error(null);
     try {
@@ -176,9 +244,11 @@ export function DistributionWizard({
       const res = await fetch("/api/cv/scan", {
         method: "POST",
         body: formData,
+        signal: controller.signal,
       });
 
       const data = await res.json();
+      if (seq !== cvScanSeqRef.current) return;
       if (!res.ok) {
         setStep2Error(
           data?.error ||
@@ -218,6 +288,12 @@ export function DistributionWizard({
         setCandidatePhone(typed.candidate_phone);
       }
     } catch (err) {
+      if (
+        (err instanceof Error && err.name === "AbortError") ||
+        seq !== cvScanSeqRef.current
+      ) {
+        return;
+      }
       console.error("Scan failed:", err);
       setStep2Error(
         lang === "ar"
@@ -225,7 +301,9 @@ export function DistributionWizard({
           : "Network error while uploading CV. Please try again."
       );
     } finally {
-      setIsScanning(false);
+      if (seq === cvScanSeqRef.current) {
+        setIsScanning(false);
+      }
     }
   };
 
@@ -310,11 +388,18 @@ export function DistributionWizard({
     currentSubtotal: number
   ) => {
     const code = rawCode.trim().toUpperCase();
+    promoAbortRef.current?.abort();
+    const seq = ++promoSeqRef.current;
+
     if (!code) {
       setAppliedPromo(null);
       setPromoError(null);
+      setValidatingPromo(false);
       return;
     }
+
+    const controller = new AbortController();
+    promoAbortRef.current = controller;
     setValidatingPromo(true);
     try {
       const res = await fetch("/api/coupons/validate", {
@@ -325,8 +410,10 @@ export function DistributionWizard({
           packageId: pkgId,
           subtotal: currentSubtotal,
         }),
+        signal: controller.signal,
       });
       const data = await res.json();
+      if (seq !== promoSeqRef.current) return;
       if (data?.valid) {
         setAppliedPromo({
           code: data.code,
@@ -364,14 +451,22 @@ export function DistributionWizard({
           );
         }
       }
-    } catch {
+    } catch (err) {
+      if (
+        (err instanceof Error && err.name === "AbortError") ||
+        seq !== promoSeqRef.current
+      ) {
+        return;
+      }
       setPromoError(
         lang === "ar"
           ? "تعذّر التحقق من كود الخصم، حاول مرة أخرى."
           : "Could not verify promo code, please try again."
       );
     } finally {
-      setValidatingPromo(false);
+      if (seq === promoSeqRef.current) {
+        setValidatingPromo(false);
+      }
     }
   };
 
@@ -428,6 +523,8 @@ export function DistributionWizard({
       return;
     }
 
+    if (checkoutLockRef.current) return;
+    checkoutLockRef.current = true;
     setCheckoutError(null);
     setIsSubmittingCheckout(true);
 
@@ -475,6 +572,7 @@ export function DistributionWizard({
 
       window.location.href = data.redirectUrl;
     } catch (err) {
+      checkoutLockRef.current = false;
       setCheckoutError(
         err instanceof Error ? err.message : "Failed to initialize payment"
       );

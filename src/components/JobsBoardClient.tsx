@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { ScrollProgressRail } from "@/components/MotionPrimitives";
@@ -80,6 +80,14 @@ export function JobsBoardClient({
   const [page, setPage] = useState<number>(1);
   const [loading, setLoading] = useState<boolean>(false);
   const [hasInteracted, setHasInteracted] = useState<boolean>(false);
+  const jobsAbortRef = useRef<AbortController | null>(null);
+  const jobsSeqRef = useRef<number>(0);
+
+  useEffect(() => {
+    return () => {
+      jobsAbortRef.current?.abort();
+    };
+  }, []);
 
   useEffect(() => {
     if (lockedCountry !== undefined) {
@@ -107,6 +115,11 @@ export function JobsBoardClient({
 
   const fetchFilteredJobs = useCallback(async () => {
     if (!hasInteracted) return;
+    jobsAbortRef.current?.abort();
+    const controller = new AbortController();
+    jobsAbortRef.current = controller;
+    const seq = ++jobsSeqRef.current;
+
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -120,13 +133,24 @@ export function JobsBoardClient({
       params.set("page", String(page));
       params.set("limit", "12");
 
-      const res = await fetch(`/api/jobs?${params.toString()}`);
+      const res = await fetch(`/api/jobs?${params.toString()}`, {
+        signal: controller.signal,
+      });
+      if (seq !== jobsSeqRef.current) return;
       if (res.ok) {
         const json: JobSearchResponse = await res.json();
-        setData(json);
+        if (seq === jobsSeqRef.current) {
+          setData(json);
+        }
+      }
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") {
+        return;
       }
     } finally {
-      setLoading(false);
+      if (seq === jobsSeqRef.current) {
+        setLoading(false);
+      }
     }
   }, [
     hasInteracted,

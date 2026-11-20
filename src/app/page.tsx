@@ -1,6 +1,10 @@
 import React from "react";
 import { HomeLandingClient } from "@/components/HomeLandingClient";
 import { SeoGeoKnowledgeSection } from "@/components/SeoGeoKnowledgeSection";
+import { searchAndRankJobs } from "@/lib/jobs-store";
+import { getCatalogData } from "@/lib/store";
+
+export const dynamic = "force-dynamic";
 
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ||
@@ -29,28 +33,28 @@ const homeStructuredData = {
       offers: {
         "@type": "AggregateOffer",
         priceCurrency: "AED",
-        lowPrice: "149",
-        highPrice: "399",
+        lowPrice: "129",
+        highPrice: "349",
         offerCount: "3",
         offers: [
           {
             "@type": "Offer",
             name: "Asra3 Launch — انطلاقة أسرع (100 شركة)",
-            price: "149",
+            price: "129",
             priceCurrency: "AED",
             availability: "https://schema.org/InStock",
           },
           {
             "@type": "Offer",
             name: "Asra3 Turbo — تيربو أسرع (300 شركة)",
-            price: "249",
+            price: "229",
             priceCurrency: "AED",
             availability: "https://schema.org/InStock",
           },
           {
             "@type": "Offer",
             name: "Asra3 Hyper — هايبر أسرع (500+ شركة)",
-            price: "399",
+            price: "349",
             priceCurrency: "AED",
             availability: "https://schema.org/InStock",
           },
@@ -139,14 +143,71 @@ const homeStructuredData = {
   ],
 };
 
-export default function HomePage() {
+export default async function HomePage() {
+  const [jobsResult, catalog] = await Promise.all([
+    searchAndRankJobs({ limit: 12 }),
+    getCatalogData(),
+  ]);
+
+  const starterAed = String(
+    catalog.packages.find((p) => p.id === "starter")?.prices_by_currency.AED ??
+      129
+  );
+  const proAed = String(
+    catalog.packages.find((p) => p.id === "pro")?.prices_by_currency.AED ?? 229
+  );
+  const ultimateAed = String(
+    catalog.packages.find((p) => p.id === "ultimate")?.prices_by_currency.AED ??
+      349
+  );
+
+  const liveStructuredData = {
+    ...homeStructuredData,
+    "@graph": homeStructuredData["@graph"].map((node) => {
+      if (node["@type"] !== "Service") return node;
+      return {
+        ...node,
+        offers: {
+          ...node.offers,
+          lowPrice: starterAed,
+          highPrice: ultimateAed,
+          offers: [
+            {
+              "@type": "Offer",
+              name: "Asra3 Launch — انطلاقة أسرع (100 شركة)",
+              price: starterAed,
+              priceCurrency: "AED",
+              availability: "https://schema.org/InStock",
+            },
+            {
+              "@type": "Offer",
+              name: "Asra3 Turbo — تيربو أسرع (300 شركة)",
+              price: proAed,
+              priceCurrency: "AED",
+              availability: "https://schema.org/InStock",
+            },
+            {
+              "@type": "Offer",
+              name: "Asra3 Hyper — هايبر أسرع (500+ شركة)",
+              price: ultimateAed,
+              priceCurrency: "AED",
+              availability: "https://schema.org/InStock",
+            },
+          ],
+        },
+      };
+    }),
+  };
+
   return (
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(homeStructuredData) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(liveStructuredData) }}
       />
       <HomeLandingClient
+        initialJobs={jobsResult.jobs}
+        totalActiveJobs={jobsResult.totalActiveJobs}
         seoSection={<SeoGeoKnowledgeSection variant="gcc-ar" />}
       />
     </>

@@ -143,8 +143,8 @@ const globalJsonLd = {
       offers: {
         "@type": "AggregateOffer",
         priceCurrency: "AED",
-        lowPrice: "149",
-        highPrice: "399",
+        lowPrice: "129",
+        highPrice: "349",
         offerCount: "3",
       },
     },

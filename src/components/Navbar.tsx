@@ -6,6 +6,8 @@ import { useApp } from "@/context/AppContext";
 import { Asra3Logo } from "@/components/Asra3Logo";
 import {
   ArrowUpRight,
+  BriefcaseBusiness,
+  Building2,
   Globe,
   Menu,
   Moon,
@@ -50,41 +52,38 @@ export function Navbar() {
           />
         </Link>
 
-        {/* Desktop Navigation Links */}
+        {/* Desktop & Laptop Navigation Links (Visible from md upward so Jobs & Employers are always prominent) */}
         <nav
           aria-label="Primary Navigation"
-          className="hidden xl:flex items-center gap-6 text-[13px] font-semibold text-zinc-600 dark:text-zinc-400"
+          className="hidden md:flex items-center gap-4 xl:gap-6 text-[13px] font-semibold text-zinc-600 dark:text-zinc-400"
         >
           <Link
             href="/jobs"
-            className="inline-flex items-center gap-1.5 font-extrabold text-zinc-950 dark:text-[#D4AF37] hover:opacity-80 transition-opacity"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[#09090B]/5 dark:bg-[#D4AF37]/10 border border-[#D4AF37]/40 px-2.5 py-1.5 font-extrabold text-zinc-950 dark:text-[#D4AF37] hover:border-[#D4AF37] transition-colors"
           >
-            <span className="h-1.5 w-1.5 rounded-full bg-[#D4AF37]" />
+            <BriefcaseBusiness className="h-3.5 w-3.5 text-[#D4AF37]" />
             <span>{lang === "ar" ? "الوظائف المتاحة" : "Live Jobs"}</span>
           </Link>
           <Link
-            href="/#wizard-section"
-            className="hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors"
+            href="/employers"
+            className="inline-flex items-center gap-1.5 font-bold text-zinc-800 dark:text-zinc-200 hover:text-zinc-950 dark:hover:text-[#D4AF37] transition-colors"
           >
-            {lang === "ar" ? "إطلاق الحملة" : "Start Campaign"}
+            <Building2 className="h-3.5 w-3.5 text-[#D4AF37]" />
+            <span>
+              {lang === "ar" ? "للشركات: أضف وظيفة" : "For Employers"}
+            </span>
           </Link>
           <Link
-            href="/#countries-section"
-            className="hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors"
+            href="/#wizard-section"
+            className="hidden xl:inline hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors"
           >
-            {t.navCountries}
+            {lang === "ar" ? "توزيع سيرتك" : "Distribute CV"}
           </Link>
           <Link
             href="/#pricing-section"
-            className="hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors"
+            className="hidden xl:inline hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors"
           >
             {t.navPricing}
-          </Link>
-          <Link
-            href="/employers"
-            className="hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors"
-          >
-            {lang === "ar" ? "نشر وظيفة (للشركات)" : "Post a Job"}
           </Link>
         </nav>
 
@@ -197,6 +196,24 @@ export function Navbar() {
             )}
           </button>
         </div>
+      </div>
+
+      {/* Mobile Always-Visible Ecosystem Strip (Jobs + Employers) */}
+      <div className="flex md:hidden items-center justify-center gap-2 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-[#111114] px-3 py-2 text-[11px] font-extrabold">
+        <Link
+          href="/jobs"
+          className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#09090B] text-[#D4AF37] border border-[#D4AF37]/50 py-1.5 px-2.5"
+        >
+          <BriefcaseBusiness className="h-3.5 w-3.5 shrink-0" />
+          <span>{lang === "ar" ? "الوظائف المتاحة" : "Live GCC Jobs"}</span>
+        </Link>
+        <Link
+          href="/employers"
+          className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#18181D] text-zinc-900 dark:text-zinc-100 py-1.5 px-2.5"
+        >
+          <Building2 className="h-3.5 w-3.5 text-[#D4AF37] shrink-0" />
+          <span>{lang === "ar" ? "أضف وظيفة (شركات)" : "Post Job Free"}</span>
+        </Link>
       </div>
 
       {/* Mobile Collapsible Menu */}

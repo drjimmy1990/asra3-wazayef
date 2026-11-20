@@ -50,7 +50,6 @@ export function JobDetailClient({
   const [unlocking, setUnlocking] = useState(false);
   const [copiedEmail, setCopiedEmail] = useState(false);
   const [copiedJobLink, setCopiedJobLink] = useState(false);
-  const [copiedFirstComment, setCopiedFirstComment] = useState(false);
 
   useEffect(() => {
     fetch("/api/jobs", {
@@ -510,8 +509,8 @@ export function JobDetailClient({
                       </h3>
                       <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
                         {lang === "ar"
-                          ? "امسح الكود أو شارك بطاقة فيسبوك"
-                          : "Scan directly or share on Facebook"}
+                          ? "امسح الكود أو شارك بطاقة الوظيفة"
+                          : "Scan directly or share this job card"}
                       </p>
                     </div>
                   </div>
@@ -535,8 +534,8 @@ export function JobDetailClient({
                     </p>
                     <p className="text-[11px] leading-relaxed text-zinc-300">
                       {lang === "ar"
-                        ? "بطاقة جاهزة للنشر مع كود QR مباشر لصفحة التقديم ورابط جاهز لأول تعليق."
-                        : "Ready-to-post Facebook job flyer with direct QR code and 1st-comment apply link."}
+                        ? "امسح الكود للوصول المباشر لصفحة التقديم أو حمّل البطاقة لمشاركتها مع الباحثين عن عمل."
+                        : "Scan for instant direct application or download the branded QR card to share."}
                     </p>
                   </div>
                 </div>
@@ -550,74 +549,40 @@ export function JobDetailClient({
                     <Download className="h-3.5 w-3.5" />
                     <span>
                       {lang === "ar"
-                        ? "تحميل بطاقة فيسبوك (PNG مع QR)"
-                        : "Download Facebook Card (PNG + QR)"}
+                        ? "تحميل بطاقة الوظيفة (PNG مع QR)"
+                        : "Download Job Card (PNG + QR)"}
                     </span>
                   </a>
 
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const targetLink =
-                          jobUrl ||
-                          (typeof window !== "undefined"
-                            ? window.location.href
-                            : `https://asra3.com/jobs/${job.slug}`);
-                        navigator.clipboard?.writeText(targetLink);
-                        setCopiedJobLink(true);
-                        setTimeout(() => setCopiedJobLink(false), 2000);
-                      }}
-                      className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-[#09090B] px-3 py-2 text-[11px] font-bold text-zinc-800 dark:text-zinc-200 hover:border-[#D4AF37] transition-colors cursor-pointer"
-                    >
-                      {copiedJobLink ? (
-                        <Check className="h-3.5 w-3.5 text-[#D4AF37]" />
-                      ) : (
-                        <Copy className="h-3.5 w-3.5" />
-                      )}
-                      <span>
-                        {copiedJobLink
-                          ? lang === "ar"
-                            ? "نُسخ الرابط ✓"
-                            : "Copied ✓"
-                          : lang === "ar"
-                          ? "نسخ الرابط"
-                          : "Copy Link"}
-                      </span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const targetLink = `${
-                          jobUrl || `https://asra3.com/jobs/${job.slug}`
-                        }?utm_source=facebook&utm_medium=social`;
-                        const commentText =
-                          lang === "ar"
-                            ? `🔗 قدّم الآن مجاناً وبشكل مباشر لقسم الـ HR عبر منصة أسرع:\n${targetLink}\n\n⚡ عايز توصل سيرتك الذاتية لـ 300+ شركة موثقة في الخليج؟ ابدأ من https://asra3.com`
-                            : `🔗 Apply directly to Verified HR on Asra3.com:\n${targetLink}\n\n⚡ Send your ATS-optimized CV to 300+ verified GCC employers at https://asra3.com`;
-                        navigator.clipboard?.writeText(commentText);
-                        setCopiedFirstComment(true);
-                        setTimeout(() => setCopiedFirstComment(false), 2000);
-                      }}
-                      className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-[#09090B] px-3 py-2 text-[11px] font-bold text-zinc-800 dark:text-zinc-200 hover:border-[#D4AF37] transition-colors cursor-pointer"
-                    >
-                      {copiedFirstComment ? (
-                        <Check className="h-3.5 w-3.5 text-[#D4AF37]" />
-                      ) : (
-                        <Copy className="h-3.5 w-3.5" />
-                      )}
-                      <span>
-                        {copiedFirstComment
-                          ? lang === "ar"
-                            ? "نُسخ التعليق ✓"
-                            : "Copied ✓"
-                          : lang === "ar"
-                          ? "نسخ أول تعليق"
-                          : "1st Comment"}
-                      </span>
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const targetLink =
+                        jobUrl ||
+                        (typeof window !== "undefined"
+                          ? window.location.href
+                          : `https://asra3.com/jobs/${job.slug}`);
+                      navigator.clipboard?.writeText(targetLink);
+                      setCopiedJobLink(true);
+                      setTimeout(() => setCopiedJobLink(false), 2000);
+                    }}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-[#09090B] px-3 py-2 text-[11px] font-bold text-zinc-800 dark:text-zinc-200 hover:border-[#D4AF37] transition-colors cursor-pointer"
+                  >
+                    {copiedJobLink ? (
+                      <Check className="h-3.5 w-3.5 text-[#D4AF37]" />
+                    ) : (
+                      <Copy className="h-3.5 w-3.5" />
+                    )}
+                    <span>
+                      {copiedJobLink
+                        ? lang === "ar"
+                          ? "نُسخ رابط الوظيفة ✓"
+                          : "Job Link Copied ✓"
+                        : lang === "ar"
+                        ? "نسخ رابط الوظيفة"
+                        : "Copy Job Link"}
+                    </span>
+                  </button>
                 </div>
               </div>
             )}

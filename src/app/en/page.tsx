@@ -2,6 +2,10 @@ import React from "react";
 import type { Metadata } from "next";
 import { HomeLandingClient } from "@/components/HomeLandingClient";
 import { SeoGeoKnowledgeSection } from "@/components/SeoGeoKnowledgeSection";
+import { searchAndRankJobs } from "@/lib/jobs-store";
+import { getCatalogData } from "@/lib/store";
+
+export const dynamic = "force-dynamic";
 
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ||
@@ -183,17 +187,74 @@ const englishStructuredData = {
   ],
 };
 
-export default function EnglishHomePage() {
+export default async function EnglishHomePage() {
+  const [jobsResult, catalog] = await Promise.all([
+    searchAndRankJobs({ limit: 12 }),
+    getCatalogData(),
+  ]);
+
+  const starterAed = String(
+    catalog.packages.find((p) => p.id === "starter")?.prices_by_currency.AED ??
+      129
+  );
+  const proAed = String(
+    catalog.packages.find((p) => p.id === "pro")?.prices_by_currency.AED ?? 229
+  );
+  const ultimateAed = String(
+    catalog.packages.find((p) => p.id === "ultimate")?.prices_by_currency.AED ??
+      349
+  );
+
+  const liveEnglishStructuredData = {
+    ...englishStructuredData,
+    "@graph": englishStructuredData["@graph"].map((node) => {
+      if (node["@type"] !== "Service") return node;
+      return {
+        ...node,
+        offers: {
+          ...node.offers,
+          lowPrice: starterAed,
+          highPrice: ultimateAed,
+          offers: [
+            {
+              "@type": "Offer",
+              name: "Asra3 Launch (100 Verified Companies)",
+              price: starterAed,
+              priceCurrency: "AED",
+              availability: "https://schema.org/InStock",
+            },
+            {
+              "@type": "Offer",
+              name: "Asra3 Turbo (300 Verified Companies + AI Cover Letter)",
+              price: proAed,
+              priceCurrency: "AED",
+              availability: "https://schema.org/InStock",
+            },
+            {
+              "@type": "Offer",
+              name: "Asra3 Hyper (500+ Verified Companies + Priority ATS Rewrite)",
+              price: ultimateAed,
+              priceCurrency: "AED",
+              availability: "https://schema.org/InStock",
+            },
+          ],
+        },
+      };
+    }),
+  };
+
   return (
     <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(englishStructuredData),
+          __html: JSON.stringify(liveEnglishStructuredData),
         }}
       />
       <HomeLandingClient
         initialLang="en"
+        initialJobs={jobsResult.jobs}
+        totalActiveJobs={jobsResult.totalActiveJobs}
         seoSection={<SeoGeoKnowledgeSection variant="gcc-en" />}
       />
     </>

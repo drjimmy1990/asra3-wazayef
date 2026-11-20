@@ -7,7 +7,11 @@ import {
   SeoSectionVariant,
 } from "@/components/SeoGeoKnowledgeSection";
 import { COUNTRY_HUB_BANNERS } from "@/lib/country-hubs";
-import { CountryCode } from "@/lib/types";
+import { searchAndRankJobs } from "@/lib/jobs-store";
+import { getCatalogData } from "@/lib/store";
+import { CountryCode, CurrencyCode } from "@/lib/types";
+
+export const dynamic = "force-dynamic";
 
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ||
@@ -36,8 +40,8 @@ const COUNTRY_SEO_PROFILES: Record<string, CountrySeoProfile> = {
     countryNameAr: "الإمارات العربية المتحدة",
     countryNameEn: "United Arab Emirates",
     currency: "AED",
-    lowPrice: "149",
-    highPrice: "399",
+    lowPrice: "129",
+    highPrice: "349",
     titleAr:
       "توزيع السيرة الذاتية لشركات الإمارات ودبي وأبوظبي — توظَّف أسرع",
     descriptionAr:
@@ -58,8 +62,8 @@ const COUNTRY_SEO_PROFILES: Record<string, CountrySeoProfile> = {
     countryNameAr: "المملكة العربية السعودية",
     countryNameEn: "Saudi Arabia",
     currency: "SAR",
-    lowPrice: "149",
-    highPrice: "399",
+    lowPrice: "129",
+    highPrice: "349",
     titleAr:
       "توزيع السيرة الذاتية لشركات السعودية والرياض وجدة — توظَّف أسرع",
     descriptionAr:
@@ -80,8 +84,8 @@ const COUNTRY_SEO_PROFILES: Record<string, CountrySeoProfile> = {
     countryNameAr: "دولة قطر",
     countryNameEn: "Qatar",
     currency: "QAR",
-    lowPrice: "149",
-    highPrice: "399",
+    lowPrice: "129",
+    highPrice: "349",
     titleAr: "توزيع السيرة الذاتية لشركات قطر والدوحة ولوسيل — توظَّف أسرع",
     descriptionAr:
       "توظَّف أسرع في قطر: أرسل سيرتك الذاتية المحسنة بـ ATS مباشرة إلى مديري الموارد البشرية في شركات الدوحة، لوسيل، الوكرة، والخور مع لوحة تتبع حية عبر منصة أسرع (Asra3.com).",
@@ -100,8 +104,8 @@ const COUNTRY_SEO_PROFILES: Record<string, CountrySeoProfile> = {
     countryNameAr: "دولة الكويت",
     countryNameEn: "Kuwait",
     currency: "KWD",
-    lowPrice: "12",
-    highPrice: "32",
+    lowPrice: "11",
+    highPrice: "29",
     titleAr: "توزيع السيرة الذاتية لشركات الكويت — توظَّف أسرع",
     descriptionAr:
       "توظَّف أسرع في الكويت: وصِّل سيرتك الذاتية المحسنة بنظام ATS وخطاب التقديم الذكي مباشرة إلى أقسام الموارد البشرية في مدينة الكويت، حولي، السالمية، والفروانية عبر Asra3.com.",
@@ -115,12 +119,6 @@ const COUNTRY_SEO_PROFILES: Record<string, CountrySeoProfile> = {
     ],
   },
 };
-
-export const dynamicParams = false;
-
-export function generateStaticParams() {
-  return [{ country: "ae" }, { country: "sa" }, { country: "qa" }, { country: "kw" }];
-}
 
 export async function generateMetadata({
   params,
@@ -173,12 +171,32 @@ export default async function CountryHubPage({
     notFound();
   }
 
+  const [jobsResult, catalog] = await Promise.all([
+    searchAndRankJobs({ limit: 12 }),
+    getCatalogData(),
+  ]);
+
+  const curr = profile.currency as CurrencyCode;
+  const lowPriceLive = String(
+    catalog.packages.find((p) => p.id === "starter")?.prices_by_currency[curr] ??
+      profile.lowPrice
+  );
+  const midPriceLive = String(
+    catalog.packages.find((p) => p.id === "pro")?.prices_by_currency[curr] ??
+      (curr === "KWD" ? "19" : "229")
+  );
+  const highPriceLive = String(
+    catalog.packages.find((p) => p.id === "ultimate")?.prices_by_currency[
+      curr
+    ] ?? profile.highPrice
+  );
+
   const countryFaqs =
     profile.slug === "ae"
       ? [
           {
             q: "كم شركة في الإمارات تستلم سيرتي الذاتية عبر أسرع؟",
-            a: "يمكنك استهداف 100 شركة (149 درهم) أو 300 شركة مع خطاب تقديم ذكي (249 درهم) أو 500+ شركة مع إعادة صياغة ATS كاملة (399 درهم).",
+            a: `يمكنك استهداف 100 شركة (${lowPriceLive} درهم) أو 300 شركة مع خطاب تقديم ذكي (${midPriceLive} درهم) أو 500+ شركة مع إعادة صياغة ATS كاملة (${highPriceLive} درهم).`,
           },
           {
             q: "هل يشمل التوزيع دبي وأبوظبي والشارقة أم مدناً محددة فقط؟",
@@ -197,7 +215,7 @@ export default async function CountryHubPage({
           },
           {
             q: "ما أسعار باقات أسرع في السعودية بالريال السعودي؟",
-            a: "تبدأ من 149 ريال (100 شركة) و249 ريال (300 شركة + خطاب تقديم) و399 ريال (500+ شركة + إعادة صياغة ATS) لمرة واحدة فقط.",
+            a: `تبدأ من ${lowPriceLive} ريال (100 شركة) و${midPriceLive} ريال (300 شركة + خطاب تقديم) و${highPriceLive} ريال (500+ شركة + إعادة صياغة ATS) لمرة واحدة فقط.`,
           },
           {
             q: "هل أستطيع إضافة الإمارات أو قطر مع السعودية في نفس الحملة؟",
@@ -212,7 +230,7 @@ export default async function CountryHubPage({
           },
           {
             q: "كم تكلفة توزيع السيرة الذاتية لشركات قطر؟",
-            a: "تبدأ الباقات من 149 ريال قطري لـ 100 شركة، و249 ريال لـ 300 شركة، و399 ريال لـ 500+ شركة تدفع مرة واحدة.",
+            a: `تبدأ الباقات من ${lowPriceLive} ريال قطري لـ 100 شركة، و${midPriceLive} ريال لـ 300 شركة، و${highPriceLive} ريال لـ 500+ شركة تدفع مرة واحدة.`,
           },
           {
             q: "كيف تصلني ردود شركات التوظيف في الدوحة؟",
@@ -222,7 +240,7 @@ export default async function CountryHubPage({
       : [
           {
             q: "ما هي أسعار باقات التوزيع في دولة الكويت بالدينار الكويتي؟",
-            a: "12 دينار كويتي لباقة انطلاقة (100 شركة)، 20 دينار لباقة تيربو (300 شركة)، و32 دينار لباقة هايبر (500+ شركة) لمرة واحدة فقط.",
+            a: `${lowPriceLive} دينار كويتي لباقة انطلاقة (100 شركة)، ${midPriceLive} دينار لباقة تيربو (300 شركة)، و${highPriceLive} دينار لباقة هايبر (500+ شركة) لمرة واحدة فقط.`,
           },
           {
             q: "هل يتم إرفاق سيرتي الذاتية الأصلية للشركات في الكويت؟",
@@ -268,8 +286,8 @@ export default async function CountryHubPage({
         offers: {
           "@type": "AggregateOffer",
           priceCurrency: profile.currency,
-          lowPrice: profile.lowPrice,
-          highPrice: profile.highPrice,
+          lowPrice: lowPriceLive,
+          highPrice: highPriceLive,
           offerCount: "3",
         },
       },
@@ -321,6 +339,8 @@ export default async function CountryHubPage({
       <HomeLandingClient
         initialCountryCode={profile.code}
         countryHubBanner={COUNTRY_HUB_BANNERS[profile.code]}
+        initialJobs={jobsResult.jobs}
+        totalActiveJobs={jobsResult.totalActiveJobs}
         seoSection={
           <SeoGeoKnowledgeSection variant={profile.slug as SeoSectionVariant} />
         }
