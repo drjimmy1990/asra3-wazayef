@@ -143,8 +143,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     root.dataset.theme = theme;
   }, [theme]);
 
-  useEffect(() => {
-    fetch("/api/catalog")
+  const fetchLiveCatalog = useCallback(() => {
+    fetch("/api/catalog", { cache: "no-store" })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data?.countries?.length) setCountries(data.countries);
@@ -156,6 +156,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // Fallback to initial seed data
       });
   }, []);
+
+  useEffect(() => {
+    fetchLiveCatalog();
+  }, [fetchLiveCatalog, pathname]);
+
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        fetchLiveCatalog();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [fetchLiveCatalog]);
 
   const setLang = (nextLang: Language) => {
     setLangState(nextLang);

@@ -265,34 +265,39 @@ export default function AdminDashboardPage() {
     debouncedSearch,
   ]);
 
-  const loadAdminOverview = useCallback(async () => {
-    if (!isUnlocked) return;
-    const res = await fetch("/api/admin/campaigns");
-    if (res.status === 401) {
-      setIsUnlocked(false);
-      return;
-    }
-    if (res.ok) {
-      const data = await res.json();
-      setCampaigns(data.campaigns || []);
-      if (data.stats) setStats((prev) => ({ ...prev, ...data.stats }));
-      if (data.packages) setPackages(data.packages);
-      if (data.offerSettings) setOfferSettingsState(data.offerSettings);
-      if (isValidOgJobTemplateId(data.ogTemplate)) {
-        setOgTemplate(data.ogTemplate);
+  const loadAdminOverview = useCallback(
+    async (options?: { preserveSettingsDraft?: boolean }) => {
+      if (!isUnlocked) return;
+      const res = await fetch("/api/admin/campaigns", { cache: "no-store" });
+      if (res.status === 401) {
+        setIsUnlocked(false);
+        return;
       }
-      if (Array.isArray(data.coupons)) setCouponsState(data.coupons);
-      if (typeof data.newSupportLeadsCount === "number") {
-        setNewLeadsCount(data.newSupportLeadsCount);
+      if (res.ok) {
+        const data = await res.json();
+        setCampaigns(data.campaigns || []);
+        if (data.stats) setStats((prev) => ({ ...prev, ...data.stats }));
+        if (!options?.preserveSettingsDraft) {
+          if (data.packages) setPackages(data.packages);
+          if (data.offerSettings) setOfferSettingsState(data.offerSettings);
+        }
+        if (isValidOgJobTemplateId(data.ogTemplate)) {
+          setOgTemplate(data.ogTemplate);
+        }
+        if (Array.isArray(data.coupons)) setCouponsState(data.coupons);
+        if (typeof data.newSupportLeadsCount === "number") {
+          setNewLeadsCount(data.newSupportLeadsCount);
+        }
+        if (data.systemHealth) {
+          setSystemHealth((prev) => ({ ...prev, ...data.systemHealth }));
+        }
+        setLastSyncedAt(
+          new Date().toLocaleTimeString("en-GB", { hour12: false })
+        );
       }
-      if (data.systemHealth) {
-        setSystemHealth((prev) => ({ ...prev, ...data.systemHealth }));
-      }
-      setLastSyncedAt(
-        new Date().toLocaleTimeString("en-GB", { hour12: false })
-      );
-    }
-  }, [isUnlocked]);
+    },
+    [isUnlocked]
+  );
 
   const loadSmtpAccounts = useCallback(async () => {
     if (!isUnlocked) return;
@@ -338,7 +343,7 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     if (!isUnlocked || !autoRefresh) return;
     const poll = window.setInterval(() => {
-      void loadAdminOverview();
+      void loadAdminOverview({ preserveSettingsDraft: true });
       void loadSmtpAccounts();
     }, 15000);
     return () => window.clearInterval(poll);

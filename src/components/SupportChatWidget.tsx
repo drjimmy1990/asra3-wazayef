@@ -63,6 +63,11 @@ export function SupportChatWidget() {
 
   // Hide floating chat on Admin Dashboard
   const isAdminRoute = pathname?.startsWith("/admin");
+  // Lift floating chat button above the 64px mobile sticky bottom CTA bar on landing pages
+  const hasMobileStickyBar =
+    pathname === "/" ||
+    pathname === "/en" ||
+    /^\/(ae|sa|qa|kw)\/?$/i.test(pathname || "");
 
   useEffect(() => {
     if (isAdminRoute) return;
@@ -268,7 +273,11 @@ export function SupportChatWidget() {
   return (
     <div
       dir={lang === "ar" ? "rtl" : "ltr"}
-      className="fixed bottom-4 end-4 sm:bottom-6 sm:end-6 z-50 flex flex-col items-end gap-3"
+      className={`fixed z-50 flex flex-col items-end gap-3 ${
+        hasMobileStickyBar
+          ? "bottom-20 end-3 sm:bottom-6 sm:end-6"
+          : "bottom-4 end-4 sm:bottom-6 sm:end-6"
+      }`}
     >
       {/* Expanded Support Chat Window */}
       {isOpen && (
