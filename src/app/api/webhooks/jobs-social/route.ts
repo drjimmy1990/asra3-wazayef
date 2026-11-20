@@ -5,6 +5,7 @@ import {
   markJobPostedToSocial,
 } from "@/lib/jobs-store";
 import { getCanonicalSiteUrl } from "@/lib/seo-indexer";
+import { getActiveOgJobTemplate } from "@/lib/og-settings";
 import { INITIAL_COUNTRIES, INITIAL_INDUSTRIES } from "@/lib/seed-data";
 
 const COUNTRY_HASHTAGS: Record<string, string> = {
@@ -41,6 +42,7 @@ export async function GET(req: NextRequest) {
   );
 
   const siteUrl = getCanonicalSiteUrl();
+  const activeOgTemplate = getActiveOgJobTemplate();
   const queue = await getUnpostedSocialJobs(limit);
 
   const items = queue.map((job) => {
@@ -54,7 +56,7 @@ export async function GET(req: NextRequest) {
     const jobUrl = `${siteUrl}/jobs/${job.slug}`;
     const fbCommentApplyUrl = `${jobUrl}?utm_source=facebook&utm_medium=social_comment&utm_campaign=jobs_autopilot`;
     const tgApplyUrl = `${jobUrl}?utm_source=telegram&utm_medium=channel&utm_campaign=jobs_autopilot`;
-    const ogImageUrl = `${siteUrl}/api/og/job/${job.slug}`;
+    const ogImageUrl = `${siteUrl}/api/og/job/${job.slug}?t=${activeOgTemplate}`;
 
     const salaryLineAr =
       job.salary_min && job.salary_max

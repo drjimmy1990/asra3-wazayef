@@ -5,6 +5,7 @@ import { JobDetailClient } from "@/components/JobDetailClient";
 import { getJobBySlug } from "@/lib/jobs-store";
 import { buildBrandedQrDataUri } from "@/lib/qr-code";
 import { getCanonicalSiteUrl } from "@/lib/seo-indexer";
+import { getActiveOgJobTemplate } from "@/lib/og-settings";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +34,8 @@ export async function generateMetadata({
   const title = `${job.title_ar} — ${job.company_name} (${job.city_name_ar}) | ${job.title_en}`;
   const description = `${job.summary_ar} | Direct HR Apply at ${job.company_name} in ${job.city_name_en}, ${job.country_code}.`;
   const canonicalPath = `/jobs/${job.slug}`;
-  const ogImage = `${SITE_URL}/api/og/job/${job.slug}`;
+  const activeOgTemplate = getActiveOgJobTemplate();
+  const ogImage = `${SITE_URL}/api/og/job/${job.slug}?t=${activeOgTemplate}`;
 
   return {
     title,
@@ -201,6 +203,7 @@ export default async function JobDetailPage({
       : [breadcrumbJsonLd],
   };
 
+  const activeOgTemplate = getActiveOgJobTemplate();
   const jobCanonicalUrl = `${SITE_URL}/jobs/${job.slug}`;
   let qrDataUri = "";
   try {
@@ -221,6 +224,7 @@ export default async function JobDetailPage({
         similarJobs={similarJobs}
         qrDataUri={qrDataUri}
         jobUrl={jobCanonicalUrl}
+        ogTemplate={activeOgTemplate}
       />
     </>
   );

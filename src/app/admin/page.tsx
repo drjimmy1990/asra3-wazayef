@@ -4,8 +4,14 @@ import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { AdminJobsManagerTab } from "@/components/AdminJobsManagerTab";
+import { AdminOgTemplatesPanel } from "@/components/AdminOgTemplatesPanel";
 import { AdminPromosPanel } from "@/components/AdminPromosPanel";
 import { AdminLeadsTab } from "@/components/AdminLeadsTab";
+import {
+  DEFAULT_OG_JOB_TEMPLATE,
+  isValidOgJobTemplateId,
+  OgJobTemplateId,
+} from "@/lib/og-template-catalog";
 import {
   AnimatedCounter,
   LiveSignalEqualizer,
@@ -175,6 +181,9 @@ export default function AdminDashboardPage() {
   });
   const [savingPkgId, setSavingPkgId] = useState<string | null>(null);
   const [savedToastPkgId, setSavedToastPkgId] = useState<string | null>(null);
+  const [ogTemplate, setOgTemplate] = useState<OgJobTemplateId>(
+    DEFAULT_OG_JOB_TEMPLATE
+  );
   const [copiedWebhookId, setCopiedWebhookId] = useState<string | null>(null);
   const [systemHealth, setSystemHealth] = useState<{
     easykashLive: boolean;
@@ -269,6 +278,9 @@ export default function AdminDashboardPage() {
       if (data.stats) setStats((prev) => ({ ...prev, ...data.stats }));
       if (data.packages) setPackages(data.packages);
       if (data.offerSettings) setOfferSettingsState(data.offerSettings);
+      if (isValidOgJobTemplateId(data.ogTemplate)) {
+        setOgTemplate(data.ogTemplate);
+      }
       if (Array.isArray(data.coupons)) setCouponsState(data.coupons);
       if (typeof data.newSupportLeadsCount === "number") {
         setNewLeadsCount(data.newSupportLeadsCount);
@@ -2410,6 +2422,12 @@ export default function AdminDashboardPage() {
               onChanged={loadAdminOverview}
             />
 
+            <AdminOgTemplatesPanel
+              lang={lang}
+              activeTemplate={ogTemplate}
+              onTemplateUpdated={(next) => setOgTemplate(next)}
+            />
+
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
             <div className="exec-card exec-card-carbon-top rounded-2xl overflow-hidden flex flex-col">
               <div className="exec-card-header px-6 py-4">
@@ -2750,7 +2768,14 @@ export default function AdminDashboardPage() {
         )}
 
         {activeTab === "jobs" && (
-          <AdminJobsManagerTab appUrl={systemHealth.appUrl} />
+          <div className="space-y-8">
+            <AdminJobsManagerTab appUrl={systemHealth.appUrl} />
+            <AdminOgTemplatesPanel
+              lang={lang}
+              activeTemplate={ogTemplate}
+              onTemplateUpdated={(next) => setOgTemplate(next)}
+            />
+          </div>
         )}
       </main>
     </div>

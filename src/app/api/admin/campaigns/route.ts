@@ -18,6 +18,14 @@ import {
   isEasyKashLiveConfigured,
 } from "@/lib/easykash";
 import { listSmtpAccounts } from "@/lib/smtp-mailer";
+import {
+  getActiveOgJobTemplate,
+  setActiveOgJobTemplate,
+} from "@/lib/og-settings";
+import {
+  isValidOgJobTemplateId,
+  OG_JOB_TEMPLATES,
+} from "@/lib/og-template-catalog";
 
 export async function GET(req: NextRequest) {
   if (!isAdminAuthorized(req)) {
@@ -91,6 +99,8 @@ export async function GET(req: NextRequest) {
     },
     packages: catalog.packages,
     offerSettings: catalog.offerSettings,
+    ogTemplate: getActiveOgJobTemplate(),
+    ogTemplates: OG_JOB_TEMPLATES,
     coupons,
     newSupportLeadsCount,
     countries: catalog.countries,
@@ -104,6 +114,16 @@ export async function PATCH(req: NextRequest) {
 
   try {
     const body = await req.json();
+    if (body.ogTemplate !== undefined) {
+      if (!isValidOgJobTemplateId(body.ogTemplate)) {
+        return NextResponse.json(
+          { error: "Invalid OG job template ID" },
+          { status: 400 }
+        );
+      }
+      const ogTemplate = setActiveOgJobTemplate(body.ogTemplate);
+      return NextResponse.json({ ok: true, ogTemplate });
+    }
     if (body.offerSettings && typeof body.offerSettings === "object") {
       const offerSettings = updateOfferSettings(body.offerSettings);
       return NextResponse.json({ ok: true, offerSettings });
