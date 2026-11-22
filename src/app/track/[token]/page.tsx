@@ -11,7 +11,7 @@ import {
   ScrollProgressRail,
 } from "@/components/MotionPrimitives";
 import { useApp } from "@/context/AppContext";
-import { CampaignRecord } from "@/lib/types";
+import { CampaignRecipient, CampaignRecord } from "@/lib/types";
 import {
   AlertCircle,
   Building2,
@@ -50,6 +50,9 @@ export default function CampaignTrackingDashboard() {
   const [verifyingPayment, setVerifyingPayment] = useState(false);
   const [paymentNotice, setPaymentNotice] = useState<string | null>(null);
 
+  const [activeSection, setActiveSection] = useState<"ledger" | "assets">(
+    "ledger"
+  );
   const [logSearch, setLogSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<
     "all" | "opened" | "sent" | "queued"
@@ -298,6 +301,23 @@ export default function CampaignTrackingDashboard() {
     });
   }, [campaign?.recipients, isDemoCampaign, simExtraSent, simExtraOpened]);
 
+  const statusCounts = useMemo(() => {
+    let opened = 0;
+    let sent = 0;
+    let queued = 0;
+    for (const r of recipientsWithSimulation) {
+      if (r.status === "opened") opened++;
+      else if (r.status === "sent") sent++;
+      else if (r.status === "queued") queued++;
+    }
+    return {
+      all: recipientsWithSimulation.length,
+      opened,
+      sent,
+      queued,
+    };
+  }, [recipientsWithSimulation]);
+
   const activeEvents = useMemo(
     () =>
       recipientsWithSimulation
@@ -382,6 +402,39 @@ export default function CampaignTrackingDashboard() {
     URL.revokeObjectURL(url);
   };
 
+  const renderStatusBadge = (status: CampaignRecipient["status"]) => {
+    if (status === "opened") {
+      return (
+        <span className="inline-flex items-center gap-1 rounded-md border border-[#D4AF37] bg-[#09090B] px-2.5 py-0.5 text-xs font-bold text-[#D4AF37] whitespace-nowrap">
+          <MailCheck className="h-3.5 w-3.5 shrink-0" />
+          {lang === "ar" ? "تم الفتح من HR" : "Opened by HR"}
+        </span>
+      );
+    }
+    if (status === "sent") {
+      return (
+        <span className="inline-flex items-center gap-1 rounded-md border border-zinc-300 dark:border-zinc-700 bg-zinc-950 dark:bg-zinc-800 px-2.5 py-0.5 text-xs font-bold text-zinc-50 whitespace-nowrap">
+          <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-[#D4AF37]" />
+          {lang === "ar" ? "تم الإيداع" : "Delivered"}
+        </span>
+      );
+    }
+    if (status === "failed") {
+      return (
+        <span className="inline-flex items-center gap-1 rounded-md bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 px-2.5 py-0.5 text-xs font-bold text-red-700 dark:text-red-400 whitespace-nowrap">
+          <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+          {lang === "ar" ? "تعذر التسليم" : "Skipped (Bounce)"}
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1 rounded-md bg-zinc-100 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 px-2.5 py-0.5 text-xs font-semibold text-zinc-700 dark:text-zinc-400 whitespace-nowrap">
+        <Clock className="h-3.5 w-3.5 shrink-0" />
+        {lang === "ar" ? "مجدول" : "Queued"}
+      </span>
+    );
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col bg-[#EEF0F4] dark:bg-[#09090B]">
@@ -411,7 +464,7 @@ export default function CampaignTrackingDashboard() {
             </p>
             <Link
               href="/track"
-              className="btn-carbon mt-6 inline-block rounded-xl px-6 py-3 text-sm font-bold"
+              className="btn-carbon mt-6 inline-flex min-h-[44px] items-center justify-center rounded-xl px-6 py-3 text-sm font-bold"
             >
               {lang === "ar" ? "العودة لصفحة التتبع" : "Back to Lookup"}
             </Link>
@@ -430,6 +483,10 @@ export default function CampaignTrackingDashboard() {
     effectiveSentCount,
     campaign.emails_opened_count + (isDemoCampaign ? simExtraOpened : 0)
   );
+  const openRatePct =
+    effectiveSentCount > 0
+      ? Math.round((effectiveOpenedCount / effectiveSentCount) * 100)
+      : 0;
   const progressPercent = Math.min(
     100,
     Math.round(
@@ -441,6 +498,108 @@ export default function CampaignTrackingDashboard() {
       ? activeEvents[liveTickerIdx % activeEvents.length]
       : null;
 
+  const coverLetterCard = (
+    <div className="exec-card rounded-2xl overflow-hidden flex flex-col">
+      <div className="exec-card-header px-5 py-4 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#09090B] border border-zinc-800 text-[#D4AF37]">
+            <Sparkles className="h-3.5 w-3.5" />
+          </div>
+          <h3 className="font-extrabold text-sm text-zinc-950 dark:text-zinc-50 truncate">
+            {lang === "ar"
+              ? "خطاب التقديم التنفيذي (Asra3)"
+              : "Executive Cover Letter"}
+          </h3>
+        </div>
+        {campaign.generated_cover_letter && (
+          <button
+            type="button"
+            onClick={() => {
+              navigator.clipboard.writeText(
+                campaign.generated_cover_letter || ""
+              );
+              setCopiedCover(true);
+              setTimeout(() => setCopiedCover(false), 2000);
+            }}
+            className="inline-flex min-h-[38px] items-center gap-1.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 px-3 py-1.5 text-xs font-bold text-zinc-900 dark:text-zinc-100 hover:border-[#D4AF37] cursor-pointer transition-colors shrink-0 touch-manipulation"
+          >
+            <Copy className="h-3.5 w-3.5 text-[#9A7B1C] dark:text-[#D4AF37]" />
+            <span>
+              {copiedCover
+                ? lang === "ar"
+                  ? "تم النسخ!"
+                  : "Copied!"
+                : lang === "ar"
+                ? "نسخ"
+                : "Copy"}
+            </span>
+          </button>
+        )}
+      </div>
+
+      <div className="p-5 flex-1">
+        {campaign.generated_cover_letter ? (
+          <pre
+            dir="auto"
+            className="max-h-80 overflow-y-auto whitespace-pre-wrap rounded-xl bg-[#09090B] border border-zinc-800 p-4 text-xs leading-relaxed text-zinc-200 font-sans"
+          >
+            {campaign.generated_cover_letter}
+          </pre>
+        ) : (
+          <p className="text-xs text-zinc-600 dark:text-zinc-400">
+            {lang === "ar"
+              ? "متاح ضمن مسار Asra3 Turbo و Asra3 Hyper."
+              : "Included with Asra3 Turbo & Asra3 Hyper plans."}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+
+  const atsProfileCard = (
+    <div className="exec-card rounded-2xl overflow-hidden flex flex-col">
+      <div className="exec-card-header px-5 py-4 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#09090B] border border-zinc-800 text-[#D4AF37]">
+            <FileText className="h-3.5 w-3.5" />
+          </div>
+          <h3 className="font-extrabold text-sm text-zinc-950 dark:text-zinc-50 truncate">
+            {lang === "ar"
+              ? "ملف السيرة الذاتية المحسن (ATS)"
+              : "ATS-Optimized Profile"}
+          </h3>
+        </div>
+        {campaign.optimized_cv_text && (
+          <button
+            type="button"
+            onClick={downloadOptimizedCv}
+            className="btn-carbon inline-flex min-h-[38px] items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold cursor-pointer shrink-0 touch-manipulation"
+          >
+            <Download className="h-3.5 w-3.5 text-[#D4AF37]" />
+            <span>{lang === "ar" ? "تحميل" : "Download"}</span>
+          </button>
+        )}
+      </div>
+
+      <div className="p-5 flex-1">
+        {campaign.optimized_cv_text ? (
+          <pre
+            dir="ltr"
+            className="exec-well max-h-72 overflow-y-auto whitespace-pre-wrap rounded-xl p-4 text-[11px] leading-relaxed text-zinc-800 dark:text-zinc-300 font-mono"
+          >
+            {campaign.optimized_cv_text}
+          </pre>
+        ) : (
+          <p className="text-xs text-zinc-600 dark:text-zinc-400">
+            {lang === "ar"
+              ? `الملف المرفق بالحملة: ${campaign.cv_file_name}`
+              : `Attached CV file: ${campaign.cv_file_name}`}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen flex flex-col bg-arch-grid bg-[#EEF0F4] dark:bg-[#09090B] text-zinc-950 dark:text-zinc-50 transition-colors">
       <ScrollProgressRail />
@@ -448,12 +607,12 @@ export default function CampaignTrackingDashboard() {
 
       <main
         id="main-content"
-        className="mx-auto max-w-7xl w-full px-4 pt-8 pb-24 sm:py-10 sm:px-6 lg:px-8 space-y-6 sm:space-y-8"
+        className="mx-auto max-w-7xl w-full px-4 pt-6 pb-20 sm:py-10 sm:px-6 lg:px-8 space-y-6"
       >
         {isDemoCampaign && (
           <div className="exec-card animate-panel-enter flex flex-wrap items-center justify-between gap-3 rounded-xl px-5 py-3.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300">
             <div className="flex items-center gap-2.5">
-              <span className="gold-beacon" />
+              <span className="gold-beacon shrink-0" />
               <span>
                 {lang === "ar"
                   ? "نموذج حي تفاعلي لسجل التتبع التنفيذي في «أسرع» (Asra3.com). أطلق حملتك الفعلية خلال 3 دقائق."
@@ -467,7 +626,7 @@ export default function CampaignTrackingDashboard() {
                   setSimExtraSent((s) => s + 5);
                   setSimExtraOpened((o) => o + 2);
                 }}
-                className="btn-carbon inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-extrabold cursor-pointer"
+                className="btn-carbon inline-flex min-h-[40px] items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-extrabold cursor-pointer touch-manipulation"
               >
                 <Radio className="h-3.5 w-3.5 text-[#D4AF37]" />
                 <span>
@@ -478,7 +637,7 @@ export default function CampaignTrackingDashboard() {
               </button>
               <Link
                 href="/#wizard-section"
-                className="btn-gold rounded-lg px-4 py-2 text-xs font-extrabold"
+                className="btn-gold inline-flex min-h-[40px] items-center rounded-lg px-4 py-2 text-xs font-extrabold touch-manipulation"
               >
                 {lang === "ar"
                   ? "توظَّف أسرع — ابدأ حملتي"
@@ -488,12 +647,13 @@ export default function CampaignTrackingDashboard() {
           </div>
         )}
 
-        {/* Executive Dispatch Dossier Header & Progress Card (Balanced Architectural Light/Dark) */}
+        {/* Executive Dispatch Dossier Header & Progress Card */}
         <div className="exec-card exec-card-gold-top animate-panel-enter rounded-2xl overflow-hidden">
-          {/* Sleek Obsidian Top Identity Bar */}
-          <div className="bg-[#09090B] px-6 py-5 sm:px-8 sm:py-6 text-zinc-50 border-b border-zinc-800">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
+          {/* Obsidian 2-Tier Top Identity + Action Toolbar */}
+          <div className="bg-[#09090B] px-5 py-5 sm:px-8 sm:py-6 text-zinc-50 border-b border-zinc-800">
+            {/* Tier 1: Identity & Completion Gauge */}
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+              <div className="flex items-start gap-3.5 sm:gap-4 min-w-0">
                 <div
                   className={`flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-xl border ${
                     isPaid
@@ -507,10 +667,11 @@ export default function CampaignTrackingDashboard() {
                     <Clock className="h-6 w-6 sm:h-7 sm:w-7 animate-pulse text-[#D4AF37]" />
                   )}
                 </div>
-                <div>
+
+                <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span
-                      className={`rounded-md px-2.5 py-0.5 text-xs font-bold border ${
+                      className={`rounded-md px-2.5 py-1 text-xs font-bold border ${
                         isPaid
                           ? "bg-[#D4AF37] text-[#09090B] border-[#D4AF37]"
                           : "bg-[#18181B] text-[#D4AF37] border-zinc-700"
@@ -524,6 +685,7 @@ export default function CampaignTrackingDashboard() {
                         ? "بانتظار تأكيد الدفع"
                         : "Awaiting Payment Confirmation"}
                     </span>
+
                     <button
                       type="button"
                       onClick={() => {
@@ -533,18 +695,15 @@ export default function CampaignTrackingDashboard() {
                         setCopiedCode(true);
                         setTimeout(() => setCopiedCode(false), 2000);
                       }}
-                      className="inline-flex items-center gap-1.5 rounded-md bg-[#121215] border border-zinc-800 px-3 py-0.5 text-xs font-mono font-bold text-[#D4AF37] hover:border-[#D4AF37] transition cursor-pointer"
+                      className="inline-flex min-h-[36px] items-center gap-1.5 rounded-md bg-[#121215] border border-zinc-800 px-3 py-1 text-xs font-mono font-bold text-[#D4AF37] hover:border-[#D4AF37] transition cursor-pointer touch-manipulation"
                       title={
                         lang === "ar"
                           ? "اضغط لنسخ رمز التتبع"
                           : "Click to copy Tracking Code"
                       }
                     >
-                      <span>
-                        {lang === "ar" ? "رمز أسرع:" : "Code:"}{" "}
-                        {campaign.customer_reference}
-                      </span>
-                      <Copy className="h-3 w-3" />
+                      <span dir="ltr">{campaign.customer_reference}</span>
+                      <Copy className="h-3 w-3 shrink-0" />
                       {copiedCode && (
                         <span className="text-[10px] font-sans text-zinc-100">
                           {lang === "ar" ? "تم النسخ!" : "Copied!"}
@@ -552,12 +711,20 @@ export default function CampaignTrackingDashboard() {
                       )}
                     </button>
                   </div>
-                  <h1 className="mt-2 text-xl sm:text-2xl lg:text-3xl font-extrabold text-zinc-50 tracking-tight">
+
+                  <h1
+                    dir="auto"
+                    className="mt-2.5 text-xl sm:text-2xl lg:text-3xl font-extrabold text-zinc-50 tracking-tight leading-snug"
+                  >
                     {lang === "ar"
                       ? `${campaign.candidate_name} — سجل التوزيع التنفيذي`
                       : `${campaign.candidate_name}'s Private Dispatch Ledger`}
                   </h1>
-                  <p className="text-xs sm:text-sm text-zinc-400 mt-0.5">
+
+                  <p
+                    dir="auto"
+                    className="text-xs sm:text-sm text-zinc-400 mt-1 break-all"
+                  >
                     {lang === "ar"
                       ? `إيداع مباشر لإدارات الموارد البشرية في (${campaign.primary_country_code}) • Reply-To: ${campaign.candidate_email}`
                       : `Direct HR inbox placement (${campaign.primary_country_code}) • Reply-To: ${campaign.candidate_email}`}
@@ -565,8 +732,7 @@ export default function CampaignTrackingDashboard() {
                 </div>
               </div>
 
-              {/* Customer Action Bar + Kinetic Radial Completion Gauge */}
-              <div className="flex flex-wrap items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3 shrink-0">
                 <RadialProgressGauge
                   percent={progressPercent}
                   size={66}
@@ -577,7 +743,7 @@ export default function CampaignTrackingDashboard() {
                 />
 
                 {isPaid && campaign.campaign_status !== "completed" && (
-                  <div className="flex items-center gap-2 rounded-xl border border-zinc-800 bg-[#121215] px-3.5 py-2 text-xs font-bold text-[#D4AF37]">
+                  <div className="flex items-center gap-2 rounded-xl border border-zinc-800 bg-[#121215] px-3.5 py-2.5 text-xs font-bold text-[#D4AF37]">
                     <span className="gold-beacon" />
                     <LiveSignalEqualizer />
                     <span>
@@ -587,77 +753,106 @@ export default function CampaignTrackingDashboard() {
                     </span>
                   </div>
                 )}
-
-                {!isPaid && !isDemoCampaign && (
-                  <>
-                    <button
-                      type="button"
-                      disabled={reinitiatingPayment}
-                      onClick={handleResumePayment}
-                      className="btn-gold inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-extrabold cursor-pointer disabled:opacity-60"
-                    >
-                      {reinitiatingPayment ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <CreditCard className="h-3.5 w-3.5" />
-                      )}
-                      <span>
-                        {lang === "ar"
-                          ? "إتمام السداد الآن"
-                          : "Complete Payment"}
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      disabled={verifyingPayment}
-                      onClick={handleVerifyPaymentNow}
-                      className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-700 bg-[#18181B] px-3.5 py-2 text-xs font-bold text-zinc-200 hover:border-[#D4AF37] transition cursor-pointer disabled:opacity-60"
-                    >
-                      <RefreshCw
-                        className={`h-3.5 w-3.5 text-[#D4AF37] ${
-                          verifyingPayment ? "animate-spin" : ""
-                        }`}
-                      />
-                      <span>
-                        {lang === "ar" ? "تحقق من السداد" : "Verify Payment"}
-                      </span>
-                    </button>
-                  </>
-                )}
-
-                <button
-                  type="button"
-                  onClick={copyTrackingUrl}
-                  className="flex items-center gap-1.5 rounded-xl border border-zinc-800 bg-[#121215] px-3.5 py-2 text-xs font-bold text-zinc-100 hover:border-[#D4AF37] transition cursor-pointer"
-                >
-                  <Link2 className="h-3.5 w-3.5 text-[#D4AF37]" />
-                  <span>
-                    {copiedTrackingLink
-                      ? lang === "ar"
-                        ? "✓ تم نسخ الرابط"
-                        : "✓ Link Copied"
-                      : lang === "ar"
-                      ? "نسخ رابط السجل"
-                      : "Copy Ledger Link"}
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={exportDeliveryReportCsv}
-                  className="flex items-center gap-1.5 rounded-xl border border-zinc-800 bg-[#18181B] px-3.5 py-2 text-xs font-bold text-zinc-200 hover:border-[#D4AF37] transition cursor-pointer"
-                >
-                  <FileSpreadsheet className="h-3.5 w-3.5 text-[#D4AF37]" />
-                  <span>
-                    {lang === "ar" ? "تصدير التقرير (CSV)" : "Export CSV"}
-                  </span>
-                </button>
               </div>
+            </div>
+
+            {/* Tier 2: Dedicated Action Toolbar */}
+            <div className="mt-5 pt-4 border-t border-zinc-800/90 flex flex-wrap items-center gap-2.5">
+              {!isPaid && !isDemoCampaign && (
+                <>
+                  <button
+                    type="button"
+                    disabled={reinitiatingPayment}
+                    onClick={handleResumePayment}
+                    className="btn-gold inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl px-4 py-2 text-xs font-extrabold cursor-pointer disabled:opacity-60 touch-manipulation"
+                  >
+                    {reinitiatingPayment ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <CreditCard className="h-3.5 w-3.5" />
+                    )}
+                    <span>
+                      {lang === "ar" ? "إتمام السداد الآن" : "Complete Payment"}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={verifyingPayment}
+                    onClick={handleVerifyPaymentNow}
+                    className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-zinc-700 bg-[#18181B] px-3.5 py-2 text-xs font-bold text-zinc-200 hover:border-[#D4AF37] transition cursor-pointer disabled:opacity-60 touch-manipulation"
+                  >
+                    <RefreshCw
+                      className={`h-3.5 w-3.5 text-[#D4AF37] ${
+                        verifyingPayment ? "animate-spin" : ""
+                      }`}
+                    />
+                    <span>
+                      {lang === "ar" ? "تحقق من السداد" : "Verify Payment"}
+                    </span>
+                  </button>
+                </>
+              )}
+
+              <button
+                type="button"
+                onClick={copyTrackingUrl}
+                className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-zinc-800 bg-[#121215] px-4 py-2 text-xs font-bold text-zinc-100 hover:border-[#D4AF37] transition cursor-pointer touch-manipulation"
+              >
+                <Link2 className="h-3.5 w-3.5 text-[#D4AF37]" />
+                <span>
+                  {copiedTrackingLink
+                    ? lang === "ar"
+                      ? "✓ تم نسخ الرابط"
+                      : "✓ Link Copied"
+                    : lang === "ar"
+                    ? "نسخ رابط السجل"
+                    : "Copy Ledger Link"}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={exportDeliveryReportCsv}
+                className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-zinc-800 bg-[#18181B] px-4 py-2 text-xs font-bold text-zinc-200 hover:border-[#D4AF37] transition cursor-pointer touch-manipulation"
+              >
+                <FileSpreadsheet className="h-3.5 w-3.5 text-[#D4AF37]" />
+                <span>
+                  {lang === "ar" ? "تصدير التقرير (CSV)" : "Export CSV"}
+                </span>
+              </button>
+
+              {campaign.optimized_cv_text && (
+                <button
+                  type="button"
+                  onClick={downloadOptimizedCv}
+                  className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-zinc-800 bg-[#18181B] px-4 py-2 text-xs font-bold text-zinc-200 hover:border-[#D4AF37] transition cursor-pointer touch-manipulation"
+                >
+                  <Download className="h-3.5 w-3.5 text-[#D4AF37]" />
+                  <span>
+                    {lang === "ar"
+                      ? "تحميل ملف ATS"
+                      : "Download ATS Profile"}
+                  </span>
+                </button>
+              )}
             </div>
           </div>
 
           {/* Crisp Light / Dark Progress & KPI Body */}
-          <div className="p-6 sm:p-8 space-y-6">
+          <div className="p-5 sm:p-8 space-y-5">
+            {!isPaid && !isDemoCampaign && (
+              <div className="rounded-xl border border-[#D4AF37]/60 bg-[#09090B] px-4 py-3.5 flex flex-wrap items-center justify-between gap-3 text-xs font-bold text-zinc-200">
+                <div className="flex items-start gap-2.5">
+                  <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-[#D4AF37]" />
+                  <span>
+                    {lang === "ar"
+                      ? "الحملة مسجلة وجاهزة للإرسال، ويبدأ الإيداع المباشر لصناديق الـ HR فور استلام تأكيد السداد من بوابة EasyKash."
+                      : "Your dossier is locked and ready. Direct HR inbox dispatch begins immediately once EasyKash confirms payment."}
+                  </span>
+                </div>
+              </div>
+            )}
+
             {paymentNotice && (
               <div className="exec-well rounded-xl px-4 py-3 flex items-center gap-2.5 text-xs font-bold text-zinc-800 dark:text-zinc-200">
                 <AlertCircle className="h-4 w-4 shrink-0 text-[#9A7B1C] dark:text-[#D4AF37]" />
@@ -670,20 +865,23 @@ export default function CampaignTrackingDashboard() {
               <div className="rounded-xl border border-zinc-800 bg-[#09090B] px-4 py-3 flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-200">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <LiveSignalEqualizer />
-                  <span className="font-mono text-[10px] font-extrabold uppercase tracking-wider text-[#D4AF37]">
+                  <span className="font-mono text-[10px] font-extrabold uppercase tracking-wider text-[#D4AF37] shrink-0">
                     {lang === "ar" ? "بث الإيداع الحي:" : "LIVE TELEMETRY:"}
                   </span>
                   <div
                     key={`${currentEvent.id}-${liveTickerIdx}`}
-                    className="animate-panel-enter flex items-center gap-2 truncate"
+                    className="animate-panel-enter flex items-center gap-2 min-w-0"
                   >
                     <span
                       dir="ltr"
-                      className="rounded bg-zinc-800 px-1.5 py-0.5 font-mono text-[10px] font-bold text-[#D4AF37]"
+                      className="rounded bg-zinc-800 px-1.5 py-0.5 font-mono text-[10px] font-bold text-[#D4AF37] shrink-0"
                     >
                       {currentEvent.country_code}
                     </span>
-                    <span className="font-bold text-zinc-100 truncate">
+                    <span
+                      dir="auto"
+                      className="font-bold text-zinc-100 truncate"
+                    >
                       {currentEvent.company_name}
                     </span>
                     <span className="text-zinc-400 truncate hidden sm:inline">
@@ -693,7 +891,7 @@ export default function CampaignTrackingDashboard() {
                     </span>
                   </div>
                 </div>
-                <span className="rounded border border-[#D4AF37]/40 bg-[#121215] px-2.5 py-0.5 text-[11px] font-bold text-[#D4AF37]">
+                <span className="rounded border border-[#D4AF37]/40 bg-[#121215] px-2.5 py-0.5 text-[11px] font-bold text-[#D4AF37] shrink-0">
                   {currentEvent.status === "opened"
                     ? lang === "ar"
                       ? "تم الفتح من HR"
@@ -705,8 +903,8 @@ export default function CampaignTrackingDashboard() {
               </div>
             )}
 
-            <div className="exec-well rounded-xl p-5">
-              <div className="flex flex-wrap items-center justify-between gap-2 text-sm mb-3">
+            <div className="exec-well rounded-xl p-4 sm:p-5">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm mb-3">
                 <span className="font-semibold text-zinc-800 dark:text-zinc-200">
                   {!isPaid
                     ? lang === "ar"
@@ -735,7 +933,7 @@ export default function CampaignTrackingDashboard() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3.5 sm:gap-4 sm:grid-cols-4">
               <div className="exec-well exec-card-interactive rounded-xl p-4">
                 <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                   {lang === "ar" ? "الشركات المستهدفة" : "Target Companies"}
@@ -753,9 +951,17 @@ export default function CampaignTrackingDashboard() {
                 </p>
               </div>
               <div className="exec-well exec-card-interactive rounded-xl p-4">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                  {lang === "ar" ? "فتح ومراجعة الـ HR" : "Confirmed HR Opens"}
-                </p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                    {lang === "ar" ? "فتح ومراجعة الـ HR" : "Confirmed HR Opens"}
+                  </p>
+                  <span
+                    dir="ltr"
+                    className="rounded bg-[#09090B] px-1.5 py-0.5 font-mono text-[10px] font-bold text-[#D4AF37]"
+                  >
+                    {openRatePct}%
+                  </span>
+                </div>
                 <p className="mt-1 font-editorial text-3xl font-bold text-zinc-950 dark:text-zinc-50 tabular-nums">
                   <AnimatedCounter value={effectiveOpenedCount} />
                 </p>
@@ -775,286 +981,293 @@ export default function CampaignTrackingDashboard() {
           </div>
         </div>
 
-        {/* Main Grid: Paginated Company Delivery Log + AI Assets */}
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-          <div className="exec-card exec-card-carbon-top lg:col-span-2 rounded-2xl overflow-hidden flex flex-col">
-            <div className="exec-card-header px-6 py-4 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#09090B] border border-zinc-800 text-[#D4AF37]">
-                  <Building2 className="h-4 w-4" />
-                </div>
-                <h2 className="text-base sm:text-lg font-extrabold text-zinc-950 dark:text-zinc-50">
-                  {lang === "ar"
-                    ? `سجل جهات التوظيف المستهدفة (${filteredRecipients.length})`
-                    : `Verified HR Delivery Ledger (${filteredRecipients.length})`}
-                </h2>
-              </div>
+        {/* Workspace View Switcher (Immediate mobile jump to AI Assets OR Ledger) */}
+        <div
+          role="tablist"
+          aria-label={lang === "ar" ? "أقسام سجل التتبع" : "Dashboard sections"}
+          className="exec-card rounded-2xl p-1.5 grid grid-cols-2 gap-1.5 sm:inline-flex"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeSection === "ledger"}
+            onClick={() => setActiveSection("ledger")}
+            className={`flex min-h-[44px] items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-extrabold transition-colors cursor-pointer touch-manipulation ${
+              activeSection === "ledger"
+                ? "bg-[#09090B] text-[#D4AF37] dark:bg-[#D4AF37] dark:text-[#09090B]"
+                : "text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white"
+            }`}
+          >
+            <Building2 className="h-4 w-4 shrink-0" />
+            <span className="truncate">
+              {lang === "ar"
+                ? `سجل الشركات (${filteredRecipients.length})`
+                : `Verified HR Ledger (${filteredRecipients.length})`}
+            </span>
+          </button>
 
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="flex items-center gap-1 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-[#09090B] p-1">
-                  {(
-                    [
-                      { id: "all", ar: "الكل", en: "All" },
-                      { id: "opened", ar: "فُتِحت", en: "Opened" },
-                      { id: "sent", ar: "مُودعة", en: "Delivered" },
-                      { id: "queued", ar: "مجدولة", en: "Queued" },
-                    ] as const
-                  ).map((st) => (
-                    <button
-                      key={st.id}
-                      type="button"
-                      onClick={() => {
-                        setStatusFilter(st.id);
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeSection === "assets"}
+            onClick={() => setActiveSection("assets")}
+            className={`flex min-h-[44px] items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-extrabold transition-colors cursor-pointer touch-manipulation ${
+              activeSection === "assets"
+                ? "bg-[#09090B] text-[#D4AF37] dark:bg-[#D4AF37] dark:text-[#09090B]"
+                : "text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white"
+            }`}
+          >
+            <Sparkles className="h-4 w-4 shrink-0" />
+            <span className="truncate">
+              {lang === "ar"
+                ? "خطاب التقديم وملف الـ ATS"
+                : "AI Cover Letter & ATS CV"}
+            </span>
+          </button>
+        </div>
+
+        {/* Focused Assets View (All viewports when activeSection === "assets") */}
+        {activeSection === "assets" ? (
+          <div className="animate-panel-enter grid grid-cols-1 gap-6 lg:grid-cols-2">
+            {coverLetterCard}
+            {atsProfileCard}
+          </div>
+        ) : (
+          /* Default Ledger + Desktop Sidebar Grid */
+          <div className="animate-panel-enter grid grid-cols-1 gap-8 lg:grid-cols-3">
+            <div className="exec-card exec-card-carbon-top lg:col-span-2 rounded-2xl overflow-hidden flex flex-col">
+              <div className="exec-card-header px-5 py-4 sm:px-6 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#09090B] border border-zinc-800 text-[#D4AF37]">
+                    <Building2 className="h-4 w-4" />
+                  </div>
+                  <h2 className="text-base sm:text-lg font-extrabold text-zinc-950 dark:text-zinc-50">
+                    {lang === "ar"
+                      ? `سجل جهات التوظيف المستهدفة (${filteredRecipients.length})`
+                      : `Verified HR Delivery Ledger (${filteredRecipients.length})`}
+                  </h2>
+                </div>
+
+                <div className="flex w-full sm:w-auto flex-wrap items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-1 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-[#09090B] p-1">
+                    {(
+                      [
+                        {
+                          id: "all",
+                          ar: `الكل (${statusCounts.all})`,
+                          en: `All (${statusCounts.all})`,
+                        },
+                        {
+                          id: "opened",
+                          ar: `فُتِحت (${statusCounts.opened})`,
+                          en: `Opened (${statusCounts.opened})`,
+                        },
+                        {
+                          id: "sent",
+                          ar: `مُودعة (${statusCounts.sent})`,
+                          en: `Delivered (${statusCounts.sent})`,
+                        },
+                        {
+                          id: "queued",
+                          ar: `مجدولة (${statusCounts.queued})`,
+                          en: `Queued (${statusCounts.queued})`,
+                        },
+                      ] as const
+                    ).map((st) => (
+                      <button
+                        key={st.id}
+                        type="button"
+                        onClick={() => {
+                          setStatusFilter(st.id);
+                          setLogPage(1);
+                        }}
+                        className={`rounded-lg px-2.5 py-1.5 text-[11px] font-bold transition-colors cursor-pointer touch-manipulation ${
+                          statusFilter === st.id
+                            ? "bg-[#09090B] text-[#D4AF37] dark:bg-[#D4AF37] dark:text-[#09090B]"
+                            : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100"
+                        }`}
+                      >
+                        {lang === "ar" ? st.ar : st.en}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="relative flex-1 sm:flex-initial sm:w-52">
+                    <Search className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
+                    <input
+                      type="text"
+                      value={logSearch}
+                      onChange={(e) => {
+                        setLogSearch(e.target.value);
                         setLogPage(1);
                       }}
-                      className={`rounded-lg px-2.5 py-1 text-[11px] font-bold transition-colors cursor-pointer ${
-                        statusFilter === st.id
-                          ? "bg-[#09090B] text-[#D4AF37] dark:bg-[#D4AF37] dark:text-[#09090B]"
-                          : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100"
-                      }`}
-                    >
-                      {lang === "ar" ? st.ar : st.en}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="relative">
-                  <Search className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
-                  <input
-                    type="text"
-                    value={logSearch}
-                    onChange={(e) => {
-                      setLogSearch(e.target.value);
-                      setLogPage(1);
-                    }}
-                    placeholder={
-                      lang === "ar"
-                        ? "ابحث باسم الشركة أو المدينة..."
-                        : "Filter company or city..."
-                    }
-                    className="exec-input rounded-xl ps-8 pe-3 py-2 text-xs font-medium placeholder:text-zinc-400"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="p-6 flex-1">
-              <div
-                key={`${statusFilter}-${safeLogPage}-${logSearch}`}
-                className="animate-panel-enter overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800"
-              >
-                <table className="w-full text-start text-sm">
-                  <thead className="exec-table-head text-[11px] font-bold tracking-wider uppercase">
-                    <tr>
-                      <th className="px-4 py-3 text-start">
-                        {lang === "ar" ? "اسم الشركة" : "Company Name"}
-                      </th>
-                      <th className="px-4 py-3 text-start">
-                        {lang === "ar" ? "المدينة / السوق" : "City / Market"}
-                      </th>
-                      <th className="px-4 py-3 text-start">
-                        {lang === "ar" ? "صندوق الموارد البشرية" : "HR Inbox"}
-                      </th>
-                      <th className="px-4 py-3 text-start">
-                        {lang === "ar" ? "الحالة" : "Status"}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800 bg-white dark:bg-[#121215]">
-                    {pagedRecipients.map((rec) => (
-                      <tr
-                        key={rec.id}
-                        className="even:bg-[#F8F9FB] dark:even:bg-transparent hover:bg-[#ECEEF3] dark:hover:bg-[#18181B] transition-colors"
-                      >
-                        <td className="px-4 py-3.5 font-bold text-zinc-950 dark:text-zinc-50">
-                          {rec.company_name}
-                        </td>
-                        <td className="px-4 py-3.5 text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                          {lang === "ar" ? rec.city_name_ar : rec.city_name_en} (
-                          {rec.country_code})
-                        </td>
-                        <td
-                          dir="ltr"
-                          className="px-4 py-3.5 font-mono text-xs text-zinc-600 dark:text-zinc-400"
-                        >
-                          {rec.masked_hr_email}
-                        </td>
-                        <td className="px-4 py-3.5">
-                          {rec.status === "opened" ? (
-                            <span className="inline-flex items-center gap-1 rounded-md border border-[#D4AF37] bg-[#09090B] px-2.5 py-0.5 text-xs font-bold text-[#D4AF37]">
-                              <MailCheck className="h-3.5 w-3.5" />
-                              {lang === "ar"
-                                ? "تم الفتح من HR"
-                                : "Opened by HR"}
-                            </span>
-                          ) : rec.status === "sent" ? (
-                            <span className="inline-flex items-center gap-1 rounded-md border border-zinc-300 dark:border-zinc-700 bg-zinc-950 dark:bg-zinc-800 px-2.5 py-0.5 text-xs font-bold text-zinc-50">
-                              <CheckCircle2 className="h-3.5 w-3.5 text-[#D4AF37]" />
-                              {lang === "ar" ? "تم الإيداع" : "Delivered"}
-                            </span>
-                          ) : rec.status === "failed" ? (
-                            <span className="inline-flex items-center gap-1 rounded-md bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 px-2.5 py-0.5 text-xs font-bold text-red-700 dark:text-red-400">
-                              <AlertCircle className="h-3.5 w-3.5" />
-                              {lang === "ar"
-                                ? "تعذر التسليم"
-                                : "Skipped (Bounce)"}
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 rounded-md bg-zinc-100 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 px-2.5 py-0.5 text-xs font-semibold text-zinc-700 dark:text-zinc-400">
-                              <Clock className="h-3.5 w-3.5" />
-                              {lang === "ar" ? "مجدول" : "Queued"}
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {totalLogPages > 1 && (
-                <div className="mt-5 flex items-center justify-between border-t border-zinc-200 dark:border-zinc-800 pt-4 text-xs font-bold text-zinc-600 dark:text-zinc-400">
-                  <span>
-                    {lang === "ar"
-                      ? `صفحة ${safeLogPage} من ${totalLogPages}`
-                      : `Page ${safeLogPage} of ${totalLogPages}`}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      disabled={safeLogPage <= 1}
-                      onClick={() => setLogPage((p) => Math.max(1, p - 1))}
-                      className="inline-flex items-center gap-1 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#09090B] px-3 py-1.5 text-zinc-900 dark:text-zinc-100 hover:border-[#D4AF37] disabled:opacity-40 cursor-pointer transition-colors"
-                    >
-                      {lang === "ar" ? (
-                        <ChevronRight className="h-3.5 w-3.5" />
-                      ) : (
-                        <ChevronLeft className="h-3.5 w-3.5" />
-                      )}
-                      <span>{lang === "ar" ? "السابق" : "Prev"}</span>
-                    </button>
-                    <button
-                      type="button"
-                      disabled={safeLogPage >= totalLogPages}
-                      onClick={() =>
-                        setLogPage((p) => Math.min(totalLogPages, p + 1))
+                      placeholder={
+                        lang === "ar"
+                          ? "ابحث باسم الشركة أو المدينة..."
+                          : "Filter company or city..."
                       }
-                      className="inline-flex items-center gap-1 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#09090B] px-3 py-1.5 text-zinc-900 dark:text-zinc-100 hover:border-[#D4AF37] disabled:opacity-40 cursor-pointer transition-colors"
+                      className="exec-input w-full min-h-[42px] rounded-xl ps-8 pe-3 py-2 text-base sm:text-xs font-medium placeholder:text-zinc-400"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 sm:p-6 flex-1">
+                {pagedRecipients.length === 0 ? (
+                  <p className="py-10 text-center text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
+                    {lang === "ar"
+                      ? "لا توجد شركات مطابقة للبحث أو الفلتر المحدد."
+                      : "No employers match the selected filter."}
+                  </p>
+                ) : (
+                  <>
+                    {/* Mobile (< md): Stacked Responsive Cards (Zero Horizontal Scroll) */}
+                    <div
+                      key={`mob-${statusFilter}-${safeLogPage}-${logSearch}`}
+                      className="md:hidden space-y-2.5"
                     >
-                      <span>{lang === "ar" ? "التالي" : "Next"}</span>
-                      {lang === "ar" ? (
-                        <ChevronLeft className="h-3.5 w-3.5" />
-                      ) : (
-                        <ChevronRight className="h-3.5 w-3.5" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+                      {pagedRecipients.map((rec) => (
+                        <div
+                          key={rec.id}
+                          className="exec-well rounded-xl p-3.5 space-y-2"
+                        >
+                          <div className="flex items-start justify-between gap-2.5">
+                            <div className="min-w-0 flex-1">
+                              <p
+                                dir="auto"
+                                className="font-bold text-sm text-zinc-950 dark:text-zinc-50 leading-snug text-start"
+                              >
+                                {rec.company_name}
+                              </p>
+                              <p className="mt-0.5 text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                                {lang === "ar"
+                                  ? rec.city_name_ar
+                                  : rec.city_name_en}{" "}
+                                ({rec.country_code})
+                              </p>
+                            </div>
+                            {renderStatusBadge(rec.status)}
+                          </div>
+                          <p
+                            dir="ltr"
+                            className="font-mono text-xs text-zinc-600 dark:text-zinc-400 truncate border-t border-zinc-200 dark:border-zinc-800 pt-2 text-start"
+                          >
+                            {rec.masked_hr_email}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
 
-          {/* Right Column: AI Cover Letter & Optimized ATS CV */}
-          <div className="space-y-6">
-            <div className="exec-card rounded-2xl overflow-hidden">
-              <div className="exec-card-header px-5 py-4 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#09090B] border border-zinc-800 text-[#D4AF37]">
-                    <Sparkles className="h-3.5 w-3.5" />
-                  </div>
-                  <h3 className="font-extrabold text-sm text-zinc-950 dark:text-zinc-50">
-                    {lang === "ar"
-                      ? "خطاب التقديم التنفيذي (Asra3)"
-                      : "Executive Cover Letter"}
-                  </h3>
-                </div>
-                {campaign.generated_cover_letter && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      navigator.clipboard.writeText(
-                        campaign.generated_cover_letter || ""
-                      );
-                      setCopiedCover(true);
-                      setTimeout(() => setCopiedCover(false), 2000);
-                    }}
-                    className="inline-flex items-center gap-1 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 px-2.5 py-1 text-xs font-bold text-zinc-900 dark:text-zinc-100 hover:border-[#D4AF37] cursor-pointer transition-colors"
-                  >
-                    <Copy className="h-3.5 w-3.5 text-[#9A7B1C] dark:text-[#D4AF37]" />
+                    {/* Desktop (md+): Structured Delivery Table */}
+                    <div
+                      key={`desk-${statusFilter}-${safeLogPage}-${logSearch}`}
+                      className="hidden md:block animate-panel-enter overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800"
+                    >
+                      <table className="w-full text-start text-sm">
+                        <thead className="exec-table-head text-[11px] font-bold tracking-wider uppercase">
+                          <tr>
+                            <th className="px-4 py-3 text-start">
+                              {lang === "ar" ? "اسم الشركة" : "Company Name"}
+                            </th>
+                            <th className="px-4 py-3 text-start">
+                              {lang === "ar"
+                                ? "المدينة / السوق"
+                                : "City / Market"}
+                            </th>
+                            <th className="px-4 py-3 text-start">
+                              {lang === "ar"
+                                ? "صندوق الموارد البشرية"
+                                : "HR Inbox"}
+                            </th>
+                            <th className="px-4 py-3 text-start">
+                              {lang === "ar" ? "الحالة" : "Status"}
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800 bg-white dark:bg-[#121215]">
+                          {pagedRecipients.map((rec) => (
+                            <tr
+                              key={rec.id}
+                              className="even:bg-[#F8F9FB] dark:even:bg-transparent hover:bg-[#ECEEF3] dark:hover:bg-[#18181B] transition-colors"
+                            >
+                              <td
+                                dir="auto"
+                                className="px-4 py-3.5 font-bold text-zinc-950 dark:text-zinc-50 text-start"
+                              >
+                                {rec.company_name}
+                              </td>
+                              <td className="px-4 py-3.5 text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                                {lang === "ar"
+                                  ? rec.city_name_ar
+                                  : rec.city_name_en}{" "}
+                                ({rec.country_code})
+                              </td>
+                              <td
+                                dir="ltr"
+                                className="px-4 py-3.5 font-mono text-xs text-zinc-600 dark:text-zinc-400"
+                              >
+                                {rec.masked_hr_email}
+                              </td>
+                              <td className="px-4 py-3.5">
+                                {renderStatusBadge(rec.status)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
+
+                {totalLogPages > 1 && (
+                  <div className="mt-5 flex items-center justify-between border-t border-zinc-200 dark:border-zinc-800 pt-4 text-xs font-bold text-zinc-600 dark:text-zinc-400">
                     <span>
-                      {copiedCover
-                        ? lang === "ar"
-                          ? "تم النسخ!"
-                          : "Copied!"
-                        : lang === "ar"
-                        ? "نسخ"
-                        : "Copy"}
+                      {lang === "ar"
+                        ? `صفحة ${safeLogPage} من ${totalLogPages}`
+                        : `Page ${safeLogPage} of ${totalLogPages}`}
                     </span>
-                  </button>
-                )}
-              </div>
-
-              <div className="p-5">
-                {campaign.generated_cover_letter ? (
-                  <pre
-                    dir="auto"
-                    className="max-h-72 overflow-y-auto whitespace-pre-wrap rounded-xl bg-[#09090B] border border-zinc-800 p-4 text-xs leading-relaxed text-zinc-200 font-sans"
-                  >
-                    {campaign.generated_cover_letter}
-                  </pre>
-                ) : (
-                  <p className="text-xs text-zinc-600 dark:text-zinc-400">
-                    {lang === "ar"
-                      ? "متاح ضمن مسار Asra3 Turbo و Asra3 Hyper."
-                      : "Included with Asra3 Turbo & Asra3 Hyper plans."}
-                  </p>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={safeLogPage <= 1}
+                        onClick={() => setLogPage((p) => Math.max(1, p - 1))}
+                        className="inline-flex min-h-[44px] items-center gap-1 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#09090B] px-3.5 py-2 text-zinc-900 dark:text-zinc-100 hover:border-[#D4AF37] disabled:opacity-40 cursor-pointer transition-colors touch-manipulation"
+                      >
+                        {lang === "ar" ? (
+                          <ChevronRight className="h-3.5 w-3.5" />
+                        ) : (
+                          <ChevronLeft className="h-3.5 w-3.5" />
+                        )}
+                        <span>{lang === "ar" ? "السابق" : "Prev"}</span>
+                      </button>
+                      <button
+                        type="button"
+                        disabled={safeLogPage >= totalLogPages}
+                        onClick={() =>
+                          setLogPage((p) => Math.min(totalLogPages, p + 1))
+                        }
+                        className="inline-flex min-h-[44px] items-center gap-1 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#09090B] px-3.5 py-2 text-zinc-900 dark:text-zinc-100 hover:border-[#D4AF37] disabled:opacity-40 cursor-pointer transition-colors touch-manipulation"
+                      >
+                        <span>{lang === "ar" ? "التالي" : "Next"}</span>
+                        {lang === "ar" ? (
+                          <ChevronLeft className="h-3.5 w-3.5" />
+                        ) : (
+                          <ChevronRight className="h-3.5 w-3.5" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
 
-            <div className="exec-card rounded-2xl overflow-hidden">
-              <div className="exec-card-header px-5 py-4 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#09090B] border border-zinc-800 text-[#D4AF37]">
-                    <FileText className="h-3.5 w-3.5" />
-                  </div>
-                  <h3 className="font-extrabold text-sm text-zinc-950 dark:text-zinc-50">
-                    {lang === "ar"
-                      ? "ملف السيرة الذاتية المحسن (ATS)"
-                      : "ATS-Optimized Profile"}
-                  </h3>
-                </div>
-                {campaign.optimized_cv_text && (
-                  <button
-                    type="button"
-                    onClick={downloadOptimizedCv}
-                    className="btn-carbon inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-bold cursor-pointer"
-                  >
-                    <Download className="h-3.5 w-3.5 text-[#D4AF37]" />
-                    <span>{lang === "ar" ? "تحميل" : "Download"}</span>
-                  </button>
-                )}
-              </div>
-
-              <div className="p-5">
-                {campaign.optimized_cv_text ? (
-                  <pre
-                    dir="ltr"
-                    className="exec-well max-h-60 overflow-y-auto whitespace-pre-wrap rounded-xl p-4 text-[11px] leading-relaxed text-zinc-800 dark:text-zinc-300 font-mono"
-                  >
-                    {campaign.optimized_cv_text}
-                  </pre>
-                ) : (
-                  <p className="text-xs text-zinc-600 dark:text-zinc-400">
-                    {lang === "ar"
-                      ? `الملف المرفق بالحملة: ${campaign.cv_file_name}`
-                      : `Attached CV file: ${campaign.cv_file_name}`}
-                  </p>
-                )}
-              </div>
+            {/* Right Sidebar on Desktop (lg+): Cover Letter & ATS Profile */}
+            <div className="hidden lg:block space-y-6">
+              {coverLetterCard}
+              {atsProfileCard}
             </div>
           </div>
-        </div>
+        )}
       </main>
     </div>
   );

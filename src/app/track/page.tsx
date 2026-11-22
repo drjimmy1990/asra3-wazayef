@@ -11,11 +11,14 @@ import {
   AlertCircle,
   ArrowRight,
   CheckCircle2,
+  Eye,
+  FileSpreadsheet,
   KeyRound,
   Loader2,
   Mail,
   SearchCheck,
   Send,
+  ShieldCheck,
   Sparkles,
 } from "lucide-react";
 
@@ -23,11 +26,11 @@ export default function TrackLookupPage() {
   const { lang } = useApp();
   const router = useRouter();
 
+  const [lookupMode, setLookupMode] = useState<"code" | "recovery">("code");
   const [codeInput, setCodeInput] = useState("");
   const [searching, setSearching] = useState(false);
   const [lookupError, setLookupError] = useState<string | null>(null);
 
-  const [showRecovery, setShowRecovery] = useState(false);
   const [recoveryEmail, setRecoveryEmail] = useState("");
   const [sendingRecovery, setSendingRecovery] = useState(false);
   const [recoverySuccessMsg, setRecoverySuccessMsg] = useState<string | null>(
@@ -65,8 +68,9 @@ export default function TrackLookupPage() {
     if (!trimmed) return;
 
     if (trimmed.includes("@")) {
-      setShowRecovery(true);
+      setLookupMode("recovery");
       setRecoveryEmail(trimmed);
+      setRecoveryError(null);
       setLookupError(
         lang === "ar"
           ? "لحماية خصوصيتك، يتم الدخول عبر رمز التتبع فقط (مثال: ASR-123456-789). إذا نسيت الرمز، اضغط زر الإرسال بالأسفل ليصلك على بريدك فوراً."
@@ -82,8 +86,8 @@ export default function TrackLookupPage() {
       if (!res.ok) {
         setLookupError(
           lang === "ar"
-            ? "رمز التتبع غير صحيح. تأكد من كتابة الرمز كما ظهر لك بعد الدفع (مثال: ASR-123456-789) أو اطلب إرساله لبريدك بالأسفل."
-            : "Invalid Tracking Code. Please check your code (e.g. ASR-123456-789) or request it via email below."
+            ? "رمز التتبع غير صحيح. تأكد من كتابة الرمز كما ظهر لك بعد الدفع (مثال: ASR-123456-789) أو اطلب إرساله لبريدك."
+            : "Invalid Tracking Code. Please check your code (e.g. ASR-123456-789) or recover it via email."
         );
         setSearching(false);
         return;
@@ -145,96 +149,203 @@ export default function TrackLookupPage() {
     }
   };
 
+  const savedProgressPct = savedCampaign
+    ? Math.min(
+        100,
+        Math.round(
+          (savedCampaign.emails_sent_count /
+            Math.max(1, savedCampaign.total_target_companies)) *
+            100
+        )
+      )
+    : 0;
+  const savedIsPaid = savedCampaign?.payment_status === "paid";
+
   return (
     <div className="min-h-screen flex flex-col bg-arch-grid bg-[#EEF0F4] dark:bg-[#09090B] text-zinc-950 dark:text-zinc-50 transition-colors">
       <ScrollProgressRail />
       <Navbar />
 
       <main id="main-content" className="flex-1">
-        <div className="mx-auto max-w-3xl w-full px-4 py-14 sm:py-20">
+        <div className="mx-auto max-w-4xl w-full px-4 pt-8 pb-20 sm:py-14 space-y-6">
+          {/* Top Priority Quick-Resume Card (Visible immediately when a local session token exists) */}
+          {savedCampaign && (
+            <div className="animate-panel-enter rounded-2xl bg-[#09090B] border-2 border-[#D4AF37] p-5 sm:p-6 text-zinc-50 shadow-lg space-y-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="space-y-1.5 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 rounded-md bg-[#D4AF37] px-2.5 py-0.5 text-[11px] font-extrabold text-[#09090B]">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      {savedIsPaid
+                        ? lang === "ar"
+                          ? "حملتك النشطة على هذا الجهاز"
+                          : "Active Campaign on This Device"
+                        : lang === "ar"
+                        ? "مسودة محفوظة على هذا الجهاز"
+                        : "Saved Draft on This Device"}
+                    </span>
+                    <span
+                      dir="ltr"
+                      className="rounded-md border border-zinc-700 bg-[#121215] px-2.5 py-0.5 font-mono text-[11px] font-bold text-[#D4AF37]"
+                    >
+                      {savedCampaign.primary_country_code} •{" "}
+                      {savedCampaign.customer_reference}
+                    </span>
+                  </div>
+                  <h2
+                    dir="auto"
+                    className="text-lg sm:text-xl font-extrabold text-white truncate"
+                  >
+                    {savedCampaign.candidate_name}
+                  </h2>
+                </div>
+
+                <Link
+                  href={`/track/${savedCampaign.tracking_token}`}
+                  className="btn-gold inline-flex min-h-[46px] w-full sm:w-auto items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-xs sm:text-sm font-extrabold touch-manipulation"
+                >
+                  <span>
+                    {lang === "ar" ? "فتح سجل التوزيع" : "Open Live Ledger"}
+                  </span>
+                  <ArrowRight className="h-4 w-4 rtl:rotate-180" />
+                </Link>
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs font-bold text-zinc-300 tabular-nums">
+                  <span>
+                    {lang === "ar"
+                      ? "تقدم الإيداع لدى الشركات"
+                      : "Verified HR Placement Progress"}
+                  </span>
+                  <span className="text-[#D4AF37]">
+                    {savedCampaign.emails_sent_count} /{" "}
+                    {savedCampaign.total_target_companies} ({savedProgressPct}%)
+                  </span>
+                </div>
+                <div className="h-2.5 w-full overflow-hidden rounded-full bg-zinc-900 border border-zinc-800">
+                  <div
+                    className="h-full rounded-full bg-[#D4AF37] transition-all duration-500"
+                    style={{ width: `${savedProgressPct}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Primary 2-Tab Lookup / Email Recovery Card */}
           <div className="exec-card exec-card-gold-top animate-panel-enter rounded-2xl overflow-hidden">
-          <div className="exec-card-header px-6 py-6 sm:px-10 sm:py-7 flex items-start sm:items-center gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#09090B] border border-zinc-800 text-[#D4AF37]">
-              <SearchCheck className="h-6 w-6" />
-            </div>
-            <div>
-              <span className="inline-flex items-center gap-1.5 rounded-md bg-[#09090B] px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-[#D4AF37] border border-zinc-800 mb-1.5">
-                ASRA3 LIVE LEDGER
-              </span>
-              <h1 className="text-xl sm:text-2xl font-extrabold text-zinc-950 dark:text-zinc-50 tracking-tight">
-                {lang === "ar"
-                  ? "سجل التتبع التنفيذي — أسرع (Asra3)"
-                  : "Access Your Private Asra3 Ledger"}
-              </h1>
-              <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 mt-1">
-                {lang === "ar"
-                  ? "أدخل رمز التتبع الخاص بك (مثال: ASR-955675-938) لعرض سجل الشركات وحالة الإيداع المباشر."
-                  : "Enter your private Tracking Code (e.g. ASR-955675-938) to inspect your live HR delivery ledger."}
-              </p>
-            </div>
-          </div>
-
-          <div className="p-6 sm:p-10">
-            <form
-              onSubmit={handleCodeSearch}
-              className="flex flex-col sm:flex-row gap-3"
-            >
-              <div className="relative flex-1">
-                <KeyRound className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 dark:text-zinc-500" />
-                <input
-                  type="text"
-                  dir="ltr"
-                  aria-label="Tracking Code"
-                  value={codeInput}
-                  onChange={(e) => {
-                    setCodeInput(e.target.value);
-                    if (lookupError) setLookupError(null);
-                  }}
-                  placeholder="ASR-XXXXXX-XXX"
-                  className="exec-input w-full rounded-xl pl-10 pr-4 py-3.5 font-mono text-sm font-bold uppercase tracking-wider placeholder:text-zinc-400 dark:placeholder:text-zinc-600"
-                />
+            <div className="exec-card-header px-5 py-5 sm:px-8 sm:py-6 flex items-start sm:items-center gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#09090B] border border-zinc-800 text-[#D4AF37]">
+                <SearchCheck className="h-6 w-6" />
               </div>
-              <button
-                type="submit"
-                disabled={searching}
-                className="btn-gold inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-sm font-extrabold cursor-pointer disabled:opacity-60"
-              >
-                {searching && <Loader2 className="h-4 w-4 animate-spin" />}
-                <span>
-                  {lang === "ar" ? "فتح سجل التتبع" : "Open Private Ledger"}
+              <div className="min-w-0">
+                <span className="inline-flex items-center gap-1.5 rounded-md bg-[#09090B] px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-[#D4AF37] border border-zinc-800 mb-1.5">
+                  ASRA3 LIVE LEDGER
                 </span>
-              </button>
-            </form>
-
-            {lookupError && (
-              <div className="mt-4 flex items-center gap-2 rounded-xl border border-red-300 dark:border-red-900/60 bg-red-50 dark:bg-red-950/40 p-3.5 text-xs font-bold text-red-800 dark:text-red-300">
-                <AlertCircle className="h-4 w-4 shrink-0 text-red-600 dark:text-red-400" />
-                <span>{lookupError}</span>
-              </div>
-            )}
-
-            <div className="mt-6 border-t border-zinc-200 dark:border-zinc-800 pt-5">
-              <button
-                type="button"
-                aria-expanded={showRecovery}
-                onClick={() => {
-                  setShowRecovery((prev) => !prev);
-                  setRecoverySuccessMsg(null);
-                  setRecoveryError(null);
-                }}
-                className="inline-flex items-center gap-2 text-xs font-bold text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-[#D4AF37] cursor-pointer transition-colors"
-              >
-                <Mail className="h-3.5 w-3.5 text-[#9A7B1C] dark:text-[#D4AF37]" />
-                <span className="underline underline-offset-4">
+                <h1 className="text-xl sm:text-2xl font-extrabold text-zinc-950 dark:text-zinc-50 tracking-tight">
                   {lang === "ar"
-                    ? "نسيت رمز التتبع؟ أرسله إلى بريدك الإلكتروني المسجل"
-                    : "Forgot your Tracking Code? Send it to your registered email"}
-                </span>
-              </button>
+                    ? "سجل التتبع التنفيذي — أسرع (Asra3)"
+                    : "Access Your Private Asra3 Ledger"}
+                </h1>
+                <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 mt-1">
+                  {lang === "ar"
+                    ? "أدخل رمز التتبع الخاص بك (مثال: ASR-955675-938) أو استرجعه عبر البريد الإلكتروني المسجل."
+                    : "Enter your private Tracking Code (e.g. ASR-955675-938) or recover it via your registered email."}
+                </p>
+              </div>
+            </div>
 
-              {showRecovery && (
-                <div className="exec-well mt-4 rounded-xl p-4 sm:p-5 space-y-3">
-                  <p className="text-xs text-zinc-600 dark:text-zinc-400 font-medium">
+            <div className="p-5 sm:p-8 space-y-5">
+              {/* Segmented 2-Tab Mode Switcher */}
+              <div
+                role="tablist"
+                aria-label={lang === "ar" ? "طريقة الدخول للسجل" : "Ledger access mode"}
+                className="grid grid-cols-2 gap-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-[#09090B] p-1.5"
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={lookupMode === "code"}
+                  onClick={() => {
+                    setLookupMode("code");
+                    setLookupError(null);
+                  }}
+                  className={`flex min-h-[44px] items-center justify-center gap-2 rounded-lg px-3 text-xs sm:text-sm font-extrabold transition-colors cursor-pointer touch-manipulation ${
+                    lookupMode === "code"
+                      ? "bg-[#09090B] text-[#D4AF37] dark:bg-[#D4AF37] dark:text-[#09090B]"
+                      : "text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white"
+                  }`}
+                >
+                  <KeyRound className="h-4 w-4 shrink-0" />
+                  <span>
+                    {lang === "ar" ? "إدخال رمز التتبع" : "Enter Tracking Code"}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={lookupMode === "recovery"}
+                  onClick={() => {
+                    setLookupMode("recovery");
+                    setLookupError(null);
+                  }}
+                  className={`flex min-h-[44px] items-center justify-center gap-2 rounded-lg px-3 text-xs sm:text-sm font-extrabold transition-colors cursor-pointer touch-manipulation ${
+                    lookupMode === "recovery"
+                      ? "bg-[#09090B] text-[#D4AF37] dark:bg-[#D4AF37] dark:text-[#09090B]"
+                      : "text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white"
+                  }`}
+                >
+                  <Mail className="h-4 w-4 shrink-0" />
+                  <span>
+                    {lang === "ar" ? "استرجاع بالبريد" : "Recover via Email"}
+                  </span>
+                </button>
+              </div>
+
+              {lookupError && (
+                <div className="flex items-start gap-2.5 rounded-xl border border-red-300 dark:border-red-900/60 bg-red-50 dark:bg-red-950/40 p-3.5 text-xs font-bold text-red-800 dark:text-red-300">
+                  <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-red-600 dark:text-red-400" />
+                  <span>{lookupError}</span>
+                </div>
+              )}
+
+              {lookupMode === "code" ? (
+                <form
+                  onSubmit={handleCodeSearch}
+                  className="flex flex-col sm:flex-row gap-3"
+                >
+                  <div className="relative flex-1">
+                    <KeyRound className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 dark:text-zinc-500" />
+                    <input
+                      type="text"
+                      dir="ltr"
+                      aria-label="Tracking Code"
+                      value={codeInput}
+                      onChange={(e) => {
+                        setCodeInput(e.target.value);
+                        if (lookupError) setLookupError(null);
+                      }}
+                      placeholder="ASR-XXXXXX-XXX"
+                      className="exec-input w-full min-h-[48px] rounded-xl pl-10 pr-4 py-3 font-mono text-base sm:text-sm font-bold uppercase tracking-wider placeholder:text-zinc-400 dark:placeholder:text-zinc-600"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={searching}
+                    className="btn-gold inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-extrabold cursor-pointer disabled:opacity-60 touch-manipulation"
+                  >
+                    {searching && <Loader2 className="h-4 w-4 animate-spin" />}
+                    <span>
+                      {lang === "ar"
+                        ? "فتح سجل التتبع"
+                        : "Open Private Ledger"}
+                    </span>
+                  </button>
+                </form>
+              ) : (
+                <div className="exec-well rounded-xl p-4 sm:p-5 space-y-3.5">
+                  <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 font-medium leading-relaxed">
                     {lang === "ar"
                       ? "أدخل البريد الإلكتروني الذي استخدمته أثناء إطلاق الحملة، وسنرسل لك رمز التتبع (ASR-...) ورابط الدخول المباشر فوراً:"
                       : "Enter the email address used when creating your campaign, and we will send your Tracking Code (ASR-...) directly to your inbox:"}
@@ -247,24 +358,25 @@ export default function TrackLookupPage() {
                     <input
                       type="email"
                       dir="ltr"
+                      aria-label="Registered Email"
                       value={recoveryEmail}
                       onChange={(e) => {
                         setRecoveryEmail(e.target.value);
                         setRecoveryError(null);
                       }}
                       placeholder="you@email.com"
-                      className="exec-input flex-1 rounded-xl px-4 py-2.5 text-sm font-medium placeholder:text-zinc-400"
+                      className="exec-input flex-1 min-h-[46px] rounded-xl px-4 py-2.5 text-base sm:text-sm font-medium placeholder:text-zinc-400"
                       required
                     />
                     <button
                       type="submit"
                       disabled={sendingRecovery}
-                      className="btn-carbon inline-flex items-center justify-center gap-1.5 rounded-xl px-5 py-2.5 text-xs font-bold cursor-pointer disabled:opacity-60"
+                      className="btn-carbon inline-flex min-h-[46px] items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-xs sm:text-sm font-bold cursor-pointer disabled:opacity-60 touch-manipulation"
                     >
                       {sendingRecovery ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
-                        <Send className="h-3.5 w-3.5 text-[#D4AF37]" />
+                        <Send className="h-4 w-4 text-[#D4AF37]" />
                       )}
                       <span>
                         {lang === "ar"
@@ -289,75 +401,100 @@ export default function TrackLookupPage() {
                 </div>
               )}
             </div>
-
-            {savedCampaign && (
-              <div className="mt-7 border-t border-zinc-200 dark:border-zinc-800 pt-6">
-                <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-3">
-                  <CheckCircle2 className="h-4 w-4 text-[#9A7B1C] dark:text-[#D4AF37]" />
-                  <span>
-                    {lang === "ar"
-                      ? "حملتك النشطة المحفوظة على هذا الجهاز:"
-                      : "Your Active Dossier on This Device:"}
-                  </span>
-                </p>
-                <Link
-                  href={`/track/${savedCampaign.tracking_token}`}
-                  className="exec-well exec-card-interactive flex flex-wrap items-center justify-between gap-3 rounded-xl px-5 py-4 text-sm hover:border-[#D4AF37]"
-                >
-                  <div>
-                    <span className="font-bold text-zinc-950 dark:text-zinc-50 text-base">
-                      {savedCampaign.candidate_name}
-                    </span>
-                    <p className="text-xs font-mono font-bold text-zinc-600 dark:text-zinc-400 mt-0.5">
-                      {lang === "ar" ? "رمز التتبع:" : "Tracking Code:"}{" "}
-                      {savedCampaign.customer_reference} (
-                      {savedCampaign.primary_country_code})
-                    </p>
-                  </div>
-                  <span className="btn-carbon inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-bold">
-                    <span>
-                      {savedCampaign.emails_sent_count}/
-                      {savedCampaign.total_target_companies}{" "}
-                      {lang === "ar" ? "شركة" : "Sent"}
-                    </span>
-                    <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180 text-[#D4AF37]" />
-                  </span>
-                </Link>
-              </div>
-            )}
-
-            {!savedCampaign && (
-              <div className="mt-7 rounded-xl bg-[#09090B] p-6 text-center border border-zinc-800">
-                <div className="mx-auto mb-2.5 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#18181B] border border-zinc-800 text-[#D4AF37]">
-                  <Sparkles className="h-4 w-4" />
-                </div>
-                <p className="text-sm font-bold text-zinc-100">
-                  {lang === "ar"
-                    ? "توظَّف أسرع — لم تطلق حملتك التنفيذية بعد؟ ابدأ في أقل من 3 دقائق"
-                    : "Haven't launched your private GCC dossier yet? Start in under 3 minutes."}
-                </p>
-                <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
-                  <Link
-                    href="/#wizard-section"
-                    className="btn-gold inline-block rounded-xl px-5 py-2.5 text-xs font-extrabold"
-                  >
-                    {lang === "ar"
-                      ? "توظَّف أسرع — ابدأ الآن"
-                      : "Launch Executive Dossier"}
-                  </Link>
-                  <Link
-                    href="/track/demo-uae-campaign-2026"
-                    className="inline-block rounded-xl border border-zinc-700 bg-[#18181B] px-4 py-2.5 text-xs font-bold text-zinc-200 hover:border-[#D4AF37] transition-colors"
-                  >
-                    {lang === "ar"
-                      ? "استعراض نموذج تتبع حي"
-                      : "Inspect Live Demo Ledger"}
-                  </Link>
-                </div>
-              </div>
-            )}
           </div>
-        </div>
+
+          {/* 3-Column Feature Proof Strip */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="exec-card rounded-2xl p-4 sm:p-5 flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#09090B] border border-zinc-800 text-[#D4AF37]">
+                <ShieldCheck className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="text-sm font-extrabold text-zinc-950 dark:text-zinc-50">
+                  {lang === "ar"
+                    ? "إثبات الإيداع للـ HR"
+                    : "Live HR Delivery Proof"}
+                </h2>
+                <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                  {lang === "ar"
+                    ? "شاهد كل شركة استلمت ملفك مع المدينة وبريد الموارد البشرية."
+                    : "Verify every employer inbox that received your CV dossier."}
+                </p>
+              </div>
+            </div>
+
+            <div className="exec-card rounded-2xl p-4 sm:p-5 flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#09090B] border border-zinc-800 text-[#D4AF37]">
+                <Eye className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="text-sm font-extrabold text-zinc-950 dark:text-zinc-50">
+                  {lang === "ar"
+                    ? "رصد فتح الرسائل مباشرة"
+                    : "HR Open Telemetry"}
+                </h2>
+                <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                  {lang === "ar"
+                    ? "تحديث فوري فور فتح مسؤول التوظيف لرسالتك أو مراجعتها."
+                    : "Instant indicator updates whenever a recruiter opens your email."}
+                </p>
+              </div>
+            </div>
+
+            <div className="exec-card rounded-2xl p-4 sm:p-5 flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#09090B] border border-zinc-800 text-[#D4AF37]">
+                <FileSpreadsheet className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="text-sm font-extrabold text-zinc-950 dark:text-zinc-50">
+                  {lang === "ar"
+                    ? "خطاب التقديم وتقرير CSV"
+                    : "AI Cover Letter & CSV Report"}
+                </h2>
+                <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                  {lang === "ar"
+                    ? "انسخ خطاب التقديم المعدّل وحمّل تقرير التسليم الكامل بضغطة."
+                    : "Copy your tailored cover letter and download your full CSV report."}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Actions Card */}
+          <div className="rounded-2xl bg-[#09090B] p-6 text-center border border-zinc-800 space-y-4">
+            <div className="mx-auto inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#18181B] border border-zinc-800 text-[#D4AF37]">
+              <Sparkles className="h-5 w-5" />
+            </div>
+            <p className="text-sm sm:text-base font-extrabold text-zinc-100">
+              {lang === "ar"
+                ? "لم تطلق حملة توزيع لسيرتك في الخليج بعد؟ ابدأ في أقل من 3 دقائق"
+                : "Ready to launch a private GCC HR distribution campaign in under 3 minutes?"}
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <Link
+                href="/#wizard-section"
+                className="btn-gold inline-flex min-h-[44px] items-center justify-center rounded-xl px-5 py-2.5 text-xs font-extrabold touch-manipulation"
+              >
+                {lang === "ar"
+                  ? "توظَّف أسرع — ابدأ الآن"
+                  : "Launch Distribution Wizard"}
+              </Link>
+              <Link
+                href="/#pricing-section"
+                className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-zinc-700 bg-[#18181B] px-4 py-2.5 text-xs font-bold text-zinc-200 hover:border-[#D4AF37] transition-colors touch-manipulation"
+              >
+                {lang === "ar" ? "عرض الباقات والأسعار" : "View Plans & Pricing"}
+              </Link>
+              <Link
+                href="/track/demo-uae-campaign-2026"
+                className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-zinc-700 bg-[#121215] px-4 py-2.5 text-xs font-bold text-[#D4AF37] hover:border-[#D4AF37] transition-colors touch-manipulation"
+              >
+                {lang === "ar"
+                  ? "استعراض نموذج تتبع حي"
+                  : "Inspect Live Demo Ledger"}
+              </Link>
+            </div>
+          </div>
         </div>
       </main>
     </div>
