@@ -8,10 +8,24 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
+import { registerHooks } from "node:module";
+import { pathToFileURL } from "node:url";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 
-import * as cadence from "../src/lib/social-cadence.ts";
+// Resolve `@/lib/*` TypeScript imports cleanly when running under plain Node `--test`
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    if (specifier.startsWith("@/lib/")) {
+      const target = path.join(ROOT, "src", "lib", `${specifier.slice(6)}.ts`);
+      return nextResolve(pathToFileURL(target).href, context);
+    }
+    return nextResolve(specifier, context);
+  },
+});
+
+const cadence = await import("../src/lib/social-cadence.ts");
+const commentDm = await import("../src/lib/social-comment-dm.ts");
 
 test("isValidSocialMediaFilename & safeDecodeSocialMediaFilename block traversal, bad extensions & malformed URIs", () => {
   assert.equal(cadence.isValidSocialMediaFilename("pin2-slide-01.jpg"), true);
@@ -320,4 +334,218 @@ test("Sanitized n8n workflow template has 4h cadence, hardened IG branch, and ze
   assert.match(byName.igEvaluatePoll.parameters.jsCode, /\$runIndex/);
   assert.match(byName.igEvaluatePoll.parameters.jsCode, /PUBLISHED/);
   assert.match(byName.igRecordPublished.parameters.jsCode, /ig_count_today/);
+});
+
+test("resolveSocialCommentReply handles normalization, self-comment loop guard, false-positive suppression, Job Reels & Pins", () => {
+  // Normalization: tashkeel + hamza + taa marbuta + alef maqsura
+  assert.equal(
+    commentDm.normalizeCommentText("  وظِيفَةٌ في أبُوظَبِيّ؟ 🔥🔥  "),
+    "وظيفه في ابوظبي"
+  );
+
+  // False-positive suppression: common compliments must NOT match "cv" / "vip" / "dm"
+  for (const harmless of ["lovely video 🔥🔥", "private page", "nice shot!", "🔥🔥🔥", "great work"]) {
+    const res = commentDm.resolveSocialCommentReply({
+      platform: "instagram",
+      commentId: "c-harmless-1",
+      text: harmless,
+      fromId: "user-123",
+      username: "visitor1",
+    });
+    assert.equal(res.should_reply, false, `"${harmless}" should NOT trigger a DM`);
+    assert.equal(res.skip_reason, "no_keyword_match");
+  }
+
+  // Self-comment infinite loop prevention (by username AND by account ID)
+  assert.equal(
+    commentDm.resolveSocialCommentReply({
+      platform: "instagram",
+      commentId: "c-self-1",
+      text: "دبي",
+      fromId: "999",
+      username: "Asra3_Jobs",
+    }).skip_reason,
+    "self_comment"
+  );
+  assert.equal(
+    commentDm.resolveSocialCommentReply({
+      platform: "instagram",
+      commentId: "c-self-2",
+      text: "دبي",
+      fromId: commentDm.DEFAULT_IG_ACCOUNT_ID,
+      username: "other",
+    }).skip_reason,
+    "self_comment"
+  );
+
+  // Exact Automated Job Reel match
+  const sampleJob = {
+    id: "job-1",
+    slug: "senior-accountant-dubai-emaar",
+    title_ar: "محاسب أول",
+    title_en: "Senior Accountant",
+    company_name: "Emaar Hospitality",
+    country_code: "AE",
+    city_name_ar: "دبي",
+    city_name_en: "Dubai",
+    salary_min: 18000,
+    salary_max: 24000,
+    salary_currency: "AED",
+  };
+  const jobRes = commentDm.resolveSocialCommentReply({
+    platform: "instagram",
+    commentId: "c-job-1",
+    mediaId: "17945544312096596",
+    text: "أبغي التقديم بالرياض",
+    fromId: "user-456",
+    username: "candidate_sa",
+    matchedJob: sampleJob,
+  });
+  assert.equal(jobRes.should_reply, true);
+  assert.equal(jobRes.matched_rule, "job_reel_exact");
+  assert.equal(jobRes.job_slug, "senior-accountant-dubai-emaar");
+  assert.match(jobRes.target_url, /^https:\/\/asra3\.com\/jobs\/senior-accountant-dubai-emaar\?utm_source=instagram&utm_medium=dm&utm_campaign=comment_job_reel$/);
+  assert.ok(jobRes.dm_text.length <= commentDm.INSTAGRAM_DM_MAX_CHARS);
+  assert.match(jobRes.dm_text, /ASRA3VIP/);
+  // Secondary country link when commenter asks for a different GCC market (SA vs job's AE)
+  assert.match(jobRes.dm_text, /https:\/\/asra3\.com\/sa\/jobs\?utm_source=instagram&utm_medium=dm&utm_campaign=comment_city_sa/);
+  assert.match(jobRes.public_reply_text, /الرسائل الخاصة|الخاص|الـ DM/);
+
+  // Pin #1 (Welcome Reel) -> general or city-specific hub
+  const pin1General = commentDm.resolveSocialCommentReply({
+    platform: "instagram",
+    commentId: "c-pin1-a",
+    mediaId: commentDm.PINNED_IG_MEDIA_IDS.WELCOME_JOBS,
+    text: "أسرع",
+    fromId: "u1",
+  });
+  assert.equal(pin1General.matched_rule, "pin1_welcome_jobs");
+  assert.match(pin1General.target_url, /^https:\/\/asra3\.com\/jobs\?/);
+
+  const pin1City = commentDm.resolveSocialCommentReply({
+    platform: "instagram",
+    commentId: "c-pin1-b",
+    mediaId: commentDm.PINNED_IG_MEDIA_IDS.WELCOME_JOBS,
+    text: "لدبي",
+    fromId: "u2",
+  });
+  assert.equal(pin1City.matched_rule, "pin1_welcome_jobs");
+  assert.match(pin1City.target_url, /^https:\/\/asra3\.com\/ae\/jobs\?/);
+
+  // Pin #2 (Carousel) & Pin #3 (VIP Shield) -> query string MUST precede #wizard-section
+  const pin2 = commentDm.resolveSocialCommentReply({
+    platform: "instagram",
+    commentId: "c-pin2",
+    mediaId: commentDm.PINNED_IG_MEDIA_IDS.ATS_CAROUSEL,
+    text: "ATS",
+    fromId: "u3",
+  });
+  assert.equal(pin2.matched_rule, "pin2_ats_carousel");
+  assert.equal(
+    pin2.target_url,
+    "https://asra3.com/?utm_source=instagram&utm_medium=dm&utm_campaign=pin2_carousel#wizard-section"
+  );
+
+  const pin3 = commentDm.resolveSocialCommentReply({
+    platform: "instagram",
+    commentId: "c-pin3",
+    mediaId: commentDm.PINNED_IG_MEDIA_IDS.VIP_SHIELD,
+    text: "VIP",
+    fromId: "u4",
+  });
+  assert.equal(pin3.matched_rule, "pin3_vip_shield");
+  assert.equal(
+    pin3.target_url,
+    "https://asra3.com/?utm_source=instagram&utm_medium=dm&utm_campaign=pin3_vip_shield#wizard-section"
+  );
+  assert.match(pin3.dm_text, /ASRA3VIP/);
+
+  // Country hubs + Employer routing
+  const cityChecks = [
+    ["دبي", "https://asra3.com/ae/jobs"],
+    ["الرياض", "https://asra3.com/sa/jobs"],
+    ["الدوحة", "https://asra3.com/qa/jobs"],
+    ["الكويت", "https://asra3.com/kw/jobs"],
+  ];
+  for (const [kw, expectedPrefix] of cityChecks) {
+    const cityRes = commentDm.resolveSocialCommentReply({
+      platform: "instagram",
+      commentId: `c-${kw}`,
+      text: kw,
+      fromId: "u5",
+    });
+    assert.equal(cityRes.matched_rule, "country_hub");
+    assert.ok(cityRes.target_url.startsWith(`${expectedPrefix}?`));
+  }
+
+  const empRes = commentDm.resolveSocialCommentReply({
+    platform: "instagram",
+    commentId: "c-emp",
+    mediaId: commentDm.PINNED_IG_MEDIA_IDS.WELCOME_JOBS,
+    text: "شركات دبي",
+    fromId: "u6",
+  });
+  assert.equal(empRes.matched_rule, "employer_intent");
+  assert.match(empRes.target_url, /^https:\/\/asra3\.com\/employers\?/);
+});
+
+test("Sanitized IG Comment-to-DM workflow template has GET/POST webhooks, safety guards & zero secrets", () => {
+  const wfPath = path.join(ROOT, "n8n-workflows/asra3-instagram-comment-to-dm.json");
+  const raw = fs.readFileSync(wfPath, "utf8");
+  assert.equal(/EAA[A-Za-z0-9]{20,}/.test(raw), false, "Must NEVER contain raw Meta access tokens!");
+
+  const wf = JSON.parse(raw);
+  const byName = Object.fromEntries(wf.nodes.map((n) => [n.name, n]));
+  const cfg = byName.configCredentials;
+  const assignments = Object.fromEntries(
+    (cfg?.parameters?.assignments?.assignments || []).map((a) => [a.name, a.value])
+  );
+  assert.equal(assignments.webhookSecret, "YOUR_N8N_WEBHOOK_SECRET_OR_ADMIN_PASSCODE");
+  assert.equal(assignments.instagramAccountId, "YOUR_INSTAGRAM_BUSINESS_ACCOUNT_ID");
+  assert.equal(assignments.instagramAccessToken, "YOUR_INSTAGRAM_ACCESS_TOKEN");
+
+  // Scan .env.local if present on host machine to guarantee zero leaked live secrets
+  const envLocalPath = path.join(ROOT, ".env.local");
+  if (fs.existsSync(envLocalPath)) {
+    for (const line of fs.readFileSync(envLocalPath, "utf8").split(/\r?\n/)) {
+      const m = line.match(/^(N8N_WEBHOOK_SECRET|FACEBOOK_PAGE_ACCESS_TOKEN|INSTAGRAM_ACCESS_TOKEN|ADMIN_PASSCODE|SUPABASE_SERVICE_ROLE_KEY)=(.+)$/);
+      if (m) {
+        const val = m[2].replace(/^['"]|['"]$/g, "").trim();
+        if (val.length >= 6) {
+          assert.equal(raw.includes(val), false, `Live secret ${m[1]} leaked into IG Comment-to-DM template!`);
+        }
+      }
+    }
+  }
+
+  // Both GET (verification) and POST (comments) webhooks must share the exact verified path
+  assert.equal(byName.Webhook.parameters.httpMethod, "GET");
+  assert.equal(byName.Webhook1.parameters.httpMethod, "POST");
+  assert.equal(byName.Webhook.parameters.path, "ee5a85d4-fb2c-4920-b9dc-7517a6e46fd4");
+  assert.equal(byName.Webhook1.parameters.path, "ee5a85d4-fb2c-4920-b9dc-7517a6e46fd4");
+  assert.equal(byName.Webhook1.parameters.responseMode, "onReceived");
+  assert.match(byName["Respond to Webhook"].parameters.responseBody, /hub\.challenge/);
+
+  for (const required of [
+    "extractIgComments",
+    "resolveCommentReply",
+    "mergeResolveContext",
+    "ifShouldReply",
+    "igSendPrivateDm",
+    "preparePublicReply",
+    "igSendPublicReply",
+  ]) {
+    assert.ok(byName[required], `Missing required IG Comment-to-DM node: ${required}`);
+  }
+
+  for (const codeNodeName of ["extractIgComments", "mergeResolveContext", "preparePublicReply"]) {
+    const code = byName[codeNodeName].parameters.jsCode || "";
+    assert.equal(
+      /\$json\./.test(code),
+      false,
+      `${codeNodeName} must use $input / $() instead of bare $json in runOnceForAllItems mode`
+    );
+  }
+  assert.match(byName.extractIgComments.parameters.jsCode, /processedCommentIds/);
+  assert.match(byName.extractIgComments.parameters.jsCode, /asra3_jobs/);
 });

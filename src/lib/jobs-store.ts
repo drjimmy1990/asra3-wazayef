@@ -897,6 +897,99 @@ export async function getInstagramDailyStats(now: Date = new Date()): Promise<{
   };
 }
 
+function matchesFbPostId(
+  candidate: string | null | undefined,
+  targetFbId: string
+): boolean {
+  if (!candidate) return false;
+  if (candidate === targetFbId) return true;
+  return !targetFbId.includes("_") && candidate.endsWith(`_${targetFbId}`);
+}
+
+export async function findJobBySocialPostId(params: {
+  igPostId?: string | null;
+  fbPostId?: string | null;
+}): Promise<JobPostingRecord | null> {
+  const igPostId = (params.igPostId || "").trim();
+  const fbPostId = (params.fbPostId || "").trim();
+  if (!igPostId && !fbPostId) {
+    return null;
+  }
+
+  const localJobs = readLocalJobs();
+
+  if (igPostId) {
+    if (isSupabaseConfigured()) {
+      try {
+        const sb = getSupabaseJobsClient();
+        const { data } = await sb
+          .from("jobs")
+          .select("*")
+          .eq("ig_post_id", igPostId)
+          .limit(1);
+        if (Array.isArray(data) && data.length > 0) {
+          const row = data[0] as JobPostingRecord;
+          if (!isLegacyDemoSeed(row)) {
+            return normalizeJobRow(row);
+          }
+        }
+      } catch {
+        // Non-blocking fallback to local store
+      }
+    }
+
+    const localIg = localJobs.find(
+      (j) => !isLegacyDemoSeed(j) && j.ig_post_id === igPostId
+    );
+    if (localIg) {
+      return normalizeJobRow(localIg);
+    }
+  }
+
+  if (fbPostId) {
+    if (isSupabaseConfigured()) {
+      try {
+        const sb = getSupabaseJobsClient();
+        const exactRes = await sb
+          .from("jobs")
+          .select("*")
+          .eq("fb_post_id", fbPostId)
+          .limit(1);
+        let row =
+          Array.isArray(exactRes.data) && exactRes.data.length > 0
+            ? (exactRes.data[0] as JobPostingRecord)
+            : null;
+
+        if (!row && !fbPostId.includes("_")) {
+          const suffixRes = await sb
+            .from("jobs")
+            .select("*")
+            .like("fb_post_id", `%_${fbPostId}`)
+            .limit(1);
+          if (Array.isArray(suffixRes.data) && suffixRes.data.length > 0) {
+            row = suffixRes.data[0] as JobPostingRecord;
+          }
+        }
+
+        if (row && !isLegacyDemoSeed(row)) {
+          return normalizeJobRow(row);
+        }
+      } catch {
+        // Non-blocking fallback to local store
+      }
+    }
+
+    const localFb = localJobs.find(
+      (j) => !isLegacyDemoSeed(j) && matchesFbPostId(j.fb_post_id, fbPostId)
+    );
+    if (localFb) {
+      return normalizeJobRow(localFb);
+    }
+  }
+
+  return null;
+}
+
 export async function markJobPostedToSocial(
   idOrSlug: string,
   meta: { fb_post_id?: string; ig_post_id?: string; tg_message_id?: string }
