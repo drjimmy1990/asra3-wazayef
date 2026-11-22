@@ -38,7 +38,7 @@ RUN npm run build
 FROM node:22-alpine AS runner
 WORKDIR /app
 
-RUN apk add --no-cache su-exec wget && \
+RUN apk add --no-cache su-exec wget ffmpeg && \
     addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
@@ -55,7 +55,7 @@ COPY docker-entrypoint.sh /app/docker-entrypoint.sh
 
 RUN sed -i 's/\r$//' /app/docker-entrypoint.sh && \
     chmod +x /app/docker-entrypoint.sh && \
-    mkdir -p /app/.data/uploads && \
+    mkdir -p /app/.data/uploads /app/.data/reels && \
     chown -R nextjs:nodejs /app/.data
 
 EXPOSE 3000

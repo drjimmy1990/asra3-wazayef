@@ -57,6 +57,10 @@ export async function GET(req: NextRequest) {
     const fbCommentApplyUrl = `${jobUrl}?utm_source=facebook&utm_medium=social_comment&utm_campaign=jobs_autopilot`;
     const tgApplyUrl = `${jobUrl}?utm_source=telegram&utm_medium=channel&utm_campaign=jobs_autopilot`;
     const ogImageUrl = `${siteUrl}/api/og/job/${job.slug}?t=${activeOgTemplate}`;
+    const reelVideoUrl = `${siteUrl}/api/reel/job/${encodeURIComponent(job.slug)}`;
+    const reelPrepareUrl = `${reelVideoUrl}?prepare=1`;
+    const socialMode = process.env.FACEBOOK_SOCIAL_MODE || "reels";
+    const commentKeyword = job.city_name_ar || "وظيفة";
 
     const salaryLineAr =
       job.salary_min && job.salary_max
@@ -91,6 +95,20 @@ export async function GET(req: NextRequest) {
       .filter((line) => line !== "")
       .join("\n");
 
+    const facebookReelCaption = [
+      `⚡ فرصة موثقة في ${job.city_name_ar} (${country.name_ar}) — التقديم مباشر للـ HR بدون وسطاء!`,
+      `📌 ${job.title_ar} | ${job.title_en}`,
+      `🏢 ${job.company_name} (بريد HR مفحوص DNS MX ✓)`,
+      salaryLineAr.trim(),
+      ``,
+      `💬 اكتب كلمة "${commentKeyword}" في التعليقات الآن أو افتح رابط التقديم المباشر في أول تعليق 👇`,
+      `👇 Direct HR apply link & free ATS CV check in the first comment!`,
+      ``,
+      `#Reels #ريلز #وظائف ${hashtags}`,
+    ]
+      .filter((line) => line !== "")
+      .join("\n");
+
     const facebookFirstComment = `✅ قدّم مباشرة الآن أو افحص توافق سيرتك الذاتية مع هذه الوظيفة عبر منصة أسرع:\nApply directly & check your ATS match score here:\n${fbCommentApplyUrl}`;
 
     const telegramMessage = [
@@ -117,8 +135,13 @@ export async function GET(req: NextRequest) {
       country_code: job.country_code,
       city_name_en: job.city_name_en,
       og_image_url: ogImageUrl,
+      reel_video_url: reelVideoUrl,
+      reel_prepare_url: reelPrepareUrl,
+      comment_keyword: commentKeyword,
+      social_mode: socialMode,
       canonical_url: jobUrl,
       facebook_photo_caption: facebookPhotoCaption,
+      facebook_reel_caption: facebookReelCaption,
       facebook_first_comment: facebookFirstComment,
       telegram_html: telegramMessage,
     };
