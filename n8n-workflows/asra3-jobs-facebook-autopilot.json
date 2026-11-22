@@ -385,6 +385,11 @@
             "node": "prepareJobReel",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "publishFacebookPhoto",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
