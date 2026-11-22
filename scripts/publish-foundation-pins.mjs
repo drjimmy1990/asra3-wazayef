@@ -497,7 +497,7 @@ async function main() {
 
   // Check existing IG media to avoid duplicates
   const existingIg = await graphRequest(
-    `/${igId}/media?fields=id,caption,permalink&limit=10&access_token=${encodeURIComponent(igToken)}`
+    `/${igId}/media?fields=id,caption,permalink&limit=50&access_token=${encodeURIComponent(igToken)}`
   );
   const existingIgCaptions = (existingIg.data || []).map((m) => m.caption || "");
 
@@ -571,7 +571,7 @@ async function main() {
 
   // Check recent FB posts to avoid duplicates
   const existingFbPosts = await graphRequest(
-    `/${fbId}/posts?fields=id,message&limit=10&access_token=${encodeURIComponent(fbToken)}`
+    `/${fbId}/posts?fields=id,message&limit=50&access_token=${encodeURIComponent(fbToken)}`
   );
   const existingFbMessages = (existingFbPosts.data || []).map((p) => p.message || "");
 

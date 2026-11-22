@@ -28,6 +28,58 @@ export function isValidSocialMediaFilename(filename: string): boolean {
   return VALID_SOCIAL_MEDIA_FILENAME_RE.test(filename);
 }
 
+export function safeDecodeSocialMediaFilename(rawFilename: string): string | null {
+  try {
+    const decoded = decodeURIComponent(rawFilename || "").trim();
+    return isValidSocialMediaFilename(decoded) ? decoded : null;
+  } catch {
+    return null;
+  }
+}
+
+export function parseByteRange(
+  rangeHeader: string,
+  totalSize: number
+): { start: number; end: number } | null {
+  if (!Number.isFinite(totalSize) || totalSize <= 0) {
+    return null;
+  }
+  const match = /^bytes=(\d*)-(\d*)$/i.exec((rangeHeader || "").trim());
+  if (!match || (!match[1] && !match[2])) {
+    return null;
+  }
+
+  let start: number;
+  let end: number;
+
+  if (!match[1] && match[2]) {
+    // Suffix byte range: bytes=-N (last N bytes)
+    const suffixLen = Number(match[2]);
+    if (!Number.isFinite(suffixLen) || suffixLen <= 0) {
+      return null;
+    }
+    start = Math.max(0, totalSize - suffixLen);
+    end = totalSize - 1;
+  } else {
+    start = Number(match[1]);
+    // RFC 9110 §14.1.2: clamp last-pos to totalSize - 1 when end >= totalSize
+    const rawEnd = match[2] ? Number(match[2]) : totalSize - 1;
+    end = Math.min(rawEnd, totalSize - 1);
+  }
+
+  if (
+    !Number.isFinite(start) ||
+    !Number.isFinite(end) ||
+    start < 0 ||
+    start >= totalSize ||
+    end < start
+  ) {
+    return null;
+  }
+
+  return { start, end };
+}
+
 export function getSocialMediaContentType(filename: string): string {
   const lower = filename.toLowerCase();
   if (lower.endsWith(".mp4")) return "video/mp4";
@@ -145,6 +197,32 @@ export function evaluateInstagramEligibility(params: {
   };
 }
 
+function stripSocialUrls(text: string): string {
+  return String(text || "")
+    .replace(/https?:\/\/\S+/gi, "")
+    .replace(/\bwww\.\S+/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+export function formatBilingualJobTitle(titleAr: string, titleEn: string): string {
+  const cleanAr = stripSocialUrls(String(titleAr || "").replace(/^title\s*:\s*/i, ""));
+  const cleanEn = stripSocialUrls(String(titleEn || "").replace(/^title\s*:\s*/i, ""));
+
+  if (!cleanAr) return cleanEn;
+  if (!cleanEn) return cleanAr;
+
+  const arLower = cleanAr.toLowerCase();
+  const enLower = cleanEn.toLowerCase();
+  if (arLower === enLower || arLower.includes(enLower)) {
+    return cleanAr;
+  }
+  if (enLower.includes(arLower)) {
+    return cleanEn;
+  }
+  return `${cleanAr} | ${cleanEn}`;
+}
+
 /**
  * Instagram-native Reel caption:
  * - Zero external URLs (Instagram captions do not linkify URLs & URLs reduce reach)
@@ -163,13 +241,25 @@ export function buildInstagramReelCaption(params: {
   salaryCurrency?: string;
   commentKeyword: string;
 }): string {
-  const cleanTitleAr = String(params.titleAr || "").replace(/^title\s*:\s*/i, "").trim();
-  const cleanTitleEn = String(params.titleEn || "").replace(/^title\s*:\s*/i, "").trim();
+  const formattedTitle = formatBilingualJobTitle(params.titleAr, params.titleEn);
+  const safeCity = stripSocialUrls(params.cityNameAr) || "الخليج";
+  const safeCountry = stripSocialUrls(params.countryNameAr) || "الخليج";
+  const safeCompany = stripSocialUrls(params.companyName) || "شركة موثقة";
+  const safeKeyword = stripSocialUrls(params.commentKeyword) || "وظيفة";
+  const currency = stripSocialUrls(params.salaryCurrency || "AED") || "AED";
 
-  const salaryLine =
-    params.salaryMin && params.salaryMax
-      ? `💰 الراتب التقديري: ${params.salaryMin.toLocaleString("en-US")} – ${params.salaryMax.toLocaleString("en-US")} ${params.salaryCurrency || "AED"}`
-      : "";
+  const minVal = typeof params.salaryMin === "number" && params.salaryMin > 0 ? params.salaryMin : null;
+  const maxVal = typeof params.salaryMax === "number" && params.salaryMax > 0 ? params.salaryMax : null;
+  let salaryLine = "";
+  if (minVal && maxVal && minVal !== maxVal) {
+    const lo = Math.min(minVal, maxVal);
+    const hi = Math.max(minVal, maxVal);
+    salaryLine = `💰 الراتب التقديري: ${lo.toLocaleString("en-US")} – ${hi.toLocaleString("en-US")} ${currency}`;
+  } else if (minVal) {
+    salaryLine = `💰 الراتب التقديري: ${minVal.toLocaleString("en-US")} ${currency}`;
+  } else if (maxVal) {
+    salaryLine = `💰 الراتب التقديري: حتى ${maxVal.toLocaleString("en-US")} ${currency}`;
+  }
 
   const countryTags = COUNTRY_IG_HASHTAGS[params.countryCode] || [
     "#وظائف_دبي",
@@ -179,19 +269,16 @@ export function buildInstagramReelCaption(params: {
   // 5 hyper-relevant hashtags total (Playbook rule: 4–6 max on Instagram)
   const hashtags = [...countryTags, "#وظائف_الخليج", "#Asra3"].join(" ");
 
-  const titleLine =
-    cleanTitleAr && cleanTitleEn && cleanTitleAr.toLowerCase() !== cleanTitleEn.toLowerCase()
-      ? `📌 ${cleanTitleAr} | ${cleanTitleEn}`
-      : `📌 ${cleanTitleAr || cleanTitleEn}`;
+  const titleLine = `📌 ${formattedTitle}`;
 
   return [
-    `⚡ وظيفة موثقة في ${params.cityNameAr} (${params.countryNameAr}) — التقديم مباشر للـ HR بدون وسطاء!`,
+    `⚡ وظيفة موثقة في ${safeCity} (${safeCountry}) — التقديم مباشر للـ HR بدون وسطاء!`,
     titleLine,
-    `🏢 ${params.companyName} (بريد HR مفحوص DNS MX ✓)`,
+    `🏢 ${safeCompany} (بريد HR مفحوص DNS MX ✓)`,
     salaryLine,
     "",
-    `💬 اكتب كلمة "${params.commentKeyword}" في التعليقات الآن أو افتح الرابط في البايو للتقديم المباشر وفحص الـ ATS مجاناً 👇`,
-    `👇 Comment "${params.commentKeyword}" or tap the Bio Link to apply directly & run a free ATS CV check!`,
+    `💬 اكتب كلمة "${safeKeyword}" في التعليقات الآن أو افتح الرابط في البايو للتقديم المباشر وفحص الـ ATS مجاناً 👇`,
+    `👇 Comment "${safeKeyword}" or tap the Bio Link to apply directly & run a free ATS CV check!`,
     "",
     hashtags,
   ]

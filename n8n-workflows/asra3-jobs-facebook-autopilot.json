@@ -298,6 +298,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [2760, 300],
+      "alwaysOutputData": true,
       "onError": "continueRegularOutput",
       "parameters": {
         "method": "POST",
@@ -336,7 +337,7 @@
       "position": [3040, 300],
       "notes": "Enforces Instagram warmup cap (2–3 Reels/day) during Gulf peak hours (07–10, 11–15, 19–22 GST) with 3.5h minimum spacing.",
       "parameters": {
-        "jsCode": "const job = $('unpackQueueItems').first().json;\nconst reel = $('prepareJobReel').first().json || {};\nconst fbFinish = $('fbReelFinish').first().json || {};\nconst fbStart = $('fbReelStart').first().json || {};\n\nconst fbPostId = fbFinish.post_id\n  ? (String(fbFinish.post_id).includes('_') ? String(fbFinish.post_id) : `${job.facebookPageId}_${fbFinish.post_id}`)\n  : (fbStart.video_id ? String(fbStart.video_id) : 'reel_posted');\n\nconst reelUrl = reel.reel_url || job.reel_video_url || '';\nconst igEnabled = String(job.instagramEnabled ?? 'true').trim().toLowerCase() === 'true';\nconst hasCreds =\n  Boolean(job.instagramAccountId) &&\n  job.instagramAccountId !== 'YOUR_INSTAGRAM_BUSINESS_ACCOUNT_ID' &&\n  Boolean(job.instagramAccessToken) &&\n  job.instagramAccessToken !== 'YOUR_INSTAGRAM_ACCESS_TOKEN';\n\nconst rawCap = String(job.instagramDailyCap ?? '3').trim();\nconst parsedCap = rawCap === '' ? 3 : Number(rawCap);\nconst dailyCap = Number.isFinite(parsedCap) ? Math.max(0, Math.min(6, Math.floor(parsedCap))) : 3;\n\nconst nowMs = Date.now();\nconst gstDateObj = new Date(nowMs + 4 * 60 * 60 * 1000);\nconst gstDate = `${gstDateObj.getUTCFullYear()}-${String(gstDateObj.getUTCMonth() + 1).padStart(2, '0')}-${String(gstDateObj.getUTCDate()).padStart(2, '0')}`;\nconst gstHour = gstDateObj.getUTCHours();\nconst peakSlot = (gstHour >= 7 && gstHour <= 10) ? 'morning' : (gstHour >= 11 && gstHour <= 15) ? 'midday' : (gstHour >= 19 && gstHour <= 22) ? 'evening' : null;\n\nconst staticData = $getWorkflowStaticData('global');\nif (!staticData.igDailyTracker || staticData.igDailyTracker.gstDate !== gstDate) {\n  staticData.igDailyTracker = { gstDate, count: 0, slotsUsed: [], lastPostedAt: staticData.igDailyTracker?.lastPostedAt || null };\n}\nconst tracker = staticData.igDailyTracker;\nconst serverBudget = job.instagram_budget || {};\n\nconst serverCount = serverBudget.gst_date === gstDate ? Number(serverBudget.published_today_gst || 0) : 0;\nconst effectiveCount = Math.max(Number(tracker.count || 0), serverCount);\nconst effectiveSlots = Array.from(new Set([\n  ...(Array.isArray(tracker.slotsUsed) ? tracker.slotsUsed : []),\n  ...(serverBudget.gst_date === gstDate && Array.isArray(serverBudget.slots_used_today) ? serverBudget.slots_used_today : []),\n]));\n\nconst lastCandidates = [tracker.lastPostedAt, serverBudget.last_ig_posted_at]\n  .map((iso) => (iso ? Date.parse(iso) : NaN))\n  .filter((ms) => Number.isFinite(ms));\nconst lastPostedMs = lastCandidates.length ? Math.max(...lastCandidates) : 0;\nconst minSpacingOk = !lastPostedMs || (nowMs - lastPostedMs) >= 3.5 * 60 * 60 * 1000;\n\nlet skipReason = null;\nif (!igEnabled) skipReason = 'instagram_disabled';\nelse if (!hasCreds) skipReason = 'missing_instagram_credentials';\nelse if (!reelUrl) skipReason = 'missing_reel_url';\nelse if (dailyCap <= 0) skipReason = 'daily_cap_zero';\nelse if (effectiveCount >= dailyCap) skipReason = 'daily_cap_reached';\nelse if (!peakSlot) skipReason = 'outside_gulf_peak_hours';\nelse if (effectiveSlots.includes(peakSlot)) skipReason = `peak_slot_${peakSlot}_already_used`;\nelse if (!minSpacingOk) skipReason = 'min_spacing_guard';\n\nconst igCaption = job.instagram_reel_caption || job.facebook_reel_caption || '';\n\nreturn [{\n  json: {\n    job_id: job.id,\n    slug: job.slug,\n    asra3BaseUrl: job.asra3BaseUrl,\n    webhookSecret: job.webhookSecret,\n    fb_post_id: fbPostId,\n    ig_post_id: null,\n    reel_url: reelUrl,\n    instagramAccountId: job.instagramAccountId,\n    instagramAccessToken: job.instagramAccessToken,\n    instagram_reel_caption: igCaption,\n    should_publish_ig: skipReason === null,\n    ig_skip_reason: skipReason,\n    gst_date: gstDate,\n    gst_hour: gstHour,\n    gst_slot: peakSlot,\n    ig_count_today: effectiveCount,\n    ig_daily_cap: dailyCap,\n  },\n}];"
+        "jsCode": "const job = $('unpackQueueItems').first().json;\nconst reel = $('prepareJobReel').first().json || {};\nconst fbFinish = $('fbReelFinish').first().json || {};\nconst fbStart = $('fbReelStart').first().json || {};\n\nconst fbPostId = fbFinish.post_id\n  ? (String(fbFinish.post_id).includes('_') ? String(fbFinish.post_id) : `${job.facebookPageId}_${fbFinish.post_id}`)\n  : (fbStart.video_id ? String(fbStart.video_id) : 'reel_posted');\n\nconst reelUrl = reel.reel_url || job.reel_video_url || '';\nconst igEnabled = String(job.instagramEnabled ?? 'true').trim().toLowerCase() === 'true';\nconst hasCreds =\n  Boolean(job.instagramAccountId) &&\n  job.instagramAccountId !== 'YOUR_INSTAGRAM_BUSINESS_ACCOUNT_ID' &&\n  Boolean(job.instagramAccessToken) &&\n  job.instagramAccessToken !== 'YOUR_INSTAGRAM_ACCESS_TOKEN';\n\nconst rawCap = String(job.instagramDailyCap ?? '3').trim();\nconst parsedCap = rawCap === '' ? 3 : Number(rawCap);\nconst dailyCap = Number.isFinite(parsedCap) ? Math.max(0, Math.min(6, Math.floor(parsedCap))) : 3;\n\nconst nowMs = Date.now();\nconst gstDateObj = new Date(nowMs + 4 * 60 * 60 * 1000);\nconst gstDate = `${gstDateObj.getUTCFullYear()}-${String(gstDateObj.getUTCMonth() + 1).padStart(2, '0')}-${String(gstDateObj.getUTCDate()).padStart(2, '0')}`;\nconst gstHour = gstDateObj.getUTCHours();\nconst peakSlot = (gstHour >= 7 && gstHour <= 10) ? 'morning' : (gstHour >= 11 && gstHour <= 15) ? 'midday' : (gstHour >= 19 && gstHour <= 22) ? 'evening' : null;\n\nconst staticData = $getWorkflowStaticData('global');\nif (!staticData.igDailyTracker || staticData.igDailyTracker.gstDate !== gstDate) {\n  staticData.igDailyTracker = { gstDate, count: 0, slotsUsed: [], lastPostedAt: staticData.igDailyTracker?.lastPostedAt || null };\n}\nconst tracker = staticData.igDailyTracker;\nconst serverBudget = job.instagram_budget || {};\n\nconst serverCount = serverBudget.gst_date === gstDate ? Number(serverBudget.published_today_gst || 0) : 0;\nconst effectiveCount = Math.max(Number(tracker.count || 0), serverCount);\nconst effectiveSlots = Array.from(new Set([\n  ...(Array.isArray(tracker.slotsUsed) ? tracker.slotsUsed : []),\n  ...(serverBudget.gst_date === gstDate && Array.isArray(serverBudget.slots_used_today) ? serverBudget.slots_used_today : []),\n]));\n\nconst lastCandidates = [tracker.lastPostedAt, serverBudget.last_ig_posted_at]\n  .map((iso) => (iso ? Date.parse(iso) : NaN))\n  .filter((ms) => Number.isFinite(ms));\nconst lastPostedMs = lastCandidates.length ? Math.max(...lastCandidates) : 0;\nconst minSpacingOk = !lastPostedMs || (nowMs - lastPostedMs) >= 3.5 * 60 * 60 * 1000;\n\nlet skipReason = null;\nif (!igEnabled) skipReason = 'instagram_disabled';\nelse if (!hasCreds) skipReason = 'missing_instagram_credentials';\nelse if (!reelUrl) skipReason = 'missing_reel_url';\nelse if (dailyCap <= 0) skipReason = 'daily_cap_zero';\nelse if (effectiveCount >= dailyCap) skipReason = 'daily_cap_reached';\nelse if (!peakSlot) skipReason = 'outside_gulf_peak_hours';\nelse if (effectiveSlots.includes(peakSlot)) skipReason = `peak_slot_${peakSlot}_already_used`;\nelse if (!minSpacingOk) skipReason = 'min_spacing_guard';\n\nconst igCaption = job.instagram_reel_caption || job.facebook_reel_caption || '';\n\nreturn [{\n  json: {\n    job_id: job.id,\n    slug: job.slug,\n    asra3BaseUrl: job.asra3BaseUrl,\n    webhookSecret: job.webhookSecret,\n    fb_post_id: fbPostId,\n    ig_post_id: null,\n    reel_url: reelUrl,\n    instagramAccountId: job.instagramAccountId,\n    instagramAccessToken: job.instagramAccessToken,\n    instagram_reel_caption: igCaption,\n    should_publish_ig: skipReason === null,\n    ig_skip_reason: skipReason,\n    gst_date: gstDate,\n    gst_hour: gstHour,\n    gst_slot: peakSlot,\n    ig_count_today: effectiveCount,\n    ig_slots_used_today: effectiveSlots,\n    ig_daily_cap: dailyCap,\n  },\n}];"
       }
     },
     {
@@ -399,7 +400,7 @@
       "typeVersion": 2,
       "position": [3820, 140],
       "parameters": {
-        "jsCode": "const base = $('evaluateInstagramGate').first().json;\nconst creationId = $json.id ? String($json.id) : '';\nreturn [{\n  json: {\n    ...base,\n    creation_id: creationId,\n    has_creation_id: Boolean(creationId),\n    ig_create_error: creationId ? null : ($json.error?.message || 'no_creation_id'),\n  },\n}];"
+        "jsCode": "const base = $('evaluateInstagramGate').first().json;\nconst incoming = $input.first()?.json || {};\nconst creationId = incoming.id ? String(incoming.id) : '';\nreturn [{\n  json: {\n    ...base,\n    creation_id: creationId,\n    has_creation_id: Boolean(creationId),\n    ig_create_error: creationId ? null : (incoming.error?.message || 'no_creation_id'),\n  },\n}];"
       }
     },
     {
@@ -481,7 +482,7 @@
       "typeVersion": 2,
       "position": [4820, 40],
       "parameters": {
-        "jsCode": "const base = $('igPreparePoll').first().json;\nconst statusCode = String($json.status_code || '').toUpperCase();\nconst nodeData = $getWorkflowStaticData('node');\nif (!nodeData.pollAttempts || typeof nodeData.pollAttempts !== 'object') {\n  nodeData.pollAttempts = {};\n}\nconst keys = Object.keys(nodeData.pollAttempts);\nif (keys.length > 25) {\n  for (const k of keys.slice(0, keys.length - 15)) delete nodeData.pollAttempts[k];\n}\nconst attempt = Number(nodeData.pollAttempts[base.creation_id] || 0) + 1;\nnodeData.pollAttempts[base.creation_id] = attempt;\n\nlet action = 'retry';\nif (statusCode === 'FINISHED') {\n  action = 'publish';\n  delete nodeData.pollAttempts[base.creation_id];\n} else if (statusCode === 'ERROR' || statusCode === 'EXPIRED' || attempt >= 7) {\n  action = 'abort';\n  delete nodeData.pollAttempts[base.creation_id];\n}\n\nreturn [{\n  json: {\n    ...base,\n    ig_status_code: statusCode || 'UNKNOWN',\n    ig_poll_attempt: attempt,\n    ig_poll_action: action,\n  },\n}];"
+        "jsCode": "const base = $('igPreparePoll').first().json;\nconst incoming = $input.first()?.json || {};\nconst statusCode = String(incoming.status_code || '').toUpperCase();\nconst attempt = (typeof $runIndex === 'number' ? $runIndex : 0) + 1;\n\nconst errStatus = Number(incoming.error?.status || incoming.error?.httpCode || 0);\nconst errMsg = String(incoming.error?.message || '');\nconst isPermanentHttpError =\n  (errStatus >= 400 && errStatus < 500 && errStatus !== 429) ||\n  /^(400|401|403|404)\\b/.test(errMsg) ||\n  /OAuthException/i.test(errMsg);\n\nlet action = 'retry';\nif (statusCode === 'FINISHED') {\n  action = 'publish';\n} else if (\n  statusCode === 'ERROR' ||\n  statusCode === 'EXPIRED' ||\n  statusCode === 'PUBLISHED' ||\n  isPermanentHttpError ||\n  attempt >= 7\n) {\n  action = 'abort';\n}\n\nreturn [{\n  json: {\n    ...base,\n    ig_status_code: statusCode || (isPermanentHttpError ? 'HTTP_ERROR' : 'UNKNOWN'),\n    ig_status_error: incoming.error?.message || null,\n    ig_poll_attempt: attempt,\n    ig_poll_action: action,\n  },\n}];"
       }
     },
     {
@@ -562,7 +563,7 @@
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ creation_id: $json.creation_id, access_token: $json.instagramAccessToken }) }}",
         "options": {
-          "timeout": 30000
+          "timeout": 60000
         }
       }
     },
@@ -573,7 +574,7 @@
       "typeVersion": 2,
       "position": [5600, -60],
       "parameters": {
-        "jsCode": "const base = $('igPreparePoll').first().json;\nconst igPostId = $json.id ? String($json.id) : null;\n\nif (igPostId) {\n  const staticData = $getWorkflowStaticData('global');\n  if (!staticData.igDailyTracker || staticData.igDailyTracker.gstDate !== base.gst_date) {\n    staticData.igDailyTracker = { gstDate: base.gst_date, count: 0, slotsUsed: [], lastPostedAt: null };\n  }\n  staticData.igDailyTracker.count = Number(staticData.igDailyTracker.count || 0) + 1;\n  if (base.gst_slot && !staticData.igDailyTracker.slotsUsed.includes(base.gst_slot)) {\n    staticData.igDailyTracker.slotsUsed.push(base.gst_slot);\n  }\n  staticData.igDailyTracker.lastPostedAt = new Date().toISOString();\n}\n\nreturn [{\n  json: {\n    ...base,\n    ig_post_id: igPostId,\n  },\n}];"
+        "jsCode": "const base = $('igPreparePoll').first().json;\nconst incoming = $input.first()?.json || {};\nconst igPostId = incoming.id ? String(incoming.id) : null;\n\nif (igPostId) {\n  const staticData = $getWorkflowStaticData('global');\n  if (!staticData.igDailyTracker || staticData.igDailyTracker.gstDate !== base.gst_date) {\n    staticData.igDailyTracker = { gstDate: base.gst_date, count: 0, slotsUsed: [], lastPostedAt: null };\n  }\n  staticData.igDailyTracker.count =\n    Math.max(Number(staticData.igDailyTracker.count || 0), Number(base.ig_count_today || 0)) + 1;\n  const mergedSlots = new Set([\n    ...(Array.isArray(staticData.igDailyTracker.slotsUsed) ? staticData.igDailyTracker.slotsUsed : []),\n    ...(Array.isArray(base.ig_slots_used_today) ? base.ig_slots_used_today : []),\n  ]);\n  if (base.gst_slot) {\n    mergedSlots.add(base.gst_slot);\n  }\n  staticData.igDailyTracker.slotsUsed = Array.from(mergedSlots);\n  staticData.igDailyTracker.lastPostedAt = new Date().toISOString();\n}\n\nreturn [{\n  json: {\n    ...base,\n    ig_post_id: igPostId,\n    ig_publish_error: igPostId ? null : (incoming.error?.message || 'no_ig_post_id'),\n  },\n}];"
       }
     },
     {
@@ -582,6 +583,9 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [5880, 300],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
       "parameters": {
         "method": "POST",
         "url": "={{ $json.asra3BaseUrl }}/api/webhooks/jobs-social",
@@ -601,7 +605,9 @@
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ id: $json.job_id, fb_post_id: $json.fb_post_id, ...($json.ig_post_id ? { ig_post_id: $json.ig_post_id } : {}) }) }}",
-        "options": {}
+        "options": {
+          "timeout": 20000
+        }
       }
     }
   ],

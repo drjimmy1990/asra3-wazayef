@@ -920,18 +920,28 @@ export async function markJobPostedToSocial(
     }
   }
 
+  let fbPostedAt = nowIso;
+  let igPostedAt = nowIso;
+  let tgPostedAt = nowIso;
+
   if (idx !== -1) {
     if (meta.fb_post_id) {
+      const sameFb = jobs[idx].fb_post_id === meta.fb_post_id && Boolean(jobs[idx].fb_posted_at);
+      fbPostedAt = sameFb ? (jobs[idx].fb_posted_at as string) : nowIso;
       jobs[idx].fb_post_id = meta.fb_post_id;
-      jobs[idx].fb_posted_at = nowIso;
+      jobs[idx].fb_posted_at = fbPostedAt;
     }
     if (meta.ig_post_id) {
+      const sameIg = jobs[idx].ig_post_id === meta.ig_post_id && Boolean(jobs[idx].ig_posted_at);
+      igPostedAt = sameIg ? (jobs[idx].ig_posted_at as string) : nowIso;
       jobs[idx].ig_post_id = meta.ig_post_id;
-      jobs[idx].ig_posted_at = nowIso;
+      jobs[idx].ig_posted_at = igPostedAt;
     }
     if (meta.tg_message_id) {
+      const sameTg = jobs[idx].tg_message_id === meta.tg_message_id && Boolean(jobs[idx].tg_posted_at);
+      tgPostedAt = sameTg ? (jobs[idx].tg_posted_at as string) : nowIso;
       jobs[idx].tg_message_id = meta.tg_message_id;
-      jobs[idx].tg_posted_at = nowIso;
+      jobs[idx].tg_posted_at = tgPostedAt;
     }
     writeLocalJobs(jobs);
   }
@@ -943,11 +953,11 @@ export async function markJobPostedToSocial(
       const patch: Record<string, string> = {};
       if (meta.fb_post_id) {
         patch.fb_post_id = meta.fb_post_id;
-        patch.fb_posted_at = nowIso;
+        patch.fb_posted_at = fbPostedAt;
       }
       if (meta.tg_message_id) {
         patch.tg_message_id = meta.tg_message_id;
-        patch.tg_posted_at = nowIso;
+        patch.tg_posted_at = tgPostedAt;
       }
       if (Object.keys(patch).length > 0) {
         const byId = await sb
@@ -973,7 +983,7 @@ export async function markJobPostedToSocial(
         try {
           const igPatch = {
             ig_post_id: meta.ig_post_id,
-            ig_posted_at: nowIso,
+            ig_posted_at: igPostedAt,
           };
           const igById = await sb
             .from("jobs")

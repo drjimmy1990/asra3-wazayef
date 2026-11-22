@@ -11,12 +11,9 @@ import { execFileSync } from "node:child_process";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 
-// Load TypeScript logic cleanly via regex-free transpile or mirror verification:
-// Node 22+ supports native strip-types or tsx, let's check if we can import the
-// real TS module directly using Node 22's --experimental-strip-types (or fallback).
 import * as cadence from "../src/lib/social-cadence.ts";
 
-test("isValidSocialMediaFilename allows safe assets and blocks traversal/invalid extensions", () => {
+test("isValidSocialMediaFilename & safeDecodeSocialMediaFilename block traversal, bad extensions & malformed URIs", () => {
   assert.equal(cadence.isValidSocialMediaFilename("pin2-slide-01.jpg"), true);
   assert.equal(cadence.isValidSocialMediaFilename("pin1-v7-live-jobs.mp4"), true);
   assert.equal(cadence.isValidSocialMediaFilename("hero_banner.PNG"), true);
@@ -31,6 +28,33 @@ test("isValidSocialMediaFilename allows safe assets and blocks traversal/invalid
   assert.equal(cadence.isValidSocialMediaFilename("secret.json"), false);
   assert.equal(cadence.isValidSocialMediaFilename("payload.svg"), false);
   assert.equal(cadence.isValidSocialMediaFilename("a".repeat(130) + ".jpg"), false);
+
+  // Safe URI decoding (must never throw URIError -> 500)
+  assert.equal(cadence.safeDecodeSocialMediaFilename("pin2-slide-01.jpg"), "pin2-slide-01.jpg");
+  assert.equal(cadence.safeDecodeSocialMediaFilename("%ZZ"), null);
+  assert.equal(cadence.safeDecodeSocialMediaFilename("%E0%A4%A"), null);
+  assert.equal(cadence.safeDecodeSocialMediaFilename("%2e%2e%2f.env"), null);
+  assert.equal(cadence.safeDecodeSocialMediaFilename("..%2Fsecret.jpg"), null);
+});
+
+test("parseByteRange follows RFC 9110 clamping and rejects unsatisfiable ranges", () => {
+  // Normal bounded range
+  assert.deepEqual(cadence.parseByteRange("bytes=0-1023", 5000), { start: 0, end: 1023 });
+  // Oversized end must clamp to totalSize - 1 (RFC 9110 §14.1.2)
+  assert.deepEqual(cadence.parseByteRange("bytes=0-99999999", 117468), { start: 0, end: 117467 });
+  // Open-ended range
+  assert.deepEqual(cadence.parseByteRange("bytes=500-", 1000), { start: 500, end: 999 });
+  // Suffix ranges
+  assert.deepEqual(cadence.parseByteRange("bytes=-200", 1000), { start: 800, end: 999 });
+  assert.deepEqual(cadence.parseByteRange("bytes=-99999999", 1000), { start: 0, end: 999 });
+
+  // Unsatisfiable / malformed ranges -> null (416)
+  assert.equal(cadence.parseByteRange("bytes=-0", 1000), null);
+  assert.equal(cadence.parseByteRange("bytes=1000-", 1000), null);
+  assert.equal(cadence.parseByteRange("bytes=500-100", 1000), null);
+  assert.equal(cadence.parseByteRange("bytes=-", 1000), null);
+  assert.equal(cadence.parseByteRange("items=0-10", 1000), null);
+  assert.equal(cadence.parseByteRange("bytes=0-10", 0), null);
 });
 
 test("getSocialMediaContentType maps extensions accurately", () => {
@@ -70,7 +94,7 @@ test("GST clock & Gulf peak slot classification across all 24 hours", () => {
 
 test("evaluateInstagramEligibility enforces daily cap, slot dedupe, peak window & spacing", () => {
   const morningUtc = new Date("2026-11-22T04:30:00Z"); // 08:30 GST (morning)
-  const sleepUtc = new Date("2026-11-22T00:30:00Z");   // 04:30 GST (off-peak)
+  const sleepUtc = new Date("2026-11-22T00:30:00Z"); // 04:30 GST (off-peak)
 
   // Fresh morning run -> eligible
   const ok = cadence.evaluateInstagramEligibility({
@@ -145,25 +169,60 @@ test("evaluateInstagramEligibility enforces daily cap, slot dedupe, peak window 
   assert.equal(spacedOk.peak_slot, "midday");
 });
 
-test("buildInstagramReelCaption omits external URLs and keeps <= 6 relevant hashtags", () => {
+test("formatBilingualJobTitle & buildInstagramReelCaption deduplicate titles, strip URLs, format salary & keep 4-6 hashtags", () => {
+  // Harvester pattern where titleAr already embeds titleEn -> must NOT duplicate "| English"
+  assert.equal(
+    cadence.formatBilingualJobTitle(
+      "Arabic Speaking Office Manager — الموارد البشرية والإدارة",
+      "Arabic Speaking Office Manager"
+    ),
+    "Arabic Speaking Office Manager — الموارد البشرية والإدارة"
+  );
+  assert.equal(
+    cadence.formatBilingualJobTitle("مدير مالي أول", "Senior Finance Manager"),
+    "مدير مالي أول | Senior Finance Manager"
+  );
+
   const caption = cadence.buildInstagramReelCaption({
     countryCode: "AE",
     countryNameAr: "الإمارات العربية المتحدة",
     cityNameAr: "دبي",
-    titleAr: "Title: مدير مالي أول",
+    titleAr: "Title: Senior Finance Manager — المالية https://spam.example.com",
     titleEn: "Title: Senior Finance Manager",
-    companyName: "Emaar Properties",
+    companyName: "Emaar Properties www.emaar.com",
     salaryMin: 24000,
     salaryMax: 32000,
     salaryCurrency: "AED",
     commentKeyword: "دبي",
   });
 
-  assert.equal(/https?:\/\//i.test(caption), false, "IG caption must NOT contain external URLs");
+  assert.equal(/https?:\/\//i.test(caption), false, "IG caption must NOT contain http(s) URLs");
+  assert.equal(/\bwww\./i.test(caption), false, "IG caption must NOT contain www URLs");
   assert.equal(/title\s*:/i.test(caption), false, "Title: prefix should be stripped");
+  assert.equal(
+    (caption.match(/Senior Finance Manager/g) || []).length,
+    1,
+    "Embedded English title must appear once, not duplicated"
+  );
   assert.match(caption, /دبي/);
-  assert.match(caption, /24,000/);
+  assert.match(caption, /24,000 – 32,000 AED/);
   assert.match(caption, /البايو/);
+
+  // Equal min/max salary should not repeat "18,000 – 18,000"
+  const flatSalaryCap = cadence.buildInstagramReelCaption({
+    countryCode: "SA",
+    countryNameAr: "السعودية",
+    cityNameAr: "الرياض",
+    titleAr: "مهندس برمجيات",
+    titleEn: "Software Engineer",
+    companyName: "Tech Corp",
+    salaryMin: 18000,
+    salaryMax: 18000,
+    salaryCurrency: "SAR",
+    commentKeyword: "الرياض",
+  });
+  assert.match(flatSalaryCap, /18,000 SAR/);
+  assert.equal(flatSalaryCap.includes("18,000 – 18,000"), false);
 
   const tags = caption.match(/#[^\s#]+/g) || [];
   assert.ok(tags.length >= 4 && tags.length <= 6, `Expected 4–6 hashtags, got ${tags.length}`);
@@ -195,26 +254,70 @@ test("Pin #2 rendered carousel slides exist with exact 1080x1350 JPEG format", (
   }
 });
 
-test("Sanitized n8n workflow template has 4h cadence, IG branch, and zero leaked secrets", () => {
+test("Sanitized n8n workflow template has 4h cadence, hardened IG branch, and zero leaked secrets", () => {
   const wfPath = path.join(ROOT, "n8n-workflows/asra3-jobs-facebook-autopilot.json");
   const raw = fs.readFileSync(wfPath, "utf8");
   assert.equal(/EAA[A-Za-z0-9]{20,}/.test(raw), false, "Must NEVER contain raw Meta access tokens!");
-  assert.equal(raw.includes("asra3-webhook-secret-2026"), false, "Must NEVER contain live webhook secret!");
 
   const wf = JSON.parse(raw);
+  const cfg = wf.nodes.find((n) => n.name === "configCredentials");
+  const assignments = Object.fromEntries(
+    (cfg?.parameters?.assignments?.assignments || []).map((a) => [a.name, a.value])
+  );
+  assert.equal(assignments.webhookSecret, "YOUR_N8N_WEBHOOK_SECRET_OR_ADMIN_PASSCODE");
+  assert.equal(assignments.facebookPageId, "YOUR_FACEBOOK_PAGE_ID");
+  assert.equal(assignments.facebookPageAccessToken, "YOUR_FACEBOOK_PAGE_ACCESS_TOKEN");
+  assert.equal(assignments.instagramAccountId, "YOUR_INSTAGRAM_BUSINESS_ACCOUNT_ID");
+  assert.equal(assignments.instagramAccessToken, "YOUR_INSTAGRAM_ACCESS_TOKEN");
+
+  // If .env.local exists on this machine, verify NONE of its live secret values leaked into the template
+  const envLocalPath = path.join(ROOT, ".env.local");
+  if (fs.existsSync(envLocalPath)) {
+    for (const line of fs.readFileSync(envLocalPath, "utf8").split(/\r?\n/)) {
+      const m = line.match(/^(N8N_WEBHOOK_SECRET|FACEBOOK_PAGE_ACCESS_TOKEN|INSTAGRAM_ACCESS_TOKEN|ADMIN_PASSCODE|SUPABASE_SERVICE_ROLE_KEY)=(.+)$/);
+      if (m) {
+        const val = m[2].replace(/^['"]|['"]$/g, "").trim();
+        if (val.length >= 6) {
+          assert.equal(raw.includes(val), false, `Live secret ${m[1]} leaked into n8n template!`);
+        }
+      }
+    }
+  }
+
   const sched = wf.nodes.find((n) => n.id === "schedule-3h");
   assert.equal(sched.parameters.rule.interval[0].hoursInterval, 4, "Schedule interval must be tuned to 4h");
 
-  const nodeNames = new Set(wf.nodes.map((n) => n.name));
+  const byName = Object.fromEntries(wf.nodes.map((n) => [n.name, n]));
   for (const required of [
     "evaluateInstagramGate",
     "ifPublishInstagram",
     "igCreateReelContainer",
+    "igPreparePoll",
     "waitIgProcessing",
     "igCheckContainerStatus",
+    "igEvaluatePoll",
     "igPublishReel",
+    "igRecordPublished",
     "markJobPosted",
   ]) {
-    assert.ok(nodeNames.has(required), `Missing required n8n node: ${required}`);
+    assert.ok(byName[required], `Missing required n8n node: ${required}`);
   }
+
+  // Hardening invariants on n8n nodes
+  assert.equal(byName.postFirstCommentLink.alwaysOutputData, true);
+  assert.equal(byName.markJobPosted.retryOnFail, true);
+  assert.ok(byName.markJobPosted.maxTries >= 3);
+  assert.ok((byName.igPublishReel.parameters.options?.timeout || 0) >= 60000);
+
+  for (const codeNodeName of ["igPreparePoll", "igEvaluatePoll", "igRecordPublished"]) {
+    const code = byName[codeNodeName].parameters.jsCode || "";
+    assert.equal(
+      /\$json\./.test(code),
+      false,
+      `${codeNodeName} must use $input.first()?.json instead of bare $json in runOnceForAllItems mode`
+    );
+  }
+  assert.match(byName.igEvaluatePoll.parameters.jsCode, /\$runIndex/);
+  assert.match(byName.igEvaluatePoll.parameters.jsCode, /PUBLISHED/);
+  assert.match(byName.igRecordPublished.parameters.jsCode, /ig_count_today/);
 });

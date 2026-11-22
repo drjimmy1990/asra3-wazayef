@@ -12,6 +12,7 @@ import {
   buildInstagramReelCaption,
   DEFAULT_INSTAGRAM_DAILY_CAP,
   evaluateInstagramEligibility,
+  formatBilingualJobTitle,
 } from "@/lib/social-cadence";
 
 const COUNTRY_HASHTAGS: Record<string, string> = {
@@ -96,11 +97,12 @@ export async function GET(req: NextRequest) {
         : "";
 
     const hashtags = `${COUNTRY_HASHTAGS[job.country_code] || ""} #توظف_أسرع #Asra3 #وظائف_الخليج`;
+    const cleanBilingualTitle = formatBilingualJobTitle(job.title_ar, job.title_en);
 
     // Main Facebook caption intentionally omits external links to avoid Meta feed throttling
     const facebookPhotoCaption = [
       `⚡ شاغر وظيفي موثق في ${country.name_ar} (${job.city_name_ar})`,
-      `📌 المسمى: ${job.title_ar} | ${job.title_en}`,
+      `📌 المسمى: ${cleanBilingualTitle}`,
       `🏢 جهة العمل: ${job.company_name} (بريد HR موثق DNS MX ✓)`,
       `📂 القطاع: ${industry.name_ar}`,
       salaryLineAr.trim(),
@@ -121,7 +123,7 @@ export async function GET(req: NextRequest) {
 
     const facebookReelCaption = [
       `⚡ فرصة موثقة في ${job.city_name_ar} (${country.name_ar}) — التقديم مباشر للـ HR بدون وسطاء!`,
-      `📌 ${job.title_ar} | ${job.title_en}`,
+      `📌 ${cleanBilingualTitle}`,
       `🏢 ${job.company_name} (بريد HR مفحوص DNS MX ✓)`,
       salaryLineAr.trim(),
       ``,
@@ -209,12 +211,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const fbPostId = typeof body.fb_post_id === "string" || typeof body.fb_post_id === "number"
+      ? String(body.fb_post_id).trim() || undefined
+      : undefined;
+    const igPostId = typeof body.ig_post_id === "string" || typeof body.ig_post_id === "number"
+      ? String(body.ig_post_id).trim() || undefined
+      : undefined;
+    const tgMessageId = typeof body.tg_message_id === "string" || typeof body.tg_message_id === "number"
+      ? String(body.tg_message_id).trim() || undefined
+      : undefined;
+
     const updated = await markJobPostedToSocial(idOrSlug, {
-      fb_post_id: body.fb_post_id ? String(body.fb_post_id) : undefined,
-      ig_post_id: body.ig_post_id ? String(body.ig_post_id) : undefined,
-      tg_message_id: body.tg_message_id
-        ? String(body.tg_message_id)
-        : undefined,
+      fb_post_id: fbPostId,
+      ig_post_id: igPostId,
+      tg_message_id: tgMessageId,
     });
 
     return NextResponse.json({ ok: updated });

@@ -31,7 +31,7 @@
 ## 2. Full Technical Flow & Graph API Runbook
 
 ```
-[2h / 4h Schedule in n8n]
+[4h Schedule in n8n — Africa/Cairo 00/04/08/12/16/20 -> 02/06/10/14/18/22 GST]
         │
         ▼
 POST https://asra3.com/api/webhooks/jobs-harvest
@@ -39,14 +39,15 @@ POST https://asra3.com/api/webhooks/jobs-harvest
         ▼
 GET  https://asra3.com/api/webhooks/jobs-social?limit=1
         │   Returns: reel_prepare_url, reel_video_url, comment_keyword,
-        │            facebook_reel_caption, facebook_first_comment, canonical_url
+        │            facebook_reel_caption, facebook_first_comment,
+        │            instagram_reel_caption, instagram_budget, canonical_url
         ▼
 GET  https://asra3.com/api/reel/job/{slug}?prepare=1   [header: x-webhook-secret]
         │   Renders 1080×1920 10s MP4 via src/lib/job-reel-renderer.ts
         │   Caches atomically in /app/.data/reels/ (24h TTL, serial queue)
         ▼
   ┌─────────────────────────────────────────────────────────────────────┐
-  │ BRANCH A — FACEBOOK REELS (LIVE NOW)                                │
+  │ BRANCH A — FACEBOOK REELS (LIVE — EVERY 4H, ~6/DAY)                 │
   │ 1. POST /v21.0/{FACEBOOK_PAGE_ID}/video_reels {upload_phase:"start"}│
   │ 2. POST {upload_url} (rupload) Headers:                             │
   │    Authorization: OAuth {TOKEN}, file_url: {reel_url}               │
@@ -56,18 +57,19 @@ GET  https://asra3.com/api/reel/job/{slug}?prepare=1   [header: x-webhook-secret
   │ 5. POST /v21.0/{FACEBOOK_PAGE_ID}_{post_id}/comments  (1st comment!)│
   └─────────────────────────────────────────────────────────────────────┘
   ┌─────────────────────────────────────────────────────────────────────┐
-  │ BRANCH B — INSTAGRAM REELS (READY TO WIRE IN PHASE 2)               │
+  │ BRANCH B — INSTAGRAM REELS (LIVE — PEAK GULF WINDOWS, ≤3/DAY)       │
+  │ 0. Gate: GST peak slot (07-10 / 11-15 / 19-22), cap<=3, 3.5h spacing│
   │ 1. POST /v21.0/{INSTAGRAM_BUSINESS_ACCOUNT_ID}/media                │
   │    {media_type:"REELS", video_url, caption, share_to_feed:true}     │
-  │ 2. Wait 20s → GET /v21.0/{creation_id}?fields=status_code until     │
-  │    status_code === "FINISHED"                                       │
+  │ 2. Bounded poll (up to 7×20s = 140s): GET /v21.0/{creation_id}      │
+  │    ?fields=status_code,status until FINISHED (abort on ERROR/4xx)   │
   │ 3. POST /v21.0/{INSTAGRAM_BUSINESS_ACCOUNT_ID}/media_publish        │
   │    {creation_id}                                                    │
   └─────────────────────────────────────────────────────────────────────┘
         │
         ▼
 POST https://asra3.com/api/webhooks/jobs-social
-     { id: job.id, fb_post_id: "{page_id}_{post_id}" }
+     { id: job.id, fb_post_id: "{page_id}_{post_id}", ig_post_id?: "..." }
 ```
 
 ### Additional Meta Graph API Flows Supported by Your Granted Permissions
@@ -122,9 +124,9 @@ Posting **only** job openings turns any page into a dry bulletin board. Growth c
 
 ## 4. Stable Weekly Operating Schedule (Peak Gulf Time — GST / UTC+4)
 
-> **Critical Facebook Timing Fix:** Right now `n8n` triggers every `2h` (up to 12 Reels/day). Once queue depth grows, **change `scheduleEvery3h` interval from `2h` to `4h` (5–6 automated Job Reels/day during waking hours `08:00–22:00 GST`)** so each Reel gets breathing room to accumulate watch time and comments instead of cannibalizing its own reach.
+> **Facebook Timing (ACTIVE):** `scheduleEvery3h` in `dNPNQ2IwS6LdzoXX` is tuned to **`4h`** (`00/04/08/12/16/20 Africa/Cairo` = `02/06/10/14/18/22 GST` in winter, `01/05/09/13/17/21 GST` in summer DST — 6 automated Facebook Job Reels/day) so each Reel accumulates watch time and comments instead of cannibalizing its own reach.
 >
-> **Critical Instagram Warmup Rule:** `@asra3_jobs` starts at **`0` followers and `0` posts**. Do **NOT** blast 12 automated Reels/day on Day 1. Follow the Week 1–2 warmup cadence below, then settle into this steady rhythm:
+> **Instagram Warmup Rule (ACTIVE):** `@asra3_jobs` launched with 3 Foundation Pins + 1 verified Job Reel and enforces `instagramDailyCap=3`, Gulf peak windows (`07–10`, `11–15`, `19–22` GST → hitting `10:00`, `14:00`, `22:00 GST` in winter / `09:00`, `13:00`, `21:00 GST` in summer), and `3.5h` minimum spacing so automated IG posting never spams a new account.
 
 | Day | Morning (`09:30 GST`) | Afternoon (`13:30 GST`) | Prime Evening (`20:00 GST`) | Stories (3–4 Frames Across Day) |
 |---|---|---|---|---|
