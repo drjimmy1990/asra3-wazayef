@@ -277,7 +277,7 @@
       "onError": "continueRegularOutput",
       "parameters": {
         "method": "POST",
-        "url": "=https://graph.facebook.com/v21.0/{{ $('fbReelFinish').item.json.post_id || $('fbReelStart').item.json.video_id }}/comments",
+        "url": "=https://graph.facebook.com/v21.0/{{ $('fbReelFinish').item.json.post_id ? (String($('fbReelFinish').item.json.post_id).includes('_') ? $('fbReelFinish').item.json.post_id : $('unpackQueueItems').item.json.facebookPageId + '_' + $('fbReelFinish').item.json.post_id) : $('fbReelStart').item.json.video_id }}/comments",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ message: $('unpackQueueItems').item.json.facebook_first_comment, access_token: $('unpackQueueItems').item.json.facebookPageAccessToken }) }}",
@@ -328,7 +328,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ id: $('unpackQueueItems').item.json.id, fb_post_id: $('fbReelFinish').item.json.post_id || $('fbReelStart').item.json.video_id || 'reel_posted' }) }}",
+        "jsonBody": "={{ JSON.stringify({ id: $('unpackQueueItems').item.json.id, fb_post_id: $('fbReelFinish').item.json.post_id ? (String($('fbReelFinish').item.json.post_id).includes('_') ? $('fbReelFinish').item.json.post_id : $('unpackQueueItems').item.json.facebookPageId + '_' + $('fbReelFinish').item.json.post_id) : ($('fbReelStart').item.json.video_id || 'reel_posted') }) }}",
         "options": {}
       }
     }
