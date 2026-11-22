@@ -11,7 +11,18 @@ import {
   verifyCompanyEmail,
 } from "@/lib/company-verifier";
 import { DEFAULT_TELEGRAM_CHANNELS } from "@/lib/telegram-harvester";
-import { NewJobInput, upsertJobPostings } from "@/lib/jobs-store";
+import {
+  computeJobDedupeHash,
+  getAllJobsRaw,
+  NewJobInput,
+  upsertJobPostings,
+} from "@/lib/jobs-store";
+import {
+  collectUniqueNewJobs,
+  extractTelegramMessageCandidates,
+  prioritizeHarvestCandidates,
+  TelegramRawCandidate,
+} from "@/lib/job-harvester-utils";
 import { bulkImportCompanies } from "@/lib/store";
 
 const SKILL_DICTIONARY: Array<{ pattern: RegExp; label: string }> = [
@@ -66,15 +77,10 @@ const ARABIC_ROLE_TRANSLATIONS: Array<{ pattern: RegExp; ar: string }> = [
   { pattern: /\bdocument\s+controller\b/i, ar: "مراقب وثائق ومستندات مشاريع" },
 ];
 
-function decodeHtml(input: string): string {
-  return input
-    .replace(/&amp;/gi, "&")
-    .replace(/&#0*39;|&apos;/gi, "'")
-    .replace(/&quot;/gi, '"')
-    .replace(/&nbsp;|&#160;/gi, " ")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">");
-}
+const ARABIC_JOB_LABEL_PATTERNS: RegExp[] = [
+  /(?:المسمى(?:\s+الوظيفي)?|الوظيفة)\s*[:\-–—]\s*([\u0600-\u06FF0-9A-Za-z\s/&+.,()–—-]{4,68})/i,
+  /📌\s*([\u0600-\u06FF0-9A-Za-z\s/&+.,()–—-]{4,68})/u,
+];
 
 function formatCompanyFromDomain(domain: string): string {
   const base = domain
@@ -130,6 +136,7 @@ function extractStructuredRolesFromPost(
 ): Array<{
   titleEn: string;
   titleAr: string;
+  isPureArabicRole: boolean;
   companyName: string;
   industryId: string;
   experienceLevel: string;
@@ -157,15 +164,22 @@ function extractStructuredRolesFromPost(
   for (const line of lines) {
     if (!companyName) {
       const m = line.match(
-        /(?:company\s*name|company|employer|organization)\s*[:\-–—]\s*([A-Za-z0-9\s&.,'()-]{3,55})/i
+        /(?:company\s*name|company|employer|organization|الجهة|الشركة|اسم\s+الشركة)\s*[:\-–—]\s*([A-Za-z0-9\u0600-\u06FF\s&.,'()–—-]{3,65})/i
       );
       if (m?.[1] && !/confidential|leading|reputed/i.test(m[1])) {
         companyName = m[1].trim();
+      } else if (/🏢/.test(line) && !/employer|company|الجهة|الشركة/i.test(line)) {
+        const pinOrg = line.match(
+          /🏢\s*([A-Za-z0-9\u0600-\u06FF\s&.,'()–—-]{3,65})/u
+        );
+        if (pinOrg?.[1] && !/confidential|leading|reputed/i.test(pinOrg[1])) {
+          companyName = pinOrg[1].trim();
+        }
       }
     }
 
     const explicitRole = line.match(
-      /(?:position|role|job\s*title|designation|vacancy)\s*[:\-–—]\s*([A-Za-z0-9\s/&+.,()-]{4,62})/i
+      /(?:position|role|job\s*title|designation|vacancy)\s*[:\-–—]\s*([A-Za-z0-9\s/&+.,()–—-]{4,68})/i
     );
     if (explicitRole?.[1]) {
       const cleaned = explicitRole[1]
@@ -178,7 +192,7 @@ function extractStructuredRolesFromPost(
 
     // Detect multi-vacancy numbered or bulleted role lines (e.g. "1. Civil Engineer", "• Senior Accountant")
     const bulletMatch = line.match(
-      /^(?:[0-9]{1,2}[.)\-]|[•\-–—*⚡🔥📌✅👉])\s*([A-Za-z0-9\s/&+.,()-]{4,58})$/
+      /^(?:[0-9]{1,2}[.)\-]|[•\-–—*⚡🔥📌✅👉])\s*([A-Za-z0-9\s/&+.,()–—-]{4,58})$/
     );
     if (bulletMatch?.[1] && ROLE_NOUN.test(bulletMatch[1])) {
       const cleaned = bulletMatch[1]
@@ -195,7 +209,7 @@ function extractStructuredRolesFromPost(
     const nat = plainText.match(
       /(?:hiring|looking\s+for|seeking|required)\s+(?:a\s+|an\s+|experienced\s+)*([A-Za-z0-9\s/&+.-]{5,52}?)(?:\s+(?:in\s+|for\s+|with\s+|to\s+join|immediately)|[.,!\n\r|]|$)/i
     );
-    if (nat?.[1]) {
+    if (nat?.[1] && ROLE_NOUN.test(nat[1])) {
       rawRoleTitles.push(nat[1].trim());
     }
   }
@@ -212,7 +226,28 @@ function extractStructuredRolesFromPost(
     }
   }
 
+  if (rawRoleTitles.length === 0) {
+    for (const line of lines) {
+      for (const arPat of ARABIC_JOB_LABEL_PATTERNS) {
+        const m = line.match(arPat);
+        if (m?.[1]) {
+          const cleaned = m[1]
+            .replace(/\s*[•·|].*$/, "")
+            .replace(/^[\s•\-*⚡🔥📌📢✅👉0-9.)]+/, "")
+            .trim();
+          if (cleaned.length >= 4 && !/@/.test(cleaned)) {
+            rawRoleTitles.push(cleaned);
+            break;
+          }
+        }
+      }
+      if (rawRoleTitles.length >= 3) break;
+    }
+  }
+
   // Deduplicate extracted role titles within the same company post (up to 5 roles)
+  const NOISE_ROLE_TITLE =
+    /^(?:candidates?|applicants?|staff|personnel|workers?|long[\s-]term.*|short[\s-]term.*|any\s+nationality|all\s+nationalities|immediately|urgent(?:ly)?|job\s+opportunity|uae\s+jobs|ksa\s+jobs|saudi\s+jobs|qatar\s+jobs|kuwait\s+jobs|فرصة\s+وظيفية|وظائف\s+الإمارات)$/i;
   const uniqueTitles: string[] = [];
   const seenKeys = new Set<string>();
   for (const t of rawRoleTitles) {
@@ -220,6 +255,9 @@ function extractStructuredRolesFromPost(
       .replace(/\s{2,}/g, " ")
       .slice(0, 68)
       .replace(/\b[a-z]/g, (ch) => ch.toUpperCase());
+    if (NOISE_ROLE_TITLE.test(normalized) || /@/.test(normalized)) {
+      continue;
+    }
     const key = normalized.toLowerCase();
     if (normalized.length >= 4 && !seenKeys.has(key)) {
       seenKeys.add(key);
@@ -285,35 +323,48 @@ function extractStructuredRolesFromPost(
       (l) =>
         l.length >= 22 &&
         l.length <= 150 &&
+        /[A-Za-z]{4,}/.test(l) &&
         !/@/.test(l) &&
         !/https?:\/\//i.test(l)
     )
     .slice(0, 4);
 
-  return uniqueTitles.map((titleEn) => {
+  return uniqueTitles.map((rawRoleTitle) => {
+    const isPureArabicRole =
+      /[\u0600-\u06FF]/.test(rawRoleTitle) && !/[A-Za-z]{3,}/.test(rawRoleTitle);
+
     // Classify each role into its own exact category independently!
     const industryId = classifyCompanyIndustry({
-      subSpecialty: titleEn,
+      subSpecialty: rawRoleTitle,
       companyName,
       domain,
       email,
-      rawIndustry: uniqueTitles.length === 1 ? plainText.slice(0, 500) : titleEn,
+      rawIndustry:
+        uniqueTitles.length === 1 || isPureArabicRole
+          ? plainText.slice(0, 500)
+          : rawRoleTitle,
     });
     const indObj =
       INITIAL_INDUSTRIES.find((i) => i.id === industryId) ||
       INITIAL_INDUSTRIES[0];
 
+    let titleEn = rawRoleTitle;
     let titleAr = "";
-    for (const item of ARABIC_ROLE_TRANSLATIONS) {
-      if (item.pattern.test(titleEn)) {
-        titleAr = /\bsr\.?|senior|lead\b/i.test(titleEn)
-          ? `${item.ar} أول`
-          : item.ar;
-        break;
+    if (isPureArabicRole) {
+      titleAr = rawRoleTitle;
+      titleEn = `${indObj.name_en.split(",")[0].trim()} Specialist`;
+    } else {
+      for (const item of ARABIC_ROLE_TRANSLATIONS) {
+        if (item.pattern.test(titleEn)) {
+          titleAr = /\bsr\.?|senior|lead\b/i.test(titleEn)
+            ? `${item.ar} أول`
+            : item.ar;
+          break;
+        }
       }
-    }
-    if (!titleAr) {
-      titleAr = `${titleEn} — ${indObj.name_ar}`;
+      if (!titleAr) {
+        titleAr = `${titleEn} — ${indObj.name_ar}`;
+      }
     }
 
     const roleSkills = [...postSkills];
@@ -342,6 +393,7 @@ function extractStructuredRolesFromPost(
     return {
       titleEn,
       titleAr,
+      isPureArabicRole,
       companyName,
       industryId,
       experienceLevel,
@@ -376,13 +428,7 @@ export async function harvestLiveGccJobs(options?: {
   );
   const maxJobs = Math.min(60, Math.max(1, options?.maxJobsToInsert ?? 25));
 
-  const rawCandidates: Array<{
-    email: string;
-    domain: string;
-    postText: string;
-    defaultCountry: CountryCode;
-    channel: string;
-  }> = [];
+  const rawCandidates: TelegramRawCandidate[] = [];
   const seenPostSignatures = new Set<string>();
   let postsScanned = 0;
 
@@ -406,45 +452,18 @@ export async function harvestLiveGccJobs(options?: {
         });
         if (!res.ok) break;
         const html = await res.text();
-        const msgBlocks = html.split("tgme_widget_message_text");
-        postsScanned += Math.max(0, msgBlocks.length - 1);
+        const extracted = extractTelegramMessageCandidates(
+          html,
+          cleanUsername,
+          ch.defaultCountry
+        );
+        postsScanned += extracted.postsScanned;
 
-        for (let b = 1; b < msgBlocks.length; b++) {
-          const rawBlock = msgBlocks[b]
-            .split(/tgme_widget_message_footer/i)[0]
-            .slice(0, 2600)
-            .replace(/^[^<]*>/, "");
-
-          const plainText = decodeHtml(
-            rawBlock
-              .replace(/<br\s*\/?>/gi, "\n")
-              .replace(/<\/(?:p|div|li)>/gi, "\n")
-              .replace(/<[^>]+>/g, " ")
-          );
-
-          const emails =
-            plainText.match(
-              /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g
-            ) || [];
-
-          for (const raw of emails) {
-            const email = raw.toLowerCase().replace(/[.,;)>]+$/, "");
-            const parts = email.split("@");
-            if (parts.length !== 2) continue;
-            const domain = parts[1];
-            if (/\.(png|jpg|jpeg|gif|webp)$/i.test(domain)) continue;
-
-            const sig = `${email}|${plainText.slice(0, 60)}`;
-            if (!seenPostSignatures.has(sig)) {
-              seenPostSignatures.add(sig);
-              rawCandidates.push({
-                email,
-                domain,
-                postText: plainText,
-                defaultCountry: ch.defaultCountry,
-                channel: cleanUsername,
-              });
-            }
+        for (const cand of extracted.candidates) {
+          const sig = `${cand.email}|${cand.postText.slice(0, 60)}`;
+          if (!seenPostSignatures.has(sig)) {
+            seenPostSignatures.add(sig);
+            rawCandidates.push(cand);
           }
         }
 
@@ -461,6 +480,19 @@ export async function harvestLiveGccJobs(options?: {
     }
   }
 
+  const sortedCandidates = prioritizeHarvestCandidates(rawCandidates);
+  const existingJobs = await getAllJobsRaw();
+  const existingHashes = new Set<string>(
+    existingJobs.map((j) => j.dedupe_hash).filter(Boolean)
+  );
+  const knownApplyEmails = new Set<string>(
+    existingJobs
+      .map((j) => (j.apply_email || "").trim().toLowerCase())
+      .filter(Boolean)
+  );
+  const seenBatchHashes = new Set<string>();
+  let preSkippedDuplicates = 0;
+
   const structuredInputs: NewJobInput[] = [];
   const discoveredCompanies: Array<{
     company_name: string;
@@ -472,12 +504,17 @@ export async function harvestLiveGccJobs(options?: {
   }> = [];
 
   const BATCH_SIZE = 12;
+  const maxCandidatesToCheck = Math.min(
+    sortedCandidates.length,
+    Math.max(120, maxJobs * 8)
+  );
+
   for (
     let i = 0;
-    i < rawCandidates.length && structuredInputs.length < maxJobs;
+    i < maxCandidatesToCheck && structuredInputs.length < maxJobs;
     i += BATCH_SIZE
   ) {
-    const slice = rawCandidates.slice(i, i + BATCH_SIZE);
+    const slice = sortedCandidates.slice(i, i + BATCH_SIZE);
     const verifiedBatch = await Promise.all(
       slice.map(async (cand) => {
         const check = await verifyCompanyEmail(cand.email, {
@@ -501,6 +538,16 @@ export async function harvestLiveGccJobs(options?: {
         if (parsedRoles.length === 0) return null;
 
         return parsedRoles.map((parsed) => ({
+          applyEmail: cand.email,
+          isPureArabicRole: parsed.isPureArabicRole,
+          dedupeHash: computeJobDedupeHash({
+            titleEn: parsed.titleEn,
+            titleAr: parsed.titleAr,
+            companyDomain: cand.domain,
+            companyName: parsed.companyName,
+            countryCode: loc.countryCode,
+            cityId: loc.cityId,
+          }),
           jobInput: {
             title_ar: parsed.titleAr,
             title_en: parsed.titleEn,
@@ -537,14 +584,38 @@ export async function harvestLiveGccJobs(options?: {
       })
     );
 
-    for (const roleGroup of verifiedBatch) {
-      if (!roleGroup) continue;
-      for (const item of roleGroup) {
-        if (structuredInputs.length < maxJobs) {
-          structuredInputs.push(item.jobInput);
-          discoveredCompanies.push(item.companyInput);
+    const flatBatch: Array<{
+      applyEmail: string;
+      isPureArabicRole: boolean;
+      dedupeHash: string;
+      jobInput: NewJobInput;
+      companyInput: (typeof discoveredCompanies)[number];
+    }> = [];
+
+    for (const group of verifiedBatch) {
+      if (!group) continue;
+      for (const item of group) {
+        // Avoid duplicating a bilingual mirror post when the same HR inbox already has a primary role
+        if (item.isPureArabicRole && knownApplyEmails.has(item.applyEmail)) {
+          preSkippedDuplicates++;
+          continue;
         }
+        knownApplyEmails.add(item.applyEmail);
+        flatBatch.push(item);
       }
+    }
+
+    const filtered = collectUniqueNewJobs(
+      flatBatch,
+      existingHashes,
+      seenBatchHashes,
+      maxJobs - structuredInputs.length
+    );
+    preSkippedDuplicates += filtered.skippedDuplicates;
+
+    for (const item of filtered.accepted) {
+      structuredInputs.push(item.jobInput);
+      discoveredCompanies.push(item.companyInput);
     }
   }
 
@@ -570,7 +641,7 @@ export async function harvestLiveGccJobs(options?: {
     channelsScraped: DEFAULT_TELEGRAM_CHANNELS.length,
     postsScanned,
     jobsPublished: inserted.length,
-    duplicatesSkipped: skippedDuplicates,
+    duplicatesSkipped: preSkippedDuplicates + skippedDuplicates,
     companiesEnriched,
     categoriesUpdated,
     publishedSlugs: inserted.map((j) => j.slug),

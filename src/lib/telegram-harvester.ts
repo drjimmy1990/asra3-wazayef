@@ -20,16 +20,6 @@ export interface TelegramChannelConfig {
 
 export const DEFAULT_TELEGRAM_CHANNELS: TelegramChannelConfig[] = [
   {
-    username: "dubaijobsdaily",
-    defaultCountry: "AE",
-    label: "Dubai Jobs Daily (UAE)",
-  },
-  {
-    username: "dubaicareer",
-    defaultCountry: "AE",
-    label: "Dubai & Gulf Career Portal (UAE/GCC)",
-  },
-  {
     username: "jobs_uae",
     defaultCountry: "AE",
     label: "Jobs UAE Official",
@@ -40,14 +30,34 @@ export const DEFAULT_TELEGRAM_CHANNELS: TelegramChannelConfig[] = [
     label: "Dubai Walk-in & HR Jobs (UAE)",
   },
   {
+    username: "gulfvacancies",
+    defaultCountry: "QA",
+    label: "Qatar & Gulf Vacancies",
+  },
+  {
+    username: "saudi_careers",
+    defaultCountry: "SA",
+    label: "Saudi Careers Direct HR (KSA)",
+  },
+  {
+    username: "jobs_in_qatar",
+    defaultCountry: "QA",
+    label: "Jobs in Qatar Direct HR (Doha)",
+  },
+  {
+    username: "dubaijobsdaily",
+    defaultCountry: "AE",
+    label: "Dubai Jobs Daily (UAE)",
+  },
+  {
     username: "dubaivacancies",
     defaultCountry: "AE",
     label: "Dubai Vacancies Direct HR",
   },
   {
-    username: "gulfjobsdaily",
-    defaultCountry: "AE",
-    label: "Gulf Jobs Daily (AE/SA/QA/KW)",
+    username: "riyadhjobs",
+    defaultCountry: "SA",
+    label: "Riyadh & KSA Jobs (Saudi Arabia)",
   },
   {
     username: "gulfjobs",
@@ -60,14 +70,14 @@ export const DEFAULT_TELEGRAM_CHANNELS: TelegramChannelConfig[] = [
     label: "GCC Corporate Vacancies",
   },
   {
-    username: "riyadhjobs",
-    defaultCountry: "SA",
-    label: "Riyadh & KSA Jobs (Saudi Arabia)",
+    username: "gulfjobsdaily",
+    defaultCountry: "AE",
+    label: "Gulf Jobs Daily (AE/SA/QA/KW)",
   },
   {
-    username: "saudi_careers",
-    defaultCountry: "SA",
-    label: "Saudi Careers Direct HR (KSA)",
+    username: "dubaicareer",
+    defaultCountry: "AE",
+    label: "Dubai & Gulf Career Portal (UAE/GCC)",
   },
   {
     username: "saudicareer",
@@ -78,16 +88,6 @@ export const DEFAULT_TELEGRAM_CHANNELS: TelegramChannelConfig[] = [
     username: "middleeastjobs",
     defaultCountry: "SA",
     label: "Middle East & KSA Jobs",
-  },
-  {
-    username: "jobs_in_qatar",
-    defaultCountry: "QA",
-    label: "Jobs in Qatar Direct HR (Doha)",
-  },
-  {
-    username: "gulfvacancies",
-    defaultCountry: "QA",
-    label: "Qatar & Gulf Vacancies",
   },
 ];
 

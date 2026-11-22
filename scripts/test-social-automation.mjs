@@ -26,6 +26,7 @@ registerHooks({
 
 const cadence = await import("../src/lib/social-cadence.ts");
 const commentDm = await import("../src/lib/social-comment-dm.ts");
+const harvesterUtils = await import("../src/lib/job-harvester-utils.ts");
 
 test("isValidSocialMediaFilename & safeDecodeSocialMediaFilename block traversal, bad extensions & malformed URIs", () => {
   assert.equal(cadence.isValidSocialMediaFilename("pin2-slide-01.jpg"), true);
@@ -669,4 +670,117 @@ test("Sanitized FB Comment-to-DM workflow template has GET/POST webhooks on asra
   assert.match(byName.extractFbComments.parameters.jsCode, /val\.item !== 'comment' \|\| val\.verb !== 'add'/);
   assert.match(byName.extractFbComments.parameters.jsCode, /processedCommentIds/);
   assert.match(byName.fbSendPublicReply.parameters.url, /\/comments$/);
+});
+
+test("extractTelegramMessageCandidates parses timestamps, decodes HTML & extracts emails from bilingual jobs_uae posts", () => {
+  const sampleHtml = `
+    <div class="tgme_widget_message_wrap js-widget_message_wrap">
+      <div class="tgme_widget_message" data-post="jobs_uae/9001">
+        <div class="tgme_widget_message_text">🇦🇪 Job Opportunity | UAE Jobs<br/>🏢 Employer: ABC &amp; Co<br/>💼 Job Title: Customer Happiness Consultant – Tasheel<br/>📍 Location: Dubai<br/>📧 Send CV: hr@abcenter.ae</div>
+        <div class="tgme_widget_message_footer"><time datetime="2026-11-22T16:05:55+00:00">16:05</time></div>
+      </div>
+    </div>
+    <div class="tgme_widget_message_wrap js-widget_message_wrap">
+      <div class="tgme_widget_message" data-post="jobs_uae/9002">
+        <div class="tgme_widget_message_text">📌 منسق رعاية المرضى<br/>🏢 مركز سمرلاند الطبي<br/>📧 التقديم: careers@slmc.ae</div>
+        <div class="tgme_widget_message_footer"><time datetime="2026-11-22T15:30:03+00:00">15:30</time></div>
+      </div>
+    </div>
+    <div class="tgme_widget_message_wrap js-widget_message_wrap">
+      <div class="tgme_widget_message" data-post="jobs_uae/9003">
+        <div class="tgme_widget_message_text">🇦🇪 Job Opportunity<br/>No email, ignore avatar@2x.png</div>
+        <div class="tgme_widget_message_footer"><time datetime="2026-11-22T14:06:03+00:00">14:06</time></div>
+      </div>
+    </div>
+  `;
+
+  const parsed = harvesterUtils.extractTelegramMessageCandidates(
+    sampleHtml,
+    "@jobs_uae",
+    "AE"
+  );
+  assert.equal(parsed.postsScanned, 3);
+  assert.equal(parsed.candidates.length, 2);
+
+  assert.equal(parsed.candidates[0].email, "hr@abcenter.ae");
+  assert.equal(parsed.candidates[0].domain, "abcenter.ae");
+  assert.equal(parsed.candidates[0].channel, "jobs_uae");
+  assert.equal(parsed.candidates[0].defaultCountry, "AE");
+  assert.equal(
+    parsed.candidates[0].postedAtMs,
+    Date.parse("2026-11-22T16:05:55+00:00")
+  );
+  assert.ok(parsed.candidates[0].postText.includes("ABC & Co"));
+  assert.ok(
+    parsed.candidates[0].postText.includes("Customer Happiness Consultant – Tasheel")
+  );
+
+  assert.equal(parsed.candidates[1].email, "careers@slmc.ae");
+  assert.equal(
+    parsed.candidates[1].postedAtMs,
+    Date.parse("2026-11-22T15:30:03+00:00")
+  );
+});
+
+test("prioritizeHarvestCandidates places today's active channels ahead of stale 2023/Sept archives", () => {
+  const mixed = [
+    { channel: "dubaicareer", postedAtMs: Date.parse("2023-04-21T02:15:27Z") },
+    { channel: "dubaijobsdaily", postedAtMs: Date.parse("2026-09-12T03:55:01Z") },
+    { channel: "jobs_uae", postedAtMs: Date.parse("2026-11-22T16:05:55Z") },
+    { channel: "jobs_uae_earlier", postedAtMs: Date.parse("2026-11-22T15:30:03Z") },
+    { channel: "unknown_ts", postedAtMs: 0 },
+  ];
+
+  const sorted = harvesterUtils.prioritizeHarvestCandidates(mixed);
+  assert.deepEqual(
+    sorted.map((c) => c.channel),
+    ["jobs_uae", "jobs_uae_earlier", "dubaijobsdaily", "dubaicareer", "unknown_ts"]
+  );
+});
+
+test("collectUniqueNewJobs prevents 20 channel-1 duplicates from starving new channel-3 jobs", () => {
+  const existingHashes = new Set(
+    Array.from({ length: 20 }, (_, i) => `dup-hash-${i + 1}`)
+  );
+  const seenBatchHashes = new Set();
+
+  const ch1Batch = Array.from({ length: 20 }, (_, i) => ({
+    dedupeHash: `dup-hash-${i + 1}`,
+    title: `Old Duplicate ${i + 1}`,
+  }));
+  const ch3Batch = Array.from({ length: 5 }, (_, i) => ({
+    dedupeHash: `new-hash-${i + 1}`,
+    title: `Fresh Role ${i + 1}`,
+  }));
+
+  let maxJobs = 18;
+  const collected = [];
+  let totalSkipped = 0;
+
+  const res1 = harvesterUtils.collectUniqueNewJobs(
+    ch1Batch,
+    existingHashes,
+    seenBatchHashes,
+    maxJobs - collected.length
+  );
+  collected.push(...res1.accepted);
+  totalSkipped += res1.skippedDuplicates;
+
+  assert.equal(collected.length, 0);
+  assert.equal(totalSkipped, 20);
+
+  const res3 = harvesterUtils.collectUniqueNewJobs(
+    ch3Batch,
+    existingHashes,
+    seenBatchHashes,
+    maxJobs - collected.length
+  );
+  collected.push(...res3.accepted);
+  totalSkipped += res3.skippedDuplicates;
+
+  assert.equal(collected.length, 5);
+  assert.deepEqual(
+    collected.map((x) => x.dedupeHash),
+    ["new-hash-1", "new-hash-2", "new-hash-3", "new-hash-4", "new-hash-5"]
+  );
 });
