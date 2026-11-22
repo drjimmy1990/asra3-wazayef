@@ -402,11 +402,19 @@ export function Navbar() {
 
           <div className="flex items-center justify-between pt-2 border-t border-zinc-200 dark:border-zinc-800 text-[11px] text-zinc-500 dark:text-zinc-400">
             <span dir="ltr">hello@asra3.com</span>
-            <div className="flex items-center gap-3 font-semibold">
-              <Link href="/privacy" onClick={() => setMobileMenuOpen(false)}>
+            <div className="flex items-center gap-1 font-semibold">
+              <Link
+                href="/privacy"
+                onClick={() => setMobileMenuOpen(false)}
+                className="inline-flex min-h-[44px] items-center px-2.5 text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-[#D4AF37] touch-manipulation"
+              >
                 {lang === "ar" ? "الخصوصية" : "Privacy"}
               </Link>
-              <Link href="/terms" onClick={() => setMobileMenuOpen(false)}>
+              <Link
+                href="/terms"
+                onClick={() => setMobileMenuOpen(false)}
+                className="inline-flex min-h-[44px] items-center px-2.5 text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-[#D4AF37] touch-manipulation"
+              >
                 {lang === "ar" ? "الشروط" : "Terms"}
               </Link>
             </div>

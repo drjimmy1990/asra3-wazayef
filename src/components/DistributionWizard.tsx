@@ -788,6 +788,11 @@ export function DistributionWizard({
 
   const hasUploadedCv = Boolean(cvFile || cvFileName);
   const currentStepMeta = wizardStepsMeta[step - 1];
+  const shortTierLabel =
+    activePackage.name_en
+      .split(/[—–-]/)[0]
+      .replace(/^Asra3\s+/i, "")
+      .trim() || activePackage.id.toUpperCase();
 
   const handleStepperClick = (targetNum: 1 | 2 | 3 | 4) => {
     if (targetNum === step) return;
@@ -822,14 +827,14 @@ export function DistributionWizard({
       <div className="rounded-t-2xl bg-[#09090B] dark:bg-[#16161A] px-4 py-4 sm:px-8 text-zinc-50 border-b border-zinc-800 space-y-3">
         {/* Compact Mobile Stepper Header */}
         <div className="sm:hidden space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <div className="min-w-0">
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+            <div className="min-w-0 flex-1">
               <span className="text-[11px] font-bold uppercase tracking-wider text-[#D4AF37]">
                 {lang === "ar"
                   ? `الخطوة ${step} من 4`
                   : `Step ${step} of 4`}
               </span>
-              <h3 className="text-sm font-extrabold text-white truncate">
+              <h3 className="text-sm font-extrabold text-white leading-snug">
                 {currentStepMeta.label}
               </h3>
             </div>
@@ -837,8 +842,7 @@ export function DistributionWizard({
               dir="ltr"
               className="shrink-0 rounded-md border border-[#D4AF37]/50 bg-[#121215] px-2.5 py-1 text-[11px] font-mono font-extrabold text-[#D4AF37]"
             >
-              {activePackage.name_en.replace("Asra3 ", "")} · {finalTotal}{" "}
-              {currency}
+              {shortTierLabel} · {finalTotal} {currency}
             </span>
           </div>
 
@@ -1249,15 +1253,23 @@ export function DistributionWizard({
                       key={idx}
                       className="rounded-lg border border-zinc-800 bg-[#121215] p-3 text-xs"
                     >
-                      <p className="font-bold text-white truncate">
+                      <p
+                        dir="auto"
+                        className="font-bold text-white leading-snug text-start"
+                      >
                         {comp.company_name}
                       </p>
-                      <p className="mt-0.5 text-zinc-400 truncate">
-                        {lang === "ar" ? comp.city_ar : comp.city_en} ·{" "}
-                        <span className="text-[#D4AF37]">
-                          {comp.sub_specialty}
-                        </span>
+                      <p className="mt-1 text-[11px] text-zinc-400">
+                        {lang === "ar" ? comp.city_ar : comp.city_en}
                       </p>
+                      {comp.sub_specialty && (
+                        <p
+                          dir="auto"
+                          className="mt-0.5 text-[11px] font-medium text-[#D4AF37] leading-snug line-clamp-2 text-start"
+                        >
+                          {comp.sub_specialty}
+                        </p>
+                      )}
                     </div>
                   ))}
                 </div>
