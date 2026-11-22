@@ -14,8 +14,20 @@ export const PINNED_IG_MEDIA_IDS = {
   VIP_SHIELD: "18082305320722909",
 } as const;
 
+export const PINNED_FB_POST_IDS = {
+  WELCOME_JOBS: ["1182872014308145", "1617561988096136_1182872014308145"],
+  ATS_CAROUSEL: ["1617561988096136_122108677227548511", "122108677227548511"],
+  VIP_SHIELD: [
+    "1617561988096136_122108677821548511",
+    "122108677821548511",
+    "1641739910748761",
+    "1617561988096136_1641739910748761",
+  ],
+} as const;
+
 export const DEFAULT_IG_ACCOUNT_ID = "17841466030342647";
 export const DEFAULT_IG_USERNAME = "asra3_jobs";
+export const DEFAULT_FB_PAGE_ID = "1617561988096136";
 export const PROMO_CODE = "ASRA3VIP";
 export const INSTAGRAM_DM_MAX_CHARS = 950;
 
@@ -37,6 +49,7 @@ export interface SocialCommentResolveInput {
   platform: SocialPlatform;
   commentId: string;
   mediaId?: string | null;
+  secondaryMediaId?: string | null;
   text: string;
   fromId?: string | null;
   username?: string | null;
@@ -230,6 +243,18 @@ const PUBLIC_REPLY_FALLBACK_VARIANTS = [
   "مرحباً! حسابك يقيّد استلام الرسائل من غير المتابعين — استخدم رابط البايو الآن للتقديم المباشر وفحص سيرتك مجاناً + كود ASRA3VIP 🔗✨",
 ];
 
+const FB_PUBLIC_REPLY_VARIANTS = [
+  "أهلاً بك! أرسلنا لك الرابط المباشر وفحص الـ ATS مجاناً على رسائل ماسنجر 📩✨ (تأكد من طلبات الرسائل Message Requests)",
+  "تم إرسال رابط التقديم المباشر + تفاصيل فحص السيرة الذاتية عبر ماسنجر 📩⚡ بالتوفيق!",
+  "شيك رسائل ماسنجر الآن 📩 أرسلنا لك الرابط المباشر وكود الخصم الحصري ASRA3VIP ✨",
+  "تم الإرسال عبر ماسنجر 📩✨ راجع صندوق الرسائل (أو Message Requests) لفتح الرابط المباشر.",
+];
+
+const FB_FALLBACK_PREFIXES = [
+  "أهلاً بك! افتح الرابط المباشر للتقديم وفحص الـ ATS مجاناً (كود الخصم 20%: ASRA3VIP) 👇⚡",
+  "مرحباً! هذا هو الرابط المباشر للتقديم وفحص سيرتك بالـ ATS مجاناً مع كود ASRA3VIP (خصم 20%) 🔗✨",
+];
+
 /**
  * Normalizes Arabic & Latin comment text for deterministic keyword matching:
  * strips tashkeel/tatweel, unifies alef/taa marbuta/alef maqsura, removes punctuation/emoji.
@@ -348,6 +373,42 @@ function clampDmText(text: string): string {
   return `${text.slice(0, INSTAGRAM_DM_MAX_CHARS - 3).trimEnd()}...`;
 }
 
+type PinnedPostKind = "WELCOME_JOBS" | "ATS_CAROUSEL" | "VIP_SHIELD";
+
+function normalizePinCandidates(id: string): string[] {
+  const trimmed = id.trim();
+  if (!trimmed) return [];
+  const bare = trimmed.includes("_") ? trimmed.split("_").pop() || trimmed : trimmed;
+  return trimmed === bare ? [trimmed] : [trimmed, bare];
+}
+
+function matchPinnedPostKind(
+  platform: SocialPlatform,
+  mediaId: string,
+  secondaryMediaId?: string | null
+): PinnedPostKind | null {
+  const candidates = [
+    ...normalizePinCandidates(mediaId),
+    ...normalizePinCandidates(secondaryMediaId || ""),
+  ];
+  if (candidates.length === 0) return null;
+
+  if (platform === "instagram") {
+    if (candidates.includes(PINNED_IG_MEDIA_IDS.WELCOME_JOBS)) return "WELCOME_JOBS";
+    if (candidates.includes(PINNED_IG_MEDIA_IDS.ATS_CAROUSEL)) return "ATS_CAROUSEL";
+    if (candidates.includes(PINNED_IG_MEDIA_IDS.VIP_SHIELD)) return "VIP_SHIELD";
+    return null;
+  }
+
+  for (const kind of ["WELCOME_JOBS", "ATS_CAROUSEL", "VIP_SHIELD"] as const) {
+    const allowed: readonly string[] = PINNED_FB_POST_IDS[kind];
+    if (candidates.some((c) => allowed.includes(c))) {
+      return kind;
+    }
+  }
+  return null;
+}
+
 /**
  * Resolves the exact DM & public reply payload for an Instagram or Facebook comment.
  * Enforces self-comment loop prevention, zero false-positive keyword matching,
@@ -375,8 +436,15 @@ export function resolveSocialCommentReply(
     return emptyResult("empty_comment");
   }
 
-  const ownId = String(input.ownAccountId || DEFAULT_IG_ACCOUNT_ID).trim();
-  const ownUser = String(input.ownUsername || DEFAULT_IG_USERNAME).trim().toLowerCase();
+  const ownId = String(
+    input.ownAccountId ??
+      (input.platform === "facebook" ? DEFAULT_FB_PAGE_ID : DEFAULT_IG_ACCOUNT_ID)
+  ).trim();
+  const ownUser = String(
+    input.ownUsername ?? (input.platform === "facebook" ? "" : DEFAULT_IG_USERNAME)
+  )
+    .trim()
+    .toLowerCase();
   const fromId = String(input.fromId || "").trim();
   const fromUser = String(input.username || "").trim().toLowerCase();
   if ((ownId && fromId === ownId) || (ownUser && fromUser === ownUser)) {
@@ -409,6 +477,11 @@ export function resolveSocialCommentReply(
 
   const siteUrl = (input.siteUrl || "https://asra3.com").replace(/\/+$/, "");
   const mediaId = String(input.mediaId || "").trim();
+  const pinnedKind = matchPinnedPostKind(
+    input.platform,
+    mediaId,
+    input.secondaryMediaId
+  );
   const utmBase = { source: input.platform, medium: "dm" };
   const wizardVipUrl = buildTrackedUrl(
     siteUrl,
@@ -474,7 +547,7 @@ export function resolveSocialCommentReply(
     }
 
     dmText = lines.filter(Boolean).join("\n");
-  } else if (mediaId === PINNED_IG_MEDIA_IDS.WELCOME_JOBS) {
+  } else if (pinnedKind === "WELCOME_JOBS") {
     matchedRule = "pin1_welcome_jobs";
     if (matchedCountry) {
       matchedKeyword = countryKeyword!;
@@ -504,7 +577,7 @@ export function resolveSocialCommentReply(
         `🤖 افحص سيرتك بالـ ATS مجاناً + خصم 20% بكود ${PROMO_CODE}:\n${wizardVipUrl}`,
       ].join("\n");
     }
-  } else if (mediaId === PINNED_IG_MEDIA_IDS.ATS_CAROUSEL) {
+  } else if (pinnedKind === "ATS_CAROUSEL") {
     matchedRule = "pin2_ats_carousel";
     targetUrl = buildTrackedUrl(
       siteUrl,
@@ -521,7 +594,7 @@ export function resolveSocialCommentReply(
       "",
       `🔗 ابدأ الفحص المجاني الآن:\n${targetUrl}`,
     ].join("\n");
-  } else if (mediaId === PINNED_IG_MEDIA_IDS.VIP_SHIELD) {
+  } else if (pinnedKind === "VIP_SHIELD") {
     matchedRule = "pin3_vip_shield";
     targetUrl = buildTrackedUrl(
       siteUrl,
@@ -582,6 +655,15 @@ export function resolveSocialCommentReply(
     ].join("\n");
   }
 
+  const publicReply =
+    input.platform === "facebook"
+      ? pickVariant(commentId, FB_PUBLIC_REPLY_VARIANTS)
+      : pickVariant(commentId, PUBLIC_REPLY_VARIANTS);
+  const publicReplyFallback =
+    input.platform === "facebook"
+      ? `${pickVariant(commentId, FB_FALLBACK_PREFIXES)}\n${targetUrl}`
+      : pickVariant(commentId, PUBLIC_REPLY_FALLBACK_VARIANTS);
+
   return {
     should_reply: true,
     skip_reason: null,
@@ -591,10 +673,7 @@ export function resolveSocialCommentReply(
     job_slug: jobSlug,
     target_url: targetUrl,
     dm_text: clampDmText(dmText),
-    public_reply_text: pickVariant(commentId, PUBLIC_REPLY_VARIANTS),
-    public_reply_fallback_text: pickVariant(
-      commentId,
-      PUBLIC_REPLY_FALLBACK_VARIANTS
-    ),
+    public_reply_text: publicReply,
+    public_reply_fallback_text: publicReplyFallback,
   };
 }

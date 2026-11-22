@@ -549,3 +549,124 @@ test("Sanitized IG Comment-to-DM workflow template has GET/POST webhooks, safety
   assert.match(byName.extractIgComments.parameters.jsCode, /processedCommentIds/);
   assert.match(byName.extractIgComments.parameters.jsCode, /asra3_jobs/);
 });
+
+test("resolveSocialCommentReply supports Facebook Pins, Page self-comment loop guard & clickable Messenger fallback", () => {
+  // Facebook Page self-comment (1st comment links & Page replies) must be ignored
+  assert.equal(
+    commentDm.resolveSocialCommentReply({
+      platform: "facebook",
+      commentId: "fb-c-self",
+      text: "دبي",
+      fromId: commentDm.DEFAULT_FB_PAGE_ID,
+      username: "Asra3",
+    }).skip_reason,
+    "self_comment"
+  );
+
+  // Facebook Pin #1 (Video #7) via bare video ID & prefixed Page_Post ID
+  const fbPin1 = commentDm.resolveSocialCommentReply({
+    platform: "facebook",
+    commentId: "fb-c-pin1",
+    mediaId: "1182872014308145",
+    text: "الرياض",
+    fromId: "user-fb-1",
+    username: "Ahmed",
+  });
+  assert.equal(fbPin1.should_reply, true);
+  assert.equal(fbPin1.matched_rule, "pin1_welcome_jobs");
+  assert.equal(
+    fbPin1.target_url,
+    "https://asra3.com/sa/jobs?utm_source=facebook&utm_medium=dm&utm_campaign=pin1_city_sa"
+  );
+  assert.match(fbPin1.public_reply_text, /ماسنجر/);
+
+  // Facebook Pin #2 (7-slide guide) & Pin #3 (ASRA3VIP Reel via video_id secondaryMediaId)
+  const fbPin2 = commentDm.resolveSocialCommentReply({
+    platform: "facebook",
+    commentId: "fb-c-pin2",
+    mediaId: "1617561988096136_122108677227548511",
+    text: "ATS",
+    fromId: "user-fb-2",
+  });
+  assert.equal(fbPin2.matched_rule, "pin2_ats_carousel");
+  assert.equal(
+    fbPin2.target_url,
+    "https://asra3.com/?utm_source=facebook&utm_medium=dm&utm_campaign=pin2_carousel#wizard-section"
+  );
+
+  const fbPin3 = commentDm.resolveSocialCommentReply({
+    platform: "facebook",
+    commentId: "fb-c-pin3",
+    mediaId: "unknown_post",
+    secondaryMediaId: "1641739910748761",
+    text: "معلومات",
+    fromId: "user-fb-3",
+  });
+  assert.equal(fbPin3.matched_rule, "pin3_vip_shield");
+  assert.ok(
+    fbPin3.public_reply_fallback_text.includes(fbPin3.target_url),
+    "Facebook public fallback reply must include direct clickable URL"
+  );
+  assert.match(fbPin3.public_reply_fallback_text, /ASRA3VIP/);
+  assert.equal(fbPin3.public_reply_fallback_text.includes("البايو"), false);
+});
+
+test("Sanitized FB Comment-to-DM workflow template has GET/POST webhooks on asra3-facebook, loop guards & zero secrets", () => {
+  const wfPath = path.join(ROOT, "n8n-workflows/asra3-facebook-comment-to-dm.json");
+  const raw = fs.readFileSync(wfPath, "utf8");
+  assert.equal(/EAA[A-Za-z0-9]{20,}/.test(raw), false, "Must NEVER contain raw Meta access tokens!");
+
+  const wf = JSON.parse(raw);
+  const byName = Object.fromEntries(wf.nodes.map((n) => [n.name, n]));
+  const cfg = byName.configCredentials;
+  const assignments = Object.fromEntries(
+    (cfg?.parameters?.assignments?.assignments || []).map((a) => [a.name, a.value])
+  );
+  assert.equal(assignments.webhookSecret, "YOUR_N8N_WEBHOOK_SECRET_OR_ADMIN_PASSCODE");
+  assert.equal(assignments.facebookPageId, "YOUR_FACEBOOK_PAGE_ID");
+  assert.equal(assignments.facebookPageAccessToken, "YOUR_FACEBOOK_PAGE_ACCESS_TOKEN");
+
+  const envLocalPath = path.join(ROOT, ".env.local");
+  if (fs.existsSync(envLocalPath)) {
+    for (const line of fs.readFileSync(envLocalPath, "utf8").split(/\r?\n/)) {
+      const m = line.match(/^(N8N_WEBHOOK_SECRET|FACEBOOK_PAGE_ACCESS_TOKEN|INSTAGRAM_ACCESS_TOKEN|ADMIN_PASSCODE|SUPABASE_SERVICE_ROLE_KEY)=(.+)$/);
+      if (m) {
+        const val = m[2].replace(/^['"]|['"]$/g, "").trim();
+        if (val.length >= 6) {
+          assert.equal(raw.includes(val), false, `Live secret ${m[1]} leaked into FB Comment-to-DM template!`);
+        }
+      }
+    }
+  }
+
+  assert.equal(byName.Webhook.parameters.httpMethod, "GET");
+  assert.equal(byName.WebhookPost.parameters.httpMethod, "POST");
+  assert.equal(byName.Webhook.parameters.path, "asra3-facebook");
+  assert.equal(byName.WebhookPost.parameters.path, "asra3-facebook");
+  assert.equal(byName.WebhookPost.parameters.responseMode, "onReceived");
+  assert.match(byName["Respond to Webhook"].parameters.responseBody, /hub\.challenge/);
+
+  for (const required of [
+    "extractFbComments",
+    "resolveCommentReply",
+    "mergeResolveContext",
+    "ifShouldReply",
+    "fbSendPrivateDm",
+    "preparePublicReply",
+    "fbSendPublicReply",
+  ]) {
+    assert.ok(byName[required], `Missing required FB Comment-to-DM node: ${required}`);
+  }
+
+  for (const codeNodeName of ["extractFbComments", "mergeResolveContext", "preparePublicReply"]) {
+    const code = byName[codeNodeName].parameters.jsCode || "";
+    assert.equal(
+      /\$json\./.test(code),
+      false,
+      `${codeNodeName} must use $input / $() instead of bare $json in runOnceForAllItems mode`
+    );
+  }
+  assert.match(byName.extractFbComments.parameters.jsCode, /val\.item !== 'comment' \|\| val\.verb !== 'add'/);
+  assert.match(byName.extractFbComments.parameters.jsCode, /processedCommentIds/);
+  assert.match(byName.fbSendPublicReply.parameters.url, /\/comments$/);
+});

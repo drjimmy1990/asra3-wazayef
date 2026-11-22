@@ -27,6 +27,9 @@ export async function POST(req: NextRequest) {
 
     const commentId = String(body.comment_id || "").trim();
     const mediaId = body.media_id ? String(body.media_id).trim() : null;
+    const secondaryMediaId = body.secondary_media_id
+      ? String(body.secondary_media_id).trim()
+      : null;
     const text = String(body.text || "");
     const fromId = body.from_id ? String(body.from_id).trim() : null;
     const username = body.username ? String(body.username).trim() : null;
@@ -38,10 +41,17 @@ export async function POST(req: NextRequest) {
       : null;
 
     let matchedJob: MatchedJobSummary | null = null;
-    if (mediaId) {
-      const found = await findJobBySocialPostId(
-        platform === "instagram" ? { igPostId: mediaId } : { fbPostId: mediaId }
-      );
+    if (mediaId || secondaryMediaId) {
+      let found = mediaId
+        ? await findJobBySocialPostId(
+            platform === "instagram"
+              ? { igPostId: mediaId }
+              : { fbPostId: mediaId }
+          )
+        : null;
+      if (!found && platform === "facebook" && secondaryMediaId) {
+        found = await findJobBySocialPostId({ fbPostId: secondaryMediaId });
+      }
       if (found) {
         matchedJob = {
           id: found.id,
@@ -63,6 +73,7 @@ export async function POST(req: NextRequest) {
       platform,
       commentId,
       mediaId,
+      secondaryMediaId,
       text,
       fromId,
       username,

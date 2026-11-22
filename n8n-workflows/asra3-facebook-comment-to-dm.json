@@ -1,0 +1,356 @@
+{
+  "name": "Asra3.com — Facebook",
+  "nodes": [
+    {
+      "parameters": {
+        "multipleMethods": false,
+        "httpMethod": "GET",
+        "path": "asra3-facebook",
+        "authentication": "none",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [0, 0],
+      "id": "e5b50379-ee61-4921-823a-e0000225e42b",
+      "name": "Webhook",
+      "webhookId": "08b7e93e-5fb8-40b8-b38a-798a3a54c0f8"
+    },
+    {
+      "parameters": {
+        "enableResponseOutput": false,
+        "respondWith": "text",
+        "responseBody": "={{ $json.query['hub.challenge'] || $json.query.hub_challenge || '' }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [240, 0],
+      "id": "2f353a57-8006-4b0a-bdcd-bd152b3e740f",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "multipleMethods": false,
+        "httpMethod": "POST",
+        "path": "asra3-facebook",
+        "authentication": "none",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [0, 260],
+      "id": "fb-dm-webhook-post",
+      "name": "WebhookPost",
+      "webhookId": "08b7e93e-5fb8-40b8-b38a-798a3a54c0f8"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "fb-cfg-base-url",
+              "name": "asra3BaseUrl",
+              "type": "string",
+              "value": "https://asra3.com"
+            },
+            {
+              "id": "fb-cfg-webhook-secret",
+              "name": "webhookSecret",
+              "type": "string",
+              "value": "YOUR_N8N_WEBHOOK_SECRET_OR_ADMIN_PASSCODE"
+            },
+            {
+              "id": "fb-cfg-page-id",
+              "name": "facebookPageId",
+              "type": "string",
+              "value": "YOUR_FACEBOOK_PAGE_ID"
+            },
+            {
+              "id": "fb-cfg-page-token",
+              "name": "facebookPageAccessToken",
+              "type": "string",
+              "value": "YOUR_FACEBOOK_PAGE_ACCESS_TOKEN"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [240, 260],
+      "id": "fb-dm-config-vars",
+      "name": "configCredentials",
+      "notes": "Fill webhookSecret, facebookPageId, and facebookPageAccessToken directly inside live n8n only. Never commit real tokens."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const webhookItem = $('WebhookPost').first()?.json || {};\nconst cfg = $input.first()?.json || {};\nconst rawHeaders = webhookItem.headers || {};\nconst headers = {};\nfor (const [k, v] of Object.entries(rawHeaders)) {\n  headers[String(k).toLowerCase()] = String(v ?? '');\n}\nconst body = webhookItem.body && typeof webhookItem.body === 'object' ? webhookItem.body : {};\n\nconst isAuthorizedDryRun =\n  body._dry_run === true &&\n  Boolean(cfg.webhookSecret) &&\n  headers['x-webhook-secret'] === String(cfg.webhookSecret);\n\nif (body.object !== 'page' || !Array.isArray(body.entry)) {\n  return [];\n}\n\nconst ownPageId = String(cfg.facebookPageId || '1617561988096136').trim();\n\nconst staticData = $getWorkflowStaticData('global');\nif (!Array.isArray(staticData.processedCommentIds)) {\n  staticData.processedCommentIds = [];\n}\nconst seen = new Set(staticData.processedCommentIds);\nconst out = [];\n\nfor (const entry of body.entry) {\n  const entryId = String(entry?.id || '').trim();\n  const changes = Array.isArray(entry?.changes) ? entry.changes : [];\n  for (const change of changes) {\n    if (change?.field !== 'feed') continue;\n    const val = change.value || {};\n    if (val.item !== 'comment' || val.verb !== 'add') continue;\n\n    const commentId = String(val.comment_id || val.id || '').trim();\n    const postId = String(val.post_id || '').trim();\n    const videoId = String(val.video_id || '').trim();\n    const text = String(val.message || val.text || '').trim();\n    const fromId = String(val.from?.id || '').trim();\n    const fromName = String(val.from?.name || '').trim();\n\n    if (!commentId || !text) continue;\n    if ((ownPageId && fromId === ownPageId) || (entryId && fromId === entryId)) {\n      continue;\n    }\n\n    if (!isAuthorizedDryRun) {\n      if (seen.has(commentId)) continue;\n      seen.add(commentId);\n      staticData.processedCommentIds.push(commentId);\n    }\n\n    const mediaId = postId || videoId;\n    const secondaryMediaId = videoId && videoId !== postId ? videoId : '';\n\n    out.push({\n      json: {\n        platform: 'facebook',\n        comment_id: commentId,\n        media_id: mediaId,\n        secondary_media_id: secondaryMediaId,\n        text,\n        from_id: fromId,\n        username: fromName,\n        own_account_id: ownPageId,\n        dry_run: isAuthorizedDryRun,\n      },\n    });\n  }\n}\n\nif (staticData.processedCommentIds.length > 500) {\n  staticData.processedCommentIds = staticData.processedCommentIds.slice(-500);\n}\n\nreturn out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [500, 260],
+      "id": "fb-dm-extract-comments",
+      "name": "extractFbComments"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('configCredentials').first().json.asra3BaseUrl }}/api/webhooks/social-comment-resolve",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-webhook-secret",
+              "value": "={{ $('configCredentials').first().json.webhookSecret }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ platform: 'facebook', comment_id: $json.comment_id, media_id: $json.media_id, secondary_media_id: $json.secondary_media_id || undefined, text: $json.text, from_id: $json.from_id, username: $json.username, own_account_id: $json.own_account_id }) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [760, 260],
+      "id": "fb-dm-resolve-reply",
+      "name": "resolveCommentReply",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1500,
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const extracted = $('extractFbComments').all();\nconst resolvedList = $input.all();\nconst cfg = $('configCredentials').first().json;\n\nconst hasCreds =\n  Boolean(cfg.facebookPageId) &&\n  cfg.facebookPageId !== 'YOUR_FACEBOOK_PAGE_ID' &&\n  Boolean(cfg.facebookPageAccessToken) &&\n  cfg.facebookPageAccessToken !== 'YOUR_FACEBOOK_PAGE_ACCESS_TOKEN';\n\nreturn extracted.map((srcItem, idx) => {\n  const src = srcItem.json || {};\n  const res = resolvedList[idx]?.json || {};\n  const apiOk = res.ok === true && !res.error;\n  const readyToSend =\n    apiOk &&\n    res.should_reply === true &&\n    src.dry_run !== true &&\n    Boolean(src.comment_id) &&\n    Boolean(res.dm_text) &&\n    hasCreds;\n\n  return {\n    json: {\n      ...src,\n      resolve_ok: apiOk,\n      resolve_error: res.error ? String(res.error.message || res.error) : null,\n      should_reply: apiOk && res.should_reply === true,\n      ready_to_send: readyToSend,\n      skip_reason: apiOk ? (res.skip_reason || null) : 'resolve_api_error',\n      matched_rule: res.matched_rule || null,\n      matched_keyword: res.matched_keyword || null,\n      matched_country: res.matched_country || null,\n      job_slug: res.job_slug || null,\n      target_url: res.target_url || null,\n      dm_text: res.dm_text || null,\n      public_reply_text: res.public_reply_text || null,\n      public_reply_fallback_text: res.public_reply_fallback_text || null,\n      facebookPageId: cfg.facebookPageId,\n      facebookPageAccessToken: cfg.facebookPageAccessToken,\n    },\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1020, 260],
+      "id": "fb-dm-merge-context",
+      "name": "mergeResolveContext"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-fb-ready-to-send",
+              "leftValue": "={{ $json.ready_to_send }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1280, 260],
+      "id": "fb-dm-if-should-reply",
+      "name": "ifShouldReply"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v21.0/{{ $json.facebookPageId }}/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.facebookPageAccessToken }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ recipient: { comment_id: $json.comment_id }, message: { text: $json.dm_text } }) }}",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 180],
+      "id": "fb-dm-send-private-dm",
+      "name": "fbSendPrivateDm",
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const trueItems = $('ifShouldReply').all(0);\nconst dmResponses = $input.all();\nconst out = [];\n\nfor (let i = 0; i < trueItems.length; i++) {\n  const base = trueItems[i]?.json || {};\n  const dmRes = dmResponses[i]?.json || {};\n  const dmSucceeded = Boolean((dmRes.message_id || dmRes.recipient_id) && !dmRes.error);\n  const replyMessage = dmSucceeded\n    ? String(base.public_reply_text || '')\n    : String(base.public_reply_fallback_text || base.public_reply_text || '');\n\n  if (!base.comment_id || !replyMessage) continue;\n\n  out.push({\n    json: {\n      comment_id: base.comment_id,\n      facebookPageAccessToken: base.facebookPageAccessToken,\n      dm_succeeded: dmSucceeded,\n      dm_message_id: dmRes.message_id || null,\n      dm_error: dmRes.error ? String(dmRes.error.message || JSON.stringify(dmRes.error)) : null,\n      reply_message: replyMessage,\n    },\n  });\n}\n\nreturn out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1820, 180],
+      "id": "fb-dm-prepare-public-reply",
+      "name": "preparePublicReply"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v21.0/{{ $json.comment_id }}/comments",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.facebookPageAccessToken }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ message: $json.reply_message }) }}",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2080, 180],
+      "id": "fb-dm-send-public-reply",
+      "name": "fbSendPublicReply",
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WebhookPost": {
+      "main": [
+        [
+          {
+            "node": "configCredentials",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "configCredentials": {
+      "main": [
+        [
+          {
+            "node": "extractFbComments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "extractFbComments": {
+      "main": [
+        [
+          {
+            "node": "resolveCommentReply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "resolveCommentReply": {
+      "main": [
+        [
+          {
+            "node": "mergeResolveContext",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "mergeResolveContext": {
+      "main": [
+        [
+          {
+            "node": "ifShouldReply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ifShouldReply": {
+      "main": [
+        [
+          {
+            "node": "fbSendPrivateDm",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "fbSendPrivateDm": {
+      "main": [
+        [
+          {
+            "node": "preparePublicReply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "preparePublicReply": {
+      "main": [
+        [
+          {
+            "node": "fbSendPublicReply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

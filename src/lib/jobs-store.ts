@@ -902,8 +902,14 @@ function matchesFbPostId(
   targetFbId: string
 ): boolean {
   if (!candidate) return false;
-  if (candidate === targetFbId) return true;
-  return !targetFbId.includes("_") && candidate.endsWith(`_${targetFbId}`);
+  const bareTarget = targetFbId.includes("_")
+    ? targetFbId.split("_").pop() || targetFbId
+    : targetFbId;
+  return (
+    candidate === targetFbId ||
+    candidate === bareTarget ||
+    (Boolean(bareTarget) && candidate.endsWith(`_${bareTarget}`))
+  );
 }
 
 export async function findJobBySocialPostId(params: {
@@ -947,6 +953,10 @@ export async function findJobBySocialPostId(params: {
   }
 
   if (fbPostId) {
+    const bareFbId = fbPostId.includes("_")
+      ? fbPostId.split("_").pop() || fbPostId
+      : fbPostId;
+
     if (isSupabaseConfigured()) {
       try {
         const sb = getSupabaseJobsClient();
@@ -960,11 +970,22 @@ export async function findJobBySocialPostId(params: {
             ? (exactRes.data[0] as JobPostingRecord)
             : null;
 
-        if (!row && !fbPostId.includes("_")) {
+        if (!row && bareFbId && bareFbId !== fbPostId) {
+          const bareRes = await sb
+            .from("jobs")
+            .select("*")
+            .eq("fb_post_id", bareFbId)
+            .limit(1);
+          if (Array.isArray(bareRes.data) && bareRes.data.length > 0) {
+            row = bareRes.data[0] as JobPostingRecord;
+          }
+        }
+
+        if (!row && bareFbId) {
           const suffixRes = await sb
             .from("jobs")
             .select("*")
-            .like("fb_post_id", `%_${fbPostId}`)
+            .like("fb_post_id", `%_${bareFbId}`)
             .limit(1);
           if (Array.isArray(suffixRes.data) && suffixRes.data.length > 0) {
             row = suffixRes.data[0] as JobPostingRecord;
