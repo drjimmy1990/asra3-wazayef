@@ -180,8 +180,8 @@ async function publishFbReel({ fbId, fbToken, videoUrl, description, firstCommen
     }),
   });
 
-  console.log(`  [FB Reel Published] video_id=${started.video_id} post_id=${finished.post_id || "n/a"}, waiting 15s for comment...`);
-  await sleep(15000);
+  console.log(`  [FB Reel Published] video_id=${started.video_id} post_id=${finished.post_id || "n/a"}, waiting 25s for comment...`);
+  await sleep(25000);
 
   const commentTarget = finished.post_id
     ? String(finished.post_id).includes("_")
@@ -200,7 +200,22 @@ async function publishFbReel({ fbId, fbToken, videoUrl, description, firstCommen
       commentId = c.id || null;
       console.log(`  [FB 1st Comment OK] comment_id=${commentId}`);
     } catch (err) {
-      console.warn(`  [FB 1st Comment WARN] ${err.message}`);
+      if (commentTarget !== String(started.video_id)) {
+        await sleep(10000);
+        try {
+          const c2 = await graphRequest(`/${started.video_id}/comments`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: firstComment, access_token: fbToken }),
+          });
+          commentId = c2.id || null;
+          console.log(`  [FB 1st Comment Fallback OK] comment_id=${commentId}`);
+        } catch (err2) {
+          console.warn(`  [FB 1st Comment WARN] ${err2.message}`);
+        }
+      } else {
+        console.warn(`  [FB 1st Comment WARN] ${err.message}`);
+      }
     }
   }
 
