@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { Asra3Logo } from "@/components/Asra3Logo";
@@ -32,6 +32,8 @@ import {
   CheckCircle2,
   ChevronDown,
   Clock,
+  CreditCard,
+  EyeOff,
   FileCheck2,
   Globe2,
   MailCheck,
@@ -330,6 +332,9 @@ export function HomeLandingClient({
 
   const [wizardExternalPkg, setWizardExternalPkg] =
     useState<PackageId | null>(null);
+  const [wizardSelectSignal, setWizardSelectSignal] = useState(0);
+  const [isWizardInView, setIsWizardInView] = useState(false);
+  const wizardSectionRef = useRef<HTMLElement | null>(null);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
   const [lastToken, setLastToken] = useState<string | null>(null);
   const [roleSpotlightIdx, setRoleSpotlightIdx] = useState(0);
@@ -393,6 +398,39 @@ export function HomeLandingClient({
     return () => window.clearInterval(feedTimer);
   }, [feedPaused]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const target = wizardSectionRef.current;
+    if (!target || typeof IntersectionObserver === "undefined") return;
+
+    const updateVisibility = (inView: boolean) => {
+      setIsWizardInView(inView);
+      document.body.dataset.wizardInView = inView ? "true" : "false";
+      window.dispatchEvent(
+        new CustomEvent("asra3:wizard-visibility", { detail: { inView } })
+      );
+    };
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry) {
+          updateVisibility(entry.isIntersecting);
+        }
+      },
+      { threshold: 0.08 }
+    );
+    observer.observe(target);
+
+    return () => {
+      observer.disconnect();
+      delete document.body.dataset.wizardInView;
+      window.dispatchEvent(
+        new CustomEvent("asra3:wizard-visibility", { detail: { inView: false } })
+      );
+    };
+  }, []);
+
   const orderedFeed = [
     ...LIVE_DISPATCH_FEED.filter((item) => item.code === selectedCountryCode),
     ...LIVE_DISPATCH_FEED.filter((item) => item.code !== selectedCountryCode),
@@ -408,6 +446,11 @@ export function HomeLandingClient({
     lang === "ar"
       ? selectedCountry.currency_symbol_ar
       : selectedCountry.currency_symbol_en;
+  const starterPkg = packages[0];
+  const starterPrice =
+    starterPkg?.prices_by_currency?.[currency] ??
+    starterPkg?.prices_by_currency?.AED ??
+    129;
 
   const faqs =
     lang === "ar"
@@ -590,13 +633,17 @@ export function HomeLandingClient({
                 })}
               </div>
 
-              {/* Primary & Ecosystem CTAs (CV Distribution + Live GCC Jobs + Free Employer Posting) */}
-              <div className="mt-8 flex flex-wrap items-center justify-center lg:justify-start gap-3">
+              {/* Primary Paid-Service CTAs (Direct HR Distribution + Plans) */}
+              <div className="mt-8 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-center lg:justify-start gap-3">
                 <a
                   href="#wizard-section"
-                  className="btn-gold inline-flex items-center gap-2.5 rounded-xl px-6 py-3.5 text-sm sm:text-base font-extrabold"
+                  className="btn-gold inline-flex items-center justify-center gap-2.5 rounded-xl px-6 py-4 text-sm sm:text-base font-extrabold shadow-sm touch-manipulation"
                 >
-                  <span>{t.heroCtaPrimary}</span>
+                  <span>
+                    {lang === "ar"
+                      ? "ابدأ توزيع سيرتك للـ HR الآن"
+                      : "Launch Direct HR Campaign"}
+                  </span>
                   {lang === "ar" ? (
                     <ArrowLeft className="h-5 w-5 text-[#09090B]" />
                   ) : (
@@ -604,26 +651,43 @@ export function HomeLandingClient({
                   )}
                 </a>
 
+                <a
+                  href="#pricing-section"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-[#09090B] dark:border-[#D4AF37]/80 bg-white dark:bg-[#121215] px-5 py-3.5 text-sm font-extrabold text-zinc-950 dark:text-[#D4AF37] hover:bg-zinc-100 dark:hover:bg-[#18181D] transition-colors touch-manipulation"
+                >
+                  <Sparkles className="h-4 w-4 text-[#D4AF37]" />
+                  <span>
+                    {lang === "ar"
+                      ? `الباقات والأسعار (من ${starterPrice} ${currencySymbol})`
+                      : `View Plans (From ${starterPrice} ${currencySymbol})`}
+                  </span>
+                </a>
+              </div>
+
+              {/* Subtle Ecosystem Links Row (Secondary to Core Paid Product) */}
+              <div className="mt-4 flex flex-wrap items-center justify-center lg:justify-start gap-x-5 gap-y-2 text-xs font-semibold text-zinc-600 dark:text-zinc-400">
                 <Link
                   href="/jobs"
-                  className="inline-flex items-center gap-2 rounded-xl bg-[#09090B] text-white hover:bg-zinc-800 dark:bg-[#16161A] dark:border dark:border-[#D4AF37]/70 dark:text-[#D4AF37] px-5 py-3.5 text-sm font-extrabold transition-colors"
+                  className="inline-flex items-center gap-1.5 hover:text-zinc-950 dark:hover:text-[#D4AF37] transition-colors"
                 >
-                  <BriefcaseBusiness className="h-4 w-4 text-[#D4AF37]" />
+                  <BriefcaseBusiness className="h-3.5 w-3.5 text-[#D4AF37]" />
                   <span>
                     {lang === "ar"
-                      ? `تصفح الوظائف المتاحة${totalActiveJobs > 0 ? ` (${totalActiveJobs}+)` : ""}`
-                      : `Browse Live Jobs${totalActiveJobs > 0 ? ` (${totalActiveJobs}+)` : ""}`}
+                      ? `تصفح الوظائف الموثقة${totalActiveJobs > 0 ? ` (${totalActiveJobs}+)` : ""}`
+                      : `Browse Verified Jobs${totalActiveJobs > 0 ? ` (${totalActiveJobs}+)` : ""}`}
                   </span>
                 </Link>
-
+                <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-700">
+                  •
+                </span>
                 <Link
                   href="/employers"
-                  className="inline-flex items-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#121215] px-5 py-3.5 text-sm font-bold text-zinc-900 dark:text-zinc-100 hover:border-[#D4AF37] transition-colors"
+                  className="inline-flex items-center gap-1.5 hover:text-zinc-950 dark:hover:text-[#D4AF37] transition-colors"
                 >
-                  <Building2 className="h-4 w-4 text-[#D4AF37]" />
+                  <Building2 className="h-3.5 w-3.5 text-[#D4AF37]" />
                   <span>
                     {lang === "ar"
-                      ? "للشركات: انشر وظيفة مجاناً"
+                      ? "للشركات: أضف وظيفة مجاناً"
                       : "For Companies: Post Job Free"}
                   </span>
                 </Link>
@@ -854,263 +918,242 @@ export function HomeLandingClient({
 
       <EnterpriseTickerStrip lang={lang} />
 
-      {/* ================= LIVE VERIFIED GCC JOBS & EMPLOYER PORTAL SHOWCASE ================= */}
-      {(() => {
-        const countryMatchedJobs = initialJobs.filter(
-          (j) => j.country_code === selectedCountryCode
-        );
-        const otherJobs = initialJobs.filter(
-          (j) => j.country_code !== selectedCountryCode
-        );
-        const featuredHomeJobs = [...countryMatchedJobs, ...otherJobs].slice(
-          0,
-          6
-        );
-
-        return (
-          <section
-            id="live-jobs-section"
-            className="bg-white dark:bg-[#09090B] py-16 sm:py-20 px-4 sm:px-6 lg:px-8 border-b border-zinc-200 dark:border-zinc-800 transition-colors"
-          >
-            <div className="mx-auto max-w-7xl space-y-10">
-              {/* Header Row */}
-              <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5">
-                <div className="max-w-2xl">
-                  <div className="inline-flex items-center gap-2 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-[#121215] px-3.5 py-1 text-xs font-bold text-zinc-900 dark:text-[#D4AF37] mb-3.5">
-                    <span className="gold-beacon" />
-                    <span>
-                      {lang === "ar"
-                        ? `وظائف الخليج الموثقة مباشرة • ${Math.max(totalActiveJobs, featuredHomeJobs.length)}+ شاغر نشط`
-                        : `Live MX-Verified GCC Jobs Board • ${Math.max(totalActiveJobs, featuredHomeJobs.length)}+ Open Roles`}
-                    </span>
-                  </div>
-                  <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-zinc-950 dark:text-zinc-50">
-                    {lang === "ar"
-                      ? "أحدث الوظائف الحقيقية في الخليج — قدّم مباشرة للـ HR مجاناً"
-                      : "Latest Verified GCC Vacancies — Apply Direct to Corporate HR Free"}
-                  </h2>
-                  <p className="mt-2.5 text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                    {lang === "ar"
-                      ? "تجمع منصة أسرع بين بوابة الوظائف الخليجية المحدثة تلقائياً ومحرك التوزيع الذكي لسيرتك الذاتية، مع بوابة مجانية للشركات لإضافة شواغرها فوراً."
-                      : "Asra3 combines a continuously updated MX-verified GCC Jobs Board with automated CV distribution to 300+ peer HR inboxes—plus free instant vacancy publishing for hiring companies."}
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-                  <Link
-                    href={`/${selectedCountryCode.toLowerCase()}/jobs`}
-                    className="inline-flex items-center gap-2 rounded-xl bg-[#09090B] text-white hover:bg-zinc-800 dark:bg-[#D4AF37] dark:text-[#09090B] dark:hover:bg-[#C59F27] px-5 py-3 text-xs sm:text-sm font-extrabold transition-colors"
-                  >
-                    <BriefcaseBusiness className="h-4 w-4 text-[#D4AF37] dark:text-[#09090B]" />
-                    <span>
-                      {lang === "ar"
-                        ? `عرض كل الوظائف (${Math.max(totalActiveJobs, featuredHomeJobs.length)}+)`
-                        : `Explore All Live Jobs (${Math.max(totalActiveJobs, featuredHomeJobs.length)}+)`}
-                    </span>
-                    <ArrowUpRight className="h-4 w-4" />
-                  </Link>
-                  <Link
-                    href="/employers"
-                    className="inline-flex items-center gap-2 rounded-xl border-2 border-[#D4AF37] bg-[#D4AF37]/10 px-5 py-3 text-xs sm:text-sm font-extrabold text-zinc-950 dark:text-[#D4AF37] hover:bg-[#D4AF37] hover:text-[#09090B] transition-colors"
-                  >
-                    <PlusCircle className="h-4 w-4" />
-                    <span>
-                      {lang === "ar"
-                        ? "أضف وظائف شركتك مجاناً"
-                        : "Post Company Jobs Free"}
-                    </span>
-                  </Link>
-                </div>
-              </div>
-
-              {/* 6 Live Job Cards Grid */}
-              {featuredHomeJobs.length > 0 && (
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {featuredHomeJobs.map((job) => {
-                    const jTitle = lang === "ar" ? job.title_ar : job.title_en;
-                    const jCity =
-                      lang === "ar" ? job.city_name_ar : job.city_name_en;
-                    const wizardHref = `/?country=${job.country_code}&city=${job.city_id}&industry=${job.industry_id}&role=${encodeURIComponent(job.title_en)}#wizard-section`;
-
-                    return (
-                      <article
-                        key={job.id}
-                        className="exec-card-interactive flex flex-col justify-between rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-[#121215] p-5 hover:border-[#D4AF37] transition-colors"
-                      >
-                        <div>
-                          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                            <div className="flex items-center gap-1.5">
-                              <span
-                                dir="ltr"
-                                className="rounded bg-[#09090B] px-2 py-0.5 font-mono text-[10px] font-extrabold text-[#D4AF37]"
-                              >
-                                {job.country_code} • {job.city_name_en}
-                              </span>
-                              {job.is_mx_verified && (
-                                <span className="inline-flex items-center gap-1 rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-[#09090B] px-2 py-0.5 text-[10px] font-bold text-zinc-800 dark:text-[#D4AF37]">
-                                  <CheckCircle2 className="h-3 w-3 text-[#D4AF37]" />
-                                  MX HR
-                                </span>
-                              )}
-                            </div>
-                            <span className="text-[11px] font-semibold text-zinc-500">
-                              {jCity}
-                            </span>
-                          </div>
-
-                          <h3 className="text-base font-extrabold text-zinc-950 dark:text-zinc-50 leading-snug line-clamp-2">
-                            <Link
-                              href={`/jobs/${job.slug}`}
-                              className="hover:text-[#9A7B1C] dark:hover:text-[#D4AF37] transition-colors"
-                            >
-                              {jTitle}
-                            </Link>
-                          </h3>
-
-                          <p className="mt-1.5 flex items-center gap-1.5 text-xs font-bold text-zinc-600 dark:text-zinc-300 truncate">
-                            <Building2 className="h-3.5 w-3.5 text-[#D4AF37] shrink-0" />
-                            <span className="truncate">{job.company_name}</span>
-                          </p>
-
-                          <div className="mt-3 flex flex-wrap gap-1.5">
-                            {job.salary_min && job.salary_max ? (
-                              <span
-                                dir="ltr"
-                                className="rounded bg-[#09090B] px-2 py-0.5 font-mono text-[10px] font-extrabold text-[#D4AF37]"
-                              >
-                                {job.salary_min.toLocaleString()}–
-                                {job.salary_max.toLocaleString()}{" "}
-                                {job.salary_currency}
-                              </span>
-                            ) : null}
-                            {job.skills.slice(0, 3).map((sk) => (
-                              <span
-                                key={sk}
-                                dir="ltr"
-                                className="rounded border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#09090B] px-2 py-0.5 text-[10px] font-semibold text-zinc-600 dark:text-zinc-300"
-                              >
-                                {sk}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div className="mt-4 pt-3.5 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-2 text-xs">
-                          <Link
-                            href={`/jobs/${job.slug}`}
-                            className="inline-flex items-center gap-1 font-extrabold text-zinc-950 dark:text-white hover:text-[#D4AF37] transition-colors"
-                          >
-                            <span>
-                              {lang === "ar" ? "تقديم مباشر" : "Apply Direct"}
-                            </span>
-                            {lang === "ar" ? (
-                              <ArrowLeft className="h-3.5 w-3.5 text-[#D4AF37]" />
-                            ) : (
-                              <ArrowRight className="h-3.5 w-3.5 text-[#D4AF37]" />
-                            )}
-                          </Link>
-
-                          <Link
-                            href={wizardHref}
-                            className="inline-flex items-center gap-1 text-[11px] font-bold text-zinc-600 dark:text-[#D4AF37] hover:underline"
-                          >
-                            <Sparkles className="h-3 w-3 text-[#D4AF37]" />
-                            <span>
-                              {lang === "ar"
-                                ? "أرسل لـ 300 شركة"
-                                : "Send to 300 HR"}
-                            </span>
-                          </Link>
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Dedicated For Companies & HR Teams Banner right on the Homepage */}
-              <div
-                id="employers-section"
-                className="rounded-2xl border-2 border-[#D4AF37]/80 bg-[#09090B] p-6 sm:p-8 text-zinc-50"
-              >
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-                  <div className="lg:col-span-8 space-y-3">
-                    <div className="inline-flex items-center gap-2 rounded-md bg-[#D4AF37] px-3 py-1 text-[11px] font-extrabold text-[#09090B]">
-                      <Building2 className="h-3.5 w-3.5" />
-                      <span>
-                        {lang === "ar"
-                          ? "بوابة الشركات وأقسام الموارد البشرية (مجاناً 100%)"
-                          : "FOR HIRING COMPANIES & HR TEAMS (100% FREE)"}
-                      </span>
-                    </div>
-                    <h3 className="text-xl sm:text-2xl font-extrabold text-white">
-                      {lang === "ar"
-                        ? "هل تبحث شركتك عن كفاءات في الخليج؟ أضف شواغرك الآن مجاناً"
-                        : "Hiring in UAE, Saudi Arabia, Qatar or Kuwait? Publish Your Jobs Free"}
-                    </h3>
-                    <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed max-w-2xl">
-                      {lang === "ar"
-                        ? "انشر شاغراً واحداً أو عدة شواغر وتخصصات معاً في دقائق. عند استخدام بريد شركتك الرسمي يتم التوثيق تلقائياً عبر DNS MX ونشر الوظيفة فوراً مع بطاقة QR رسمية وظهور في Google Jobs."
-                        : "Submit single or multi-role vacancies across multiple categories in 60 seconds. Corporate HR emails pass live DNS MX verification for instant publishing, branded QR flyers, Google for Jobs indexing, and social reach."}
-                    </p>
-                    <div className="flex flex-wrap gap-x-5 gap-y-2 pt-1 text-xs font-semibold text-zinc-200">
-                      <span className="inline-flex items-center gap-1.5">
-                        <Check className="h-3.5 w-3.5 text-[#D4AF37]" />
-                        {lang === "ar"
-                          ? "نشر فوري عبر توثيق DNS MX"
-                          : "Instant DNS MX Auto-Publish"}
-                      </span>
-                      <span className="inline-flex items-center gap-1.5">
-                        <Check className="h-3.5 w-3.5 text-[#D4AF37]" />
-                        {lang === "ar"
-                          ? "دعم عدة وظائف وتخصصات معاً"
-                          : "Multi-Role & Multi-Category"}
-                      </span>
-                      <span className="inline-flex items-center gap-1.5">
-                        <QrCode className="h-3.5 w-3.5 text-[#D4AF37]" />
-                        {lang === "ar"
-                          ? "بطاقة QR جاهزة للمشاركة + Google Jobs"
-                          : "Branded QR Flyer + Google Jobs SEO"}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="lg:col-span-4 flex flex-col sm:flex-row lg:flex-col gap-2.5">
-                    <Link
-                      href="/employers"
-                      className="btn-gold w-full inline-flex items-center justify-center gap-2 rounded-xl px-6 py-4 text-sm font-extrabold"
-                    >
-                      <PlusCircle className="h-4 w-4" />
-                      <span>
-                        {lang === "ar"
-                          ? "أضف وظائف شركتك مجاناً ←"
-                          : "Post Company Vacancies Free →"}
-                      </span>
-                    </Link>
-                    <Link
-                      href="/jobs"
-                      className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 hover:border-[#D4AF37] px-5 py-3 text-xs font-bold text-zinc-200 transition-colors"
-                    >
-                      <span>
-                        {lang === "ar"
-                          ? "استعراض بوابة الوظائف الحية"
-                          : "Browse Live GCC Jobs Board"}
-                      </span>
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-        );
-      })()}
-
-      {/* ================= 4-STEP CAMPAIGN WIZARD SECTION ================= */}
+      {/* ================= SECTION 2: FLAGSHIP PAID PACKAGES SHOWCASE ================= */}
       <section
-        id="wizard-section"
-        className="bg-[#F4F4F5] dark:bg-[#0D0D10] py-20 sm:py-24 px-4 sm:px-6 lg:px-8 border-b border-zinc-200 dark:border-zinc-800 transition-colors"
+        id="pricing-section"
+        className="bg-[#F4F4F5] dark:bg-[#0D0D10] py-16 sm:py-22 border-b border-zinc-200 dark:border-zinc-800 transition-colors"
       >
-        <div className="mx-auto max-w-5xl text-center mb-10">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-3xl mx-auto">
+            <span className="inline-flex items-center gap-2 rounded-md bg-[#09090B] border border-[#D4AF37]/60 px-3.5 py-1 text-xs font-extrabold text-[#D4AF37]">
+              <Sparkles className="h-3.5 w-3.5" />
+              {lang === "ar"
+                ? `الخدمة الرئيسية • التوزيع المباشر للـ HR (${selectedCountry.name_ar} · ${currencySymbol})`
+                : `FLAGSHIP PAID SERVICE • DIRECT HR PLACEMENT (${selectedCountry.name_en} · ${currencySymbol})`}
+            </span>
+            <h2 className="mt-3.5 text-2xl sm:text-4xl font-extrabold text-zinc-950 dark:text-zinc-50 tracking-tight">
+              {t.choosePackageTitle}
+            </h2>
+            <p className="mt-2.5 text-sm text-zinc-600 dark:text-zinc-400">
+              {lang === "ar"
+                ? "اختر باقة التوزيع لمرة واحدة (بدون اشتراكات شهرية) — يقرأ الذكاء الاصطناعي سيرتك، يصيغ خطاباً تنفيذياً، ويرسلها مباشرة لصناديق الـ HR الموثقة."
+                : "Transparent one-time packages (zero recurring subscriptions) — AI ATS audit, executive cover letter, and direct HR inbox delivery."}
+            </p>
+          </div>
+
+          <div className="mt-8">
+            <OfferCountdownBanner />
+          </div>
+
+          <div className="mt-10 grid grid-cols-1 gap-7 lg:grid-cols-3 items-stretch">
+            {packages.map((pkg, pkgIdx) => {
+              const price =
+                pkg.prices_by_currency[currency] ?? pkg.prices_by_currency.AED;
+              const originalPrice =
+                pkg.original_prices_by_currency?.[currency] ??
+                pkg.original_prices_by_currency?.AED;
+              const showOfferDiscount =
+                offerSettings.enabled &&
+                Boolean(originalPrice && originalPrice > price);
+              const savePct =
+                showOfferDiscount && originalPrice
+                  ? Math.round(((originalPrice - price) / originalPrice) * 100)
+                  : 0;
+              const features =
+                lang === "ar" ? pkg.features_ar : pkg.features_en;
+              const isFeatured = Boolean(pkg.is_featured);
+
+              return (
+                <RevealOnScroll
+                  key={pkg.id}
+                  delayMs={pkgIdx * 80}
+                  className="flex"
+                >
+                  <div
+                    className={`exec-card-interactive relative w-full flex flex-col justify-between rounded-2xl p-6 sm:p-8 ${
+                      isFeatured
+                        ? "bg-[#09090B] dark:bg-[#141418] text-zinc-50 border-2 border-[#D4AF37] lg:-translate-y-2 shadow-xl"
+                        : "bg-white dark:bg-[#121215] text-zinc-950 dark:text-zinc-50 border border-zinc-200 dark:border-zinc-800"
+                    }`}
+                  >
+                    {isFeatured && (
+                      <span className="btn-gold absolute -top-3.5 end-6 rounded-md px-3.5 py-1 text-[11px] font-extrabold uppercase tracking-wider">
+                        {lang === "ar"
+                          ? "الأكثر اختياراً في الخليج"
+                          : "MOST POPULAR"}
+                      </span>
+                    )}
+
+                    <div>
+                      <h3
+                        className={`text-xl font-bold ${
+                          isFeatured
+                            ? "text-white"
+                            : "text-zinc-950 dark:text-zinc-50"
+                        }`}
+                      >
+                        {lang === "ar" ? pkg.name_ar : pkg.name_en}
+                      </h3>
+                      <p
+                        className={`mt-1.5 text-xs ${
+                          isFeatured
+                            ? "text-zinc-400"
+                            : "text-zinc-500 dark:text-zinc-400"
+                        }`}
+                      >
+                        {lang === "ar" ? pkg.tagline_ar : pkg.tagline_en}
+                      </p>
+
+                      {showOfferDiscount && originalPrice && (
+                        <div className="mt-5 flex items-center gap-2">
+                          <span
+                            dir="ltr"
+                            className={`text-sm font-bold line-through tabular-nums ${
+                              isFeatured
+                                ? "text-zinc-500"
+                                : "text-zinc-400 dark:text-zinc-500"
+                            }`}
+                          >
+                            {originalPrice} {currencySymbol}
+                          </span>
+                          <span className="rounded bg-[#D4AF37] px-2 py-0.5 text-[10px] font-extrabold text-[#09090B]">
+                            {lang === "ar"
+                              ? `وفر ${savePct}%`
+                              : `SAVE ${savePct}%`}
+                          </span>
+                        </div>
+                      )}
+
+                      <div
+                        className={`${
+                          showOfferDiscount ? "mt-1.5" : "mt-6"
+                        } flex items-baseline gap-2`}
+                      >
+                        <span
+                          dir="ltr"
+                          className={`text-4xl sm:text-5xl font-extrabold tabular-nums ${
+                            isFeatured
+                              ? "text-[#D4AF37]"
+                              : "text-zinc-950 dark:text-zinc-50"
+                          }`}
+                        >
+                          {price}
+                        </span>
+                        <span
+                          className={`text-sm font-bold ${
+                            isFeatured
+                              ? "text-zinc-200"
+                              : "text-zinc-700 dark:text-zinc-300"
+                          }`}
+                        >
+                          {currencySymbol}
+                        </span>
+                        <span
+                          className={`text-xs ${
+                            isFeatured
+                              ? "text-zinc-400"
+                              : "text-zinc-500 dark:text-zinc-400"
+                          }`}
+                        >
+                          / {pkg.company_limit}{" "}
+                          {lang === "ar" ? "شركة" : "Companies"}
+                        </span>
+                      </div>
+
+                      <ul
+                        className={`mt-6 space-y-3 border-t pt-5 ${
+                          isFeatured
+                            ? "border-zinc-800"
+                            : "border-zinc-200 dark:border-zinc-800"
+                        }`}
+                      >
+                        {features.map((f, i) => (
+                          <li
+                            key={i}
+                            className={`flex items-start gap-2.5 text-xs sm:text-sm ${
+                              isFeatured
+                                ? "text-zinc-200"
+                                : "text-zinc-700 dark:text-zinc-300"
+                            }`}
+                          >
+                            <Check
+                              className={`h-4 w-4 shrink-0 mt-0.5 ${
+                                isFeatured
+                                  ? "text-[#D4AF37]"
+                                  : "text-zinc-950 dark:text-[#D4AF37]"
+                              }`}
+                            />
+                            <span>{f}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <a
+                      href="#wizard-section"
+                      onClick={() => {
+                        setWizardExternalPkg(pkg.id);
+                        setWizardSelectSignal((n) => n + 1);
+                      }}
+                      className={`mt-7 flex min-h-[48px] w-full items-center justify-center rounded-xl py-3.5 text-center text-sm font-extrabold transition-colors touch-manipulation ${
+                        isFeatured
+                          ? "btn-gold"
+                          : "bg-[#09090B] text-white hover:bg-zinc-800 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
+                      }`}
+                    >
+                      {lang === "ar"
+                        ? `اختر ${pkg.name_ar.split("(")[0]} وابدأ الآن`
+                        : `Select ${pkg.name_en} & Start →`}
+                    </a>
+                  </div>
+                </RevealOnScroll>
+              );
+            })}
+          </div>
+
+          {/* Paid Service Guarantee Strip */}
+          <div className="mt-10 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {[
+              {
+                icon: CreditCard,
+                titleAr: "دفعة واحدة عبر EasyKash بدون اشتراكات",
+                titleEn: "One-Time EasyKash Fee — Zero Subscriptions",
+              },
+              {
+                icon: EyeOff,
+                titleAr: "درع حجب شركتك ومديرك الحالي 100%",
+                titleEn: "100% Current Employer Exclusion Shield",
+              },
+              {
+                icon: Radio,
+                titleAr: "سجل تتبع حي وموثق برمز ASR-",
+                titleEn: "Live ASR- Verified Delivery Ledger",
+              },
+            ].map((badge, idx) => {
+              const Icon = badge.icon;
+              return (
+                <div
+                  key={idx}
+                  className="flex items-center justify-center sm:justify-start gap-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#121215] px-4 py-3 text-xs font-bold text-zinc-800 dark:text-zinc-200"
+                >
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#09090B] text-[#D4AF37]">
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <span>{lang === "ar" ? badge.titleAr : badge.titleEn}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* ================= SECTION 3: 4-STEP CAMPAIGN WIZARD ================= */}
+      <section
+        ref={wizardSectionRef}
+        id="wizard-section"
+        className="bg-white dark:bg-[#09090B] py-16 sm:py-22 px-3 sm:px-6 lg:px-8 border-b border-zinc-200 dark:border-zinc-800 transition-colors"
+      >
+        <div className="mx-auto max-w-5xl text-center mb-8 sm:mb-10">
           <span className="inline-flex items-center gap-2 rounded-md bg-[#09090B] px-3.5 py-1 text-xs font-bold text-[#D4AF37]">
             <Sparkles className="h-3.5 w-3.5" />
             {t.wizardBadge}
@@ -1123,127 +1166,13 @@ export function HomeLandingClient({
           </p>
         </div>
 
-        <DistributionWizard externalPackageId={wizardExternalPkg} />
+        <DistributionWizard
+          externalPackageId={wizardExternalPkg}
+          externalSelectSignal={wizardSelectSignal}
+        />
       </section>
 
-      {/* ================= GCC MARKET HUBS SECTION ================= */}
-      <section
-        id="countries-section"
-        className="bg-white dark:bg-[#09090B] py-20 sm:py-24 border-b border-zinc-200 dark:border-zinc-800 transition-colors"
-      >
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-3xl mx-auto">
-            <span className="inline-flex items-center gap-2 rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-[#121215] px-3.5 py-1 text-xs font-bold text-zinc-900 dark:text-[#D4AF37]">
-              <Globe2 className="h-3.5 w-3.5 text-[#D4AF37]" />
-              {lang === "ar"
-                ? "بوابات مخصصة لكل سوق خليجي"
-                : "Dedicated GCC Market Hubs"}
-            </span>
-            <h2 className="mt-4 text-2xl sm:text-4xl font-extrabold tracking-tight text-zinc-950 dark:text-zinc-50">
-              {lang === "ar"
-                ? "أدلة شركات مفصولة ومحدّثة لكل عاصمة اقتصادية"
-                : "Curated Employer Directories Across Four Gulf Economies"}
-            </h2>
-            <p className="mt-3 text-sm sm:text-base text-zinc-600 dark:text-zinc-400">
-              {lang === "ar"
-                ? "اضغط على أي سوق لتفعيل عملته المحلية واستعراض أبرز القطاعات النشطة في استقطاب الكفاءات."
-                : "Select any Gulf jurisdiction to preview hiring velocity, active cities, and local currency billing."}
-            </p>
-          </div>
-
-          <div className="mt-14 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-            {countries.map((c, countryIdx) => {
-              const info = COUNTRY_HIGHLIGHTS[c.code] || COUNTRY_HIGHLIGHTS.AE;
-              const isSelected = c.code === selectedCountryCode;
-              const sectors = lang === "ar" ? info.sectorsAr : info.sectorsEn;
-              const countryPath = `/${c.code.toLowerCase()}`;
-
-              return (
-                <RevealOnScroll
-                  key={c.code}
-                  delayMs={countryIdx * 70}
-                  className="flex"
-                >
-                  <div
-                    onClick={() => selectCountry(c.code)}
-                    className={`exec-card-interactive w-full flex flex-col justify-between rounded-2xl border p-6 cursor-pointer ${
-                      isSelected
-                        ? "border-2 border-[#09090B] dark:border-[#D4AF37] bg-zinc-50 dark:bg-[#141418]"
-                        : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#121215] hover:border-zinc-400 dark:hover:border-zinc-600"
-                    }`}
-                  >
-                  <div>
-                    <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-4">
-                      <span
-                        dir="ltr"
-                        className="inline-flex h-10 w-12 items-center justify-center rounded-lg bg-[#09090B] font-mono text-base font-extrabold text-[#D4AF37]"
-                      >
-                        {c.code}
-                      </span>
-                      <span className="rounded-md bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-2.5 py-1 text-xs font-bold text-zinc-900 dark:text-zinc-200">
-                        {c.display_companies_count.toLocaleString()}+ HR
-                      </span>
-                    </div>
-
-                    <h3 className="mt-4 text-lg font-bold text-zinc-950 dark:text-zinc-50">
-                      <Link
-                        href={countryPath}
-                        onClick={(e) => e.stopPropagation()}
-                        className="hover:underline"
-                      >
-                        {lang === "ar" ? c.name_ar : c.name_en}
-                      </Link>
-                    </h3>
-                    <p className="mt-1.5 flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
-                      <MapPin className="h-3.5 w-3.5 text-[#D4AF37] shrink-0" />
-                      <span>{lang === "ar" ? info.hubsAr : info.hubsEn}</span>
-                    </p>
-
-                    <div className="mt-5 pt-4 border-t border-zinc-100 dark:border-zinc-800/80">
-                      <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2.5">
-                        {lang === "ar"
-                          ? "القطاعات الأعلى طلباً:"
-                          : "Key Hiring Sectors:"}
-                      </p>
-                      <ul className="space-y-2">
-                        {sectors.map((sec, idx) => (
-                          <li
-                            key={idx}
-                            className="flex items-center gap-2 text-xs text-zinc-700 dark:text-zinc-300"
-                          >
-                            <span className="h-1.5 w-1.5 rounded-full bg-[#D4AF37] shrink-0" />
-                            <span>{sec}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-
-                  <div className="mt-6 pt-4 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between text-xs">
-                    <span className="text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5 font-medium">
-                      <Clock className="h-3.5 w-3.5 text-[#D4AF37]" />
-                      {info.responseRate}
-                    </span>
-                    <Link
-                      href={countryPath}
-                      onClick={(e) => e.stopPropagation()}
-                      className="inline-flex items-center gap-1 font-bold text-zinc-950 dark:text-[#D4AF37] hover:underline"
-                    >
-                      <span>
-                        {lang === "ar" ? "بوابة الدولة" : "Explore Hub"}
-                      </span>
-                      <ArrowUpRight className="h-3.5 w-3.5" />
-                    </Link>
-                  </div>
-                  </div>
-                </RevealOnScroll>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* ================= METHODOLOGY & COMPARISON SECTION ================= */}
+      {/* ================= SECTION 4: METHODOLOGY & COMPARISON ================= */}
       <section
         id="how-it-works"
         className="bg-[#FAFAFA] dark:bg-[#0D0D10] py-20 sm:py-24 border-b border-zinc-200 dark:border-zinc-800 transition-colors"
@@ -1405,199 +1334,8 @@ export function HomeLandingClient({
         </div>
       </section>
 
-      {/* ================= PRICING TIERS SECTION ================= */}
-      <section
-        id="pricing-section"
-        className="bg-white dark:bg-[#09090B] py-20 sm:py-24 border-b border-zinc-200 dark:border-zinc-800 transition-colors"
-      >
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-3xl mx-auto">
-            <span className="inline-flex items-center gap-2 rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-[#121215] px-3.5 py-1 text-xs font-bold text-zinc-900 dark:text-[#D4AF37]">
-              {lang === "ar"
-                ? `باقات شفافة بعملة ${selectedCountry.name_ar} (${currencySymbol})`
-                : `Transparent Tiers in ${selectedCountry.name_en} (${currencySymbol})`}
-            </span>
-            <h2 className="mt-3.5 text-2xl sm:text-4xl font-extrabold text-zinc-950 dark:text-zinc-50 tracking-tight">
-              {t.choosePackageTitle}
-            </h2>
-            <p className="mt-2.5 text-sm text-zinc-600 dark:text-zinc-400">
-              {lang === "ar"
-                ? "دفعة واحدة شفافة بدون أي اشتراكات شهرية متكررة — عبر بوابة EasyKash المعتمدة."
-                : "Single transparent one-time fee via EasyKash — zero recurring retainers."}
-            </p>
-          </div>
-
-          <div className="mt-8">
-            <OfferCountdownBanner />
-          </div>
-
-          <div className="mt-10 grid grid-cols-1 gap-7 lg:grid-cols-3 items-stretch">
-            {packages.map((pkg, pkgIdx) => {
-              const price =
-                pkg.prices_by_currency[currency] ?? pkg.prices_by_currency.AED;
-              const originalPrice =
-                pkg.original_prices_by_currency?.[currency] ??
-                pkg.original_prices_by_currency?.AED;
-              const showOfferDiscount =
-                offerSettings.enabled &&
-                Boolean(originalPrice && originalPrice > price);
-              const savePct =
-                showOfferDiscount && originalPrice
-                  ? Math.round(((originalPrice - price) / originalPrice) * 100)
-                  : 0;
-              const features =
-                lang === "ar" ? pkg.features_ar : pkg.features_en;
-              const isFeatured = Boolean(pkg.is_featured);
-
-              return (
-                <RevealOnScroll
-                  key={pkg.id}
-                  delayMs={pkgIdx * 80}
-                  className="flex"
-                >
-                  <div
-                    className={`exec-card-interactive relative w-full flex flex-col justify-between rounded-2xl p-8 ${
-                      isFeatured
-                        ? "bg-[#09090B] dark:bg-[#141418] text-zinc-50 border-2 border-[#D4AF37] lg:-translate-y-2"
-                        : "bg-zinc-50 dark:bg-[#121215] text-zinc-950 dark:text-zinc-50 border border-zinc-200 dark:border-zinc-800"
-                    }`}
-                  >
-                  {isFeatured && (
-                    <span className="btn-gold absolute -top-3.5 end-6 rounded-md px-3.5 py-1 text-[11px] font-extrabold uppercase tracking-wider">
-                      {lang === "ar"
-                        ? "الأكثر اختياراً في الخليج"
-                        : "MOST POPULAR"}
-                    </span>
-                  )}
-
-                  <div>
-                    <h3
-                      className={`text-xl font-bold ${
-                        isFeatured
-                          ? "text-white"
-                          : "text-zinc-950 dark:text-zinc-50"
-                      }`}
-                    >
-                      {lang === "ar" ? pkg.name_ar : pkg.name_en}
-                    </h3>
-                    <p
-                      className={`mt-1.5 text-xs ${
-                        isFeatured
-                          ? "text-zinc-400"
-                          : "text-zinc-500 dark:text-zinc-400"
-                      }`}
-                    >
-                      {lang === "ar" ? pkg.tagline_ar : pkg.tagline_en}
-                    </p>
-
-                    {showOfferDiscount && originalPrice && (
-                      <div className="mt-5 flex items-center gap-2">
-                        <span
-                          dir="ltr"
-                          className={`text-sm font-bold line-through tabular-nums ${
-                            isFeatured
-                              ? "text-zinc-500"
-                              : "text-zinc-400 dark:text-zinc-500"
-                          }`}
-                        >
-                          {originalPrice} {currencySymbol}
-                        </span>
-                        <span className="rounded bg-[#D4AF37] px-2 py-0.5 text-[10px] font-extrabold text-[#09090B]">
-                          {lang === "ar"
-                            ? `وفر ${savePct}%`
-                            : `SAVE ${savePct}%`}
-                        </span>
-                      </div>
-                    )}
-
-                    <div
-                      className={`${
-                        showOfferDiscount ? "mt-1.5" : "mt-6"
-                      } flex items-baseline gap-2`}
-                    >
-                      <span
-                        dir="ltr"
-                        className={`text-4xl sm:text-5xl font-extrabold tabular-nums ${
-                          isFeatured
-                            ? "text-[#D4AF37]"
-                            : "text-zinc-950 dark:text-zinc-50"
-                        }`}
-                      >
-                        {price}
-                      </span>
-                      <span
-                        className={`text-sm font-bold ${
-                          isFeatured
-                            ? "text-zinc-200"
-                            : "text-zinc-700 dark:text-zinc-300"
-                        }`}
-                      >
-                        {currencySymbol}
-                      </span>
-                      <span
-                        className={`text-xs ${
-                          isFeatured
-                            ? "text-zinc-400"
-                            : "text-zinc-500 dark:text-zinc-400"
-                        }`}
-                      >
-                        / {pkg.company_limit}{" "}
-                        {lang === "ar" ? "شركة" : "Companies"}
-                      </span>
-                    </div>
-
-                    <ul
-                      className={`mt-6 space-y-3.5 border-t pt-6 ${
-                        isFeatured
-                          ? "border-zinc-800"
-                          : "border-zinc-200 dark:border-zinc-800"
-                      }`}
-                    >
-                      {features.map((f, i) => (
-                        <li
-                          key={i}
-                          className={`flex items-start gap-2.5 text-xs sm:text-sm ${
-                            isFeatured
-                              ? "text-zinc-200"
-                              : "text-zinc-700 dark:text-zinc-300"
-                          }`}
-                        >
-                          <Check
-                            className={`h-4 w-4 shrink-0 mt-0.5 ${
-                              isFeatured
-                                ? "text-[#D4AF37]"
-                                : "text-zinc-950 dark:text-[#D4AF37]"
-                            }`}
-                          />
-                          <span>{f}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <a
-                    href="#wizard-section"
-                    onClick={() => setWizardExternalPkg(pkg.id)}
-                    className={`mt-8 block w-full rounded-xl py-3.5 text-center text-sm font-extrabold transition-colors ${
-                      isFeatured
-                        ? "btn-gold"
-                        : "bg-[#09090B] text-white hover:bg-zinc-800 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
-                    }`}
-                  >
-                    {lang === "ar"
-                      ? `اختر ${pkg.name_ar.split("(")[0]} وابدأ`
-                      : `Select ${pkg.name_en} →`}
-                  </a>
-                  </div>
-                </RevealOnScroll>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
       {/* ================= CANDIDATE SUCCESS STORIES ================= */}
-      <section className="bg-[#FAFAFA] dark:bg-[#0D0D10] py-20 sm:py-24 border-b border-zinc-200 dark:border-zinc-800 transition-colors">
+      <section className="bg-white dark:bg-[#09090B] py-20 sm:py-24 border-b border-zinc-200 dark:border-zinc-800 transition-colors">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto">
             <span className="inline-flex items-center gap-1.5 rounded-md bg-[#09090B] px-3.5 py-1 text-xs font-bold text-[#D4AF37]">
@@ -1651,7 +1389,7 @@ export function HomeLandingClient({
                 delayMs={idx * 80}
                 className="flex"
               >
-                <div className="exec-card-interactive w-full rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#121215] p-7 flex flex-col justify-between">
+                <div className="exec-card-interactive w-full rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-[#121215] p-7 flex flex-col justify-between">
                   <div>
                     <div className="flex items-center gap-1 text-[#D4AF37] mb-4">
                       {[...Array(5)].map((_, s) => (
@@ -1673,6 +1411,374 @@ export function HomeLandingClient({
                 </div>
               </RevealOnScroll>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ================= SECTION 5: FREE VERIFIED GCC JOBS & EMPLOYER ECOSYSTEM ================= */}
+      {(() => {
+        const countryMatchedJobs = initialJobs.filter(
+          (j) => j.country_code === selectedCountryCode
+        );
+        const otherJobs = initialJobs.filter(
+          (j) => j.country_code !== selectedCountryCode
+        );
+        const featuredHomeJobs = [...countryMatchedJobs, ...otherJobs].slice(
+          0,
+          6
+        );
+
+        return (
+          <section
+            id="live-jobs-section"
+            className="bg-[#FAFAFA] dark:bg-[#0D0D10] py-16 sm:py-20 px-4 sm:px-6 lg:px-8 border-b border-zinc-200 dark:border-zinc-800 transition-colors"
+          >
+            <div className="mx-auto max-w-7xl space-y-10">
+              {/* Header Row */}
+              <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5">
+                <div className="max-w-2xl">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#121215] px-3.5 py-1 text-xs font-bold text-zinc-900 dark:text-[#D4AF37] mb-3.5">
+                    <span className="gold-beacon" />
+                    <span>
+                      {lang === "ar"
+                        ? `خدمات إضافية مجانية من أسرع • ${Math.max(totalActiveJobs, featuredHomeJobs.length)}+ شاغر موثق`
+                        : `FREE ASRA3 ECOSYSTEM • ${Math.max(totalActiveJobs, featuredHomeJobs.length)}+ Verified Open Roles`}
+                    </span>
+                  </div>
+                  <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-zinc-950 dark:text-zinc-50">
+                    {lang === "ar"
+                      ? "أحدث الوظائف الحقيقية في الخليج — قدّم مباشرة للـ HR مجاناً"
+                      : "Latest Verified GCC Vacancies — Apply Direct to Corporate HR Free"}
+                  </h2>
+                  <p className="mt-2.5 text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                    {lang === "ar"
+                      ? "بالإضافة إلى حملات التوزيع المدفوعة للشركات، يمكنك تصفح الوظائف الموثقة بسجل MX أو نشر وظائف شركتك مجاناً."
+                      : "Alongside our flagship paid HR distribution campaigns, explore MX-verified Gulf openings or publish company jobs free."}
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                  <Link
+                    href={`/${selectedCountryCode.toLowerCase()}/jobs`}
+                    className="inline-flex items-center gap-2 rounded-xl bg-[#09090B] text-white hover:bg-zinc-800 dark:bg-[#D4AF37] dark:text-[#09090B] dark:hover:bg-[#C59F27] px-5 py-3 text-xs sm:text-sm font-extrabold transition-colors"
+                  >
+                    <BriefcaseBusiness className="h-4 w-4 text-[#D4AF37] dark:text-[#09090B]" />
+                    <span>
+                      {lang === "ar"
+                        ? `عرض كل الوظائف (${Math.max(totalActiveJobs, featuredHomeJobs.length)}+)`
+                        : `Explore All Live Jobs (${Math.max(totalActiveJobs, featuredHomeJobs.length)}+)`}
+                    </span>
+                    <ArrowUpRight className="h-4 w-4" />
+                  </Link>
+                  <Link
+                    href="/employers"
+                    className="inline-flex items-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#121215] px-5 py-3 text-xs sm:text-sm font-extrabold text-zinc-900 dark:text-[#D4AF37] hover:border-[#D4AF37] transition-colors"
+                  >
+                    <PlusCircle className="h-4 w-4 text-[#D4AF37]" />
+                    <span>
+                      {lang === "ar"
+                        ? "أضف وظائف شركتك مجاناً"
+                        : "Post Company Jobs Free"}
+                    </span>
+                  </Link>
+                </div>
+              </div>
+
+              {/* 6 Live Job Cards Grid */}
+              {featuredHomeJobs.length > 0 && (
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {featuredHomeJobs.map((job) => {
+                    const jTitle = lang === "ar" ? job.title_ar : job.title_en;
+                    const jCity =
+                      lang === "ar" ? job.city_name_ar : job.city_name_en;
+                    const wizardHref = `/?country=${job.country_code}&city=${job.city_id}&industry=${job.industry_id}&role=${encodeURIComponent(job.title_en)}#wizard-section`;
+
+                    return (
+                      <article
+                        key={job.id}
+                        className="exec-card-interactive flex flex-col justify-between rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#121215] p-5 hover:border-[#D4AF37] transition-colors"
+                      >
+                        <div>
+                          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                            <div className="flex items-center gap-1.5">
+                              <span
+                                dir="ltr"
+                                className="rounded bg-[#09090B] px-2 py-0.5 font-mono text-[10px] font-extrabold text-[#D4AF37]"
+                              >
+                                {job.country_code} • {job.city_name_en}
+                              </span>
+                              {job.is_mx_verified && (
+                                <span className="inline-flex items-center gap-1 rounded border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-[#09090B] px-2 py-0.5 text-[10px] font-bold text-zinc-800 dark:text-[#D4AF37]">
+                                  <CheckCircle2 className="h-3 w-3 text-[#D4AF37]" />
+                                  MX HR
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[11px] font-semibold text-zinc-500">
+                              {jCity}
+                            </span>
+                          </div>
+
+                          <h3 className="text-base font-extrabold text-zinc-950 dark:text-zinc-50 leading-snug line-clamp-2">
+                            <Link
+                              href={`/jobs/${job.slug}`}
+                              className="hover:text-[#9A7B1C] dark:hover:text-[#D4AF37] transition-colors"
+                            >
+                              {jTitle}
+                            </Link>
+                          </h3>
+
+                          <p className="mt-1.5 flex items-center gap-1.5 text-xs font-bold text-zinc-600 dark:text-zinc-300 truncate">
+                            <Building2 className="h-3.5 w-3.5 text-[#D4AF37] shrink-0" />
+                            <span className="truncate">{job.company_name}</span>
+                          </p>
+
+                          <div className="mt-3 flex flex-wrap gap-1.5">
+                            {job.salary_min && job.salary_max ? (
+                              <span
+                                dir="ltr"
+                                className="rounded bg-[#09090B] px-2 py-0.5 font-mono text-[10px] font-extrabold text-[#D4AF37]"
+                              >
+                                {job.salary_min.toLocaleString()}–
+                                {job.salary_max.toLocaleString()}{" "}
+                                {job.salary_currency}
+                              </span>
+                            ) : null}
+                            {job.skills.slice(0, 3).map((sk) => (
+                              <span
+                                key={sk}
+                                dir="ltr"
+                                className="rounded border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-[#09090B] px-2 py-0.5 text-[10px] font-semibold text-zinc-600 dark:text-zinc-300"
+                              >
+                                {sk}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="mt-4 pt-3.5 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-2 text-xs">
+                          <Link
+                            href={`/jobs/${job.slug}`}
+                            className="inline-flex items-center gap-1 font-extrabold text-zinc-950 dark:text-white hover:text-[#D4AF37] transition-colors"
+                          >
+                            <span>
+                              {lang === "ar" ? "تقديم مباشر" : "Apply Direct"}
+                            </span>
+                            {lang === "ar" ? (
+                              <ArrowLeft className="h-3.5 w-3.5 text-[#D4AF37]" />
+                            ) : (
+                              <ArrowRight className="h-3.5 w-3.5 text-[#D4AF37]" />
+                            )}
+                          </Link>
+
+                          <Link
+                            href={wizardHref}
+                            className="inline-flex items-center gap-1 text-[11px] font-bold text-zinc-600 dark:text-[#D4AF37] hover:underline"
+                          >
+                            <Sparkles className="h-3 w-3 text-[#D4AF37]" />
+                            <span>
+                              {lang === "ar"
+                                ? "أرسل لـ 300 شركة"
+                                : "Send to 300 HR"}
+                            </span>
+                          </Link>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Dedicated For Companies & HR Teams Banner */}
+              <div
+                id="employers-section"
+                className="rounded-2xl border-2 border-[#D4AF37]/80 bg-[#09090B] p-6 sm:p-8 text-zinc-50"
+              >
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+                  <div className="lg:col-span-8 space-y-3">
+                    <div className="inline-flex items-center gap-2 rounded-md bg-[#D4AF37] px-3 py-1 text-[11px] font-extrabold text-[#09090B]">
+                      <Building2 className="h-3.5 w-3.5" />
+                      <span>
+                        {lang === "ar"
+                          ? "بوابة الشركات وأقسام الموارد البشرية (مجاناً 100%)"
+                          : "FOR HIRING COMPANIES & HR TEAMS (100% FREE)"}
+                      </span>
+                    </div>
+                    <h3 className="text-xl sm:text-2xl font-extrabold text-white">
+                      {lang === "ar"
+                        ? "هل تبحث شركتك عن كفاءات في الخليج؟ أضف شواغرك الآن مجاناً"
+                        : "Hiring in UAE, Saudi Arabia, Qatar or Kuwait? Publish Your Jobs Free"}
+                    </h3>
+                    <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed max-w-2xl">
+                      {lang === "ar"
+                        ? "انشر شاغراً واحداً أو عدة شواغر وتخصصات معاً في دقائق. عند استخدام بريد شركتك الرسمي يتم التوثيق تلقائياً عبر DNS MX ونشر الوظيفة فوراً مع بطاقة QR رسمية وظهور في Google Jobs."
+                        : "Submit single or multi-role vacancies across multiple categories in 60 seconds. Corporate HR emails pass live DNS MX verification for instant publishing, branded QR flyers, Google for Jobs indexing, and social reach."}
+                    </p>
+                    <div className="flex flex-wrap gap-x-5 gap-y-2 pt-1 text-xs font-semibold text-zinc-200">
+                      <span className="inline-flex items-center gap-1.5">
+                        <Check className="h-3.5 w-3.5 text-[#D4AF37]" />
+                        {lang === "ar"
+                          ? "نشر فوري عبر توثيق DNS MX"
+                          : "Instant DNS MX Auto-Publish"}
+                      </span>
+                      <span className="inline-flex items-center gap-1.5">
+                        <Check className="h-3.5 w-3.5 text-[#D4AF37]" />
+                        {lang === "ar"
+                          ? "دعم عدة وظائف وتخصصات معاً"
+                          : "Multi-Role & Multi-Category"}
+                      </span>
+                      <span className="inline-flex items-center gap-1.5">
+                        <QrCode className="h-3.5 w-3.5 text-[#D4AF37]" />
+                        {lang === "ar"
+                          ? "بطاقة QR جاهزة للمشاركة + Google Jobs"
+                          : "Branded QR Flyer + Google Jobs SEO"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="lg:col-span-4 flex flex-col sm:flex-row lg:flex-col gap-2.5">
+                    <Link
+                      href="/employers"
+                      className="btn-gold w-full inline-flex items-center justify-center gap-2 rounded-xl px-6 py-4 text-sm font-extrabold"
+                    >
+                      <PlusCircle className="h-4 w-4" />
+                      <span>
+                        {lang === "ar"
+                          ? "أضف وظائف شركتك مجاناً ←"
+                          : "Post Company Vacancies Free →"}
+                      </span>
+                    </Link>
+                    <Link
+                      href="/jobs"
+                      className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 hover:border-[#D4AF37] px-5 py-3 text-xs font-bold text-zinc-200 transition-colors"
+                    >
+                      <span>
+                        {lang === "ar"
+                          ? "استعراض بوابة الوظائف الحية"
+                          : "Browse Live GCC Jobs Board"}
+                      </span>
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        );
+      })()}
+
+      {/* ================= SECTION 6: GCC MARKET HUBS ================= */}
+      <section
+        id="countries-section"
+        className="bg-white dark:bg-[#09090B] py-20 sm:py-24 border-b border-zinc-200 dark:border-zinc-800 transition-colors"
+      >
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-3xl mx-auto">
+            <span className="inline-flex items-center gap-2 rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-[#121215] px-3.5 py-1 text-xs font-bold text-zinc-900 dark:text-[#D4AF37]">
+              <Globe2 className="h-3.5 w-3.5 text-[#D4AF37]" />
+              {lang === "ar"
+                ? "بوابات مخصصة لكل سوق خليجي"
+                : "Dedicated GCC Market Hubs"}
+            </span>
+            <h2 className="mt-4 text-2xl sm:text-4xl font-extrabold tracking-tight text-zinc-950 dark:text-zinc-50">
+              {lang === "ar"
+                ? "أدلة شركات مفصولة ومحدّثة لكل عاصمة اقتصادية"
+                : "Curated Employer Directories Across Four Gulf Economies"}
+            </h2>
+            <p className="mt-3 text-sm sm:text-base text-zinc-600 dark:text-zinc-400">
+              {lang === "ar"
+                ? "اضغط على أي سوق لتفعيل عملته المحلية واستعراض أبرز القطاعات النشطة في استقطاب الكفاءات."
+                : "Select any Gulf jurisdiction to preview hiring velocity, active cities, and local currency billing."}
+            </p>
+          </div>
+
+          <div className="mt-14 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+            {countries.map((c, countryIdx) => {
+              const info = COUNTRY_HIGHLIGHTS[c.code] || COUNTRY_HIGHLIGHTS.AE;
+              const isSelected = c.code === selectedCountryCode;
+              const sectors = lang === "ar" ? info.sectorsAr : info.sectorsEn;
+              const countryPath = `/${c.code.toLowerCase()}`;
+
+              return (
+                <RevealOnScroll
+                  key={c.code}
+                  delayMs={countryIdx * 70}
+                  className="flex"
+                >
+                  <div
+                    onClick={() => selectCountry(c.code)}
+                    className={`exec-card-interactive w-full flex flex-col justify-between rounded-2xl border p-6 cursor-pointer ${
+                      isSelected
+                        ? "border-2 border-[#09090B] dark:border-[#D4AF37] bg-zinc-50 dark:bg-[#141418]"
+                        : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#121215] hover:border-zinc-400 dark:hover:border-zinc-600"
+                    }`}
+                  >
+                  <div>
+                    <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-4">
+                      <span
+                        dir="ltr"
+                        className="inline-flex h-10 w-12 items-center justify-center rounded-lg bg-[#09090B] font-mono text-base font-extrabold text-[#D4AF37]"
+                      >
+                        {c.code}
+                      </span>
+                      <span className="rounded-md bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-2.5 py-1 text-xs font-bold text-zinc-900 dark:text-zinc-200">
+                        {c.display_companies_count.toLocaleString()}+ HR
+                      </span>
+                    </div>
+
+                    <h3 className="mt-4 text-lg font-bold text-zinc-950 dark:text-zinc-50">
+                      <Link
+                        href={countryPath}
+                        onClick={(e) => e.stopPropagation()}
+                        className="hover:underline"
+                      >
+                        {lang === "ar" ? c.name_ar : c.name_en}
+                      </Link>
+                    </h3>
+                    <p className="mt-1.5 flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                      <MapPin className="h-3.5 w-3.5 text-[#D4AF37] shrink-0" />
+                      <span>{lang === "ar" ? info.hubsAr : info.hubsEn}</span>
+                    </p>
+
+                    <div className="mt-5 pt-4 border-t border-zinc-100 dark:border-zinc-800/80">
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2.5">
+                        {lang === "ar"
+                          ? "القطاعات الأعلى طلباً:"
+                          : "Key Hiring Sectors:"}
+                      </p>
+                      <ul className="space-y-2">
+                        {sectors.map((sec, idx) => (
+                          <li
+                            key={idx}
+                            className="flex items-center gap-2 text-xs text-zinc-700 dark:text-zinc-300"
+                          >
+                            <span className="h-1.5 w-1.5 rounded-full bg-[#D4AF37] shrink-0" />
+                            <span>{sec}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 pt-4 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between text-xs">
+                    <span className="text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5 font-medium">
+                      <Clock className="h-3.5 w-3.5 text-[#D4AF37]" />
+                      {info.responseRate}
+                    </span>
+                    <Link
+                      href={countryPath}
+                      onClick={(e) => e.stopPropagation()}
+                      className="inline-flex items-center gap-1 font-bold text-zinc-950 dark:text-[#D4AF37] hover:underline"
+                    >
+                      <span>
+                        {lang === "ar" ? "بوابة الدولة" : "Explore Hub"}
+                      </span>
+                      <ArrowUpRight className="h-3.5 w-3.5" />
+                    </Link>
+                  </div>
+                  </div>
+                </RevealOnScroll>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -1927,27 +2033,34 @@ export function HomeLandingClient({
         </div>
       </footer>
 
-      {/* ================= MOBILE STICKY ACTION BAR ================= */}
-      <div className="sm:hidden fixed bottom-0 inset-x-0 z-40 border-t border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-[#09090B]/95 px-4 py-2.5 backdrop-blur-md">
+      {/* ================= SMART MOBILE STICKY ACTION BAR (hides smoothly inside Wizard) ================= */}
+      <div
+        aria-hidden={isWizardInView}
+        className={`sm:hidden fixed bottom-0 inset-x-0 z-40 border-t border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-[#09090B]/95 px-4 pt-2.5 safe-pb backdrop-blur-md transition-all duration-200 ${
+          isWizardInView
+            ? "translate-y-full opacity-0 pointer-events-none"
+            : "translate-y-0 opacity-100"
+        }`}
+      >
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="truncate text-xs font-bold text-zinc-950 dark:text-zinc-50">
+            <p className="truncate text-xs font-extrabold text-zinc-950 dark:text-zinc-50">
               {lang === "ar"
-                ? `توظَّف أسرع في ${selectedCountry.name_ar}`
-                : `Get Hired Faster in ${selectedCountry.name_en}`}
+                ? `توزيع مباشر للـ HR (من ${starterPrice} ${currencySymbol})`
+                : `Direct HR Placement (From ${starterPrice} ${currencySymbol})`}
             </p>
             <p className="truncate text-[11px] text-zinc-500 dark:text-zinc-400 font-medium">
               {lang === "ar"
-                ? "فحص ATS مجاني + إيداع مباشر للـ HR"
-                : "Free ATS Audit + Direct HR Placement"}
+                ? "فحص ATS مجاني + خطاب تقديم تنفيذي"
+                : "Free ATS Audit + Executive Cover Letter"}
             </p>
           </div>
           <a
             href="#wizard-section"
-            className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-[#09090B] text-white dark:bg-[#D4AF37] dark:text-[#09090B] px-4 py-2.5 text-xs font-extrabold"
+            className="btn-gold shrink-0 inline-flex min-h-[42px] items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-extrabold touch-manipulation"
           >
-            <span>{lang === "ar" ? "ابدأ الآن" : "Scan CV"}</span>
-            <ArrowUpRight className="h-3.5 w-3.5 text-[#D4AF37] dark:text-[#09090B]" />
+            <span>{lang === "ar" ? "ابدأ حملتك" : "Launch"}</span>
+            <ArrowUpRight className="h-3.5 w-3.5 text-[#09090B]" />
           </a>
         </div>
       </div>

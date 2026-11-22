@@ -44,6 +44,15 @@ html {
   scroll-behavior: smooth;
 }
 
+section[id],
+div[id="employers-section"] {
+  scroll-margin-top: 84px;
+}
+
+.safe-pb {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+
 body {
   background-color: var(--bg-canvas);
   color: var(--text-primary);
@@ -196,14 +205,16 @@ html.dark .bg-arch-grid {
     border-color 220ms ease, box-shadow 220ms ease;
 }
 
-.exec-card-interactive:hover {
-  transform: translate3d(0, -3px, 0);
-  border-color: #d4af37;
-  box-shadow: 0 14px 32px -12px rgba(9, 9, 11, 0.14);
-}
+@media (hover: hover) and (pointer: fine) {
+  .exec-card-interactive:hover {
+    transform: translate3d(0, -3px, 0);
+    border-color: #d4af37;
+    box-shadow: 0 14px 32px -12px rgba(9, 9, 11, 0.14);
+  }
 
-html.dark .exec-card-interactive:hover {
-  box-shadow: 0 14px 32px -12px rgba(0, 0, 0, 0.65);
+  html.dark .exec-card-interactive:hover {
+    box-shadow: 0 14px 32px -12px rgba(0, 0, 0, 0.65);
+  }
 }
 
 @keyframes beaconPing {

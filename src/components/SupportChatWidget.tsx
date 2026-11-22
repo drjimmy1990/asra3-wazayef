@@ -60,6 +60,19 @@ export function SupportChatWidget() {
 
   const listEndRef = useRef<HTMLDivElement | null>(null);
   const sessionIdRef = useRef<string>("web-session");
+  const [wizardInView, setWizardInView] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setWizardInView(document.body.dataset.wizardInView === "true");
+    const onWizardVis = (e: Event) => {
+      const detail = (e as CustomEvent<{ inView?: boolean }>).detail;
+      setWizardInView(Boolean(detail?.inView));
+    };
+    window.addEventListener("asra3:wizard-visibility", onWizardVis);
+    return () =>
+      window.removeEventListener("asra3:wizard-visibility", onWizardVis);
+  }, []);
 
   // Hide floating chat on Admin Dashboard
   const isAdminRoute = pathname?.startsWith("/admin");
@@ -358,7 +371,7 @@ export function SupportChatWidget() {
                 value={leadName}
                 onChange={(e) => setLeadName(e.target.value)}
                 placeholder={lang === "ar" ? "الاسم الكامل *" : "Full Name *"}
-                className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#141418] px-3 py-2 text-xs font-medium text-zinc-950 dark:text-zinc-100 focus:border-[#D4AF37] focus:outline-none"
+                className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#141418] px-3 py-2 text-base sm:text-xs font-medium text-zinc-950 dark:text-zinc-100 focus:border-[#D4AF37] focus:outline-none"
               />
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -370,7 +383,7 @@ export function SupportChatWidget() {
                   placeholder={
                     lang === "ar" ? "رقم واتساب / هاتف" : "WhatsApp / Phone"
                   }
-                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#141418] px-3 py-2 text-xs font-medium text-zinc-950 dark:text-zinc-100 focus:border-[#D4AF37] focus:outline-none"
+                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#141418] px-3 py-2 text-base sm:text-xs font-medium text-zinc-950 dark:text-zinc-100 focus:border-[#D4AF37] focus:outline-none"
                 />
                 <input
                   type="email"
@@ -380,7 +393,7 @@ export function SupportChatWidget() {
                   placeholder={
                     lang === "ar" ? "البريد الإلكتروني" : "Email Address"
                   }
-                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#141418] px-3 py-2 text-xs font-medium text-zinc-950 dark:text-zinc-100 focus:border-[#D4AF37] focus:outline-none"
+                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#141418] px-3 py-2 text-base sm:text-xs font-medium text-zinc-950 dark:text-zinc-100 focus:border-[#D4AF37] focus:outline-none"
                 />
               </div>
 
@@ -389,7 +402,7 @@ export function SupportChatWidget() {
                 onChange={(e) =>
                   setLeadTopic(e.target.value as SupportLeadTopic)
                 }
-                className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#141418] px-3 py-2 text-xs font-semibold text-zinc-950 dark:text-zinc-100 focus:border-[#D4AF37] focus:outline-none"
+                className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#141418] px-3 py-2 text-base sm:text-xs font-semibold text-zinc-950 dark:text-zinc-100 focus:border-[#D4AF37] focus:outline-none"
               >
                 <option value="pricing">
                   {lang === "ar" ? "استفسار عن الباقات والخصومات" : "Pricing & Discounts"}
@@ -418,7 +431,7 @@ export function SupportChatWidget() {
                     ? "اكتب استفسارك باختصار... *"
                     : "How can our team help you? *"
                 }
-                className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#141418] px-3 py-2 text-xs font-medium text-zinc-950 dark:text-zinc-100 focus:border-[#D4AF37] focus:outline-none resize-none"
+                className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#141418] px-3 py-2 text-base sm:text-xs font-medium text-zinc-950 dark:text-zinc-100 focus:border-[#D4AF37] focus:outline-none resize-none"
               />
 
               {leadFeedback && (
@@ -530,13 +543,13 @@ export function SupportChatWidget() {
                       ? "اكتب سؤالك عن الأسعار أو الخدمة..."
                       : "Ask about pricing, offers, or jobs..."
                   }
-                  className="flex-1 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-[#18181D] px-3.5 py-2.5 text-xs font-medium text-zinc-950 dark:text-zinc-100 focus:border-[#D4AF37] focus:outline-none"
+                  className="flex-1 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-[#18181D] px-3.5 py-2.5 text-base sm:text-xs font-medium text-zinc-950 dark:text-zinc-100 focus:border-[#D4AF37] focus:outline-none"
                 />
                 <button
                   type="submit"
                   disabled={sending || !input.trim()}
                   aria-label="Send message"
-                  className="btn-gold rounded-xl p-2.5 shrink-0 cursor-pointer disabled:opacity-50"
+                  className="btn-gold rounded-xl p-2.5 shrink-0 cursor-pointer disabled:opacity-50 touch-manipulation"
                 >
                   <Send className="h-4 w-4" />
                 </button>
@@ -546,12 +559,16 @@ export function SupportChatWidget() {
         </div>
       )}
 
-      {/* Floating Support Launcher Button */}
+      {/* Floating Support Launcher Button (compact circle when Wizard is in view on mobile) */}
       <button
         type="button"
         onClick={() => setIsOpen((v) => !v)}
         aria-label={lang === "ar" ? "فتح دعم أسرع" : "Open Asra3 Support"}
-        className="group relative inline-flex items-center gap-2.5 rounded-full bg-[#09090B] text-white border-2 border-[#D4AF37] px-4 py-3 shadow-xl hover:bg-zinc-900 transition-transform active:scale-95 cursor-pointer"
+        className={`group relative inline-flex items-center justify-center gap-2.5 rounded-full bg-[#09090B] text-white border-2 border-[#D4AF37] shadow-xl hover:bg-zinc-900 transition-transform active:scale-95 cursor-pointer touch-manipulation ${
+          wizardInView && !isOpen
+            ? "h-11 w-11 p-0 sm:h-auto sm:w-auto sm:px-4 sm:py-3"
+            : "px-4 py-3"
+        }`}
       >
         <span className="relative flex h-6 w-6 items-center justify-center rounded-full bg-[#D4AF37] text-[#09090B]">
           {isOpen ? (
@@ -563,7 +580,11 @@ export function SupportChatWidget() {
             <span className="absolute -top-0.5 -end-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-[#09090B]" />
           )}
         </span>
-        <span className="text-xs font-extrabold tracking-tight">
+        <span
+          className={`text-xs font-extrabold tracking-tight ${
+            wizardInView && !isOpen ? "hidden sm:inline" : "inline"
+          }`}
+        >
           {isOpen
             ? lang === "ar"
               ? "إغلاق الدعم"
