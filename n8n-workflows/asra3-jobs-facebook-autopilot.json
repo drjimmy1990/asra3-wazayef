@@ -1,5 +1,5 @@
 {
-  "name": "Asra3.com — Automated 2h GCC Jobs Harvester, Website & Facebook Autopilot",
+  "name": "Asra3.com — Automated 4h GCC Jobs Harvester, Facebook & Instagram Reels Autopilot",
   "nodes": [
     {
       "id": "schedule-3h",
@@ -12,7 +12,7 @@
           "interval": [
             {
               "field": "hours",
-              "hoursInterval": 2
+              "hoursInterval": 4
             }
           ]
         }
@@ -24,7 +24,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [420, 300],
-      "notes": "Paste your ADMIN_PASSCODE / N8N_WEBHOOK_SECRET, Facebook Page ID, and Page Access Token here.",
+      "notes": "Paste your N8N_WEBHOOK_SECRET, Facebook Page ID/Token, and Instagram Business Account ID/Token here. Never commit real secrets to Git.",
       "parameters": {
         "assignments": {
           "assignments": [
@@ -51,6 +51,30 @@
               "name": "facebookPageAccessToken",
               "type": "string",
               "value": "YOUR_FACEBOOK_PAGE_ACCESS_TOKEN"
+            },
+            {
+              "id": "cfg-ig-id",
+              "name": "instagramAccountId",
+              "type": "string",
+              "value": "YOUR_INSTAGRAM_BUSINESS_ACCOUNT_ID"
+            },
+            {
+              "id": "cfg-ig-token",
+              "name": "instagramAccessToken",
+              "type": "string",
+              "value": "YOUR_INSTAGRAM_ACCESS_TOKEN"
+            },
+            {
+              "id": "cfg-ig-enabled",
+              "name": "instagramEnabled",
+              "type": "string",
+              "value": "true"
+            },
+            {
+              "id": "cfg-ig-cap",
+              "name": "instagramDailyCap",
+              "type": "string",
+              "value": "3"
             },
             {
               "id": "cfg-tg-token",
@@ -132,7 +156,7 @@
       "typeVersion": 2,
       "position": [1200, 300],
       "parameters": {
-        "jsCode": "const cfg = $('configCredentials').first().json;\nconst payload = $input.first()?.json || {};\nconst items = Array.isArray(payload.items) ? payload.items : [];\n\nif (!items.length) {\n  return [];\n}\n\nif (!cfg.facebookPageId || cfg.facebookPageId === 'YOUR_FACEBOOK_PAGE_ID' || !cfg.facebookPageAccessToken || cfg.facebookPageAccessToken === 'YOUR_FACEBOOK_PAGE_ACCESS_TOKEN') {\n  throw new Error('Set facebookPageId and facebookPageAccessToken in configCredentials before activating Facebook publishing.');\n}\n\nreturn items.map((job) => ({\n  json: {\n    ...job,\n    asra3BaseUrl: cfg.asra3BaseUrl,\n    webhookSecret: cfg.webhookSecret,\n    facebookPageId: cfg.facebookPageId,\n    facebookPageAccessToken: cfg.facebookPageAccessToken,\n    telegramBotToken: cfg.telegramBotToken,\n    telegramChatId: cfg.telegramChatId,\n  },\n}));"
+        "jsCode": "const cfg = $('configCredentials').first().json;\nconst payload = $input.first()?.json || {};\nconst items = Array.isArray(payload.items) ? payload.items : [];\n\nif (!items.length) {\n  return [];\n}\n\nif (!cfg.facebookPageId || cfg.facebookPageId === 'YOUR_FACEBOOK_PAGE_ID' || !cfg.facebookPageAccessToken || cfg.facebookPageAccessToken === 'YOUR_FACEBOOK_PAGE_ACCESS_TOKEN') {\n  throw new Error('Set facebookPageId and facebookPageAccessToken in configCredentials before activating Facebook publishing.');\n}\n\nreturn items.map((job) => ({\n  json: {\n    ...job,\n    instagram_budget: job.instagram_budget || payload.instagram_budget || null,\n    asra3BaseUrl: cfg.asra3BaseUrl,\n    webhookSecret: cfg.webhookSecret,\n    facebookPageId: cfg.facebookPageId,\n    facebookPageAccessToken: cfg.facebookPageAccessToken,\n    instagramAccountId: cfg.instagramAccountId || '',\n    instagramAccessToken: cfg.instagramAccessToken || '',\n    instagramEnabled: cfg.instagramEnabled ?? 'true',\n    instagramDailyCap: cfg.instagramDailyCap ?? '3',\n    telegramBotToken: cfg.telegramBotToken,\n    telegramChatId: cfg.telegramChatId,\n  },\n}));"
       }
     },
     {
@@ -291,7 +315,7 @@
       "name": "optionalTelegramChannel",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2760, 520],
+      "position": [2760, 560],
       "disabled": true,
       "onError": "continueRegularOutput",
       "notes": "Enable this node once telegramBotToken and telegramChatId are filled in configCredentials.",
@@ -305,20 +329,268 @@
       }
     },
     {
+      "id": "ig-evaluate-gate",
+      "name": "evaluateInstagramGate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3040, 300],
+      "notes": "Enforces Instagram warmup cap (2–3 Reels/day) during Gulf peak hours (07–10, 11–15, 19–22 GST) with 3.5h minimum spacing.",
+      "parameters": {
+        "jsCode": "const job = $('unpackQueueItems').first().json;\nconst reel = $('prepareJobReel').first().json || {};\nconst fbFinish = $('fbReelFinish').first().json || {};\nconst fbStart = $('fbReelStart').first().json || {};\n\nconst fbPostId = fbFinish.post_id\n  ? (String(fbFinish.post_id).includes('_') ? String(fbFinish.post_id) : `${job.facebookPageId}_${fbFinish.post_id}`)\n  : (fbStart.video_id ? String(fbStart.video_id) : 'reel_posted');\n\nconst reelUrl = reel.reel_url || job.reel_video_url || '';\nconst igEnabled = String(job.instagramEnabled ?? 'true').trim().toLowerCase() === 'true';\nconst hasCreds =\n  Boolean(job.instagramAccountId) &&\n  job.instagramAccountId !== 'YOUR_INSTAGRAM_BUSINESS_ACCOUNT_ID' &&\n  Boolean(job.instagramAccessToken) &&\n  job.instagramAccessToken !== 'YOUR_INSTAGRAM_ACCESS_TOKEN';\n\nconst rawCap = String(job.instagramDailyCap ?? '3').trim();\nconst parsedCap = rawCap === '' ? 3 : Number(rawCap);\nconst dailyCap = Number.isFinite(parsedCap) ? Math.max(0, Math.min(6, Math.floor(parsedCap))) : 3;\n\nconst nowMs = Date.now();\nconst gstDateObj = new Date(nowMs + 4 * 60 * 60 * 1000);\nconst gstDate = `${gstDateObj.getUTCFullYear()}-${String(gstDateObj.getUTCMonth() + 1).padStart(2, '0')}-${String(gstDateObj.getUTCDate()).padStart(2, '0')}`;\nconst gstHour = gstDateObj.getUTCHours();\nconst peakSlot = (gstHour >= 7 && gstHour <= 10) ? 'morning' : (gstHour >= 11 && gstHour <= 15) ? 'midday' : (gstHour >= 19 && gstHour <= 22) ? 'evening' : null;\n\nconst staticData = $getWorkflowStaticData('global');\nif (!staticData.igDailyTracker || staticData.igDailyTracker.gstDate !== gstDate) {\n  staticData.igDailyTracker = { gstDate, count: 0, slotsUsed: [], lastPostedAt: staticData.igDailyTracker?.lastPostedAt || null };\n}\nconst tracker = staticData.igDailyTracker;\nconst serverBudget = job.instagram_budget || {};\n\nconst serverCount = serverBudget.gst_date === gstDate ? Number(serverBudget.published_today_gst || 0) : 0;\nconst effectiveCount = Math.max(Number(tracker.count || 0), serverCount);\nconst effectiveSlots = Array.from(new Set([\n  ...(Array.isArray(tracker.slotsUsed) ? tracker.slotsUsed : []),\n  ...(serverBudget.gst_date === gstDate && Array.isArray(serverBudget.slots_used_today) ? serverBudget.slots_used_today : []),\n]));\n\nconst lastCandidates = [tracker.lastPostedAt, serverBudget.last_ig_posted_at]\n  .map((iso) => (iso ? Date.parse(iso) : NaN))\n  .filter((ms) => Number.isFinite(ms));\nconst lastPostedMs = lastCandidates.length ? Math.max(...lastCandidates) : 0;\nconst minSpacingOk = !lastPostedMs || (nowMs - lastPostedMs) >= 3.5 * 60 * 60 * 1000;\n\nlet skipReason = null;\nif (!igEnabled) skipReason = 'instagram_disabled';\nelse if (!hasCreds) skipReason = 'missing_instagram_credentials';\nelse if (!reelUrl) skipReason = 'missing_reel_url';\nelse if (dailyCap <= 0) skipReason = 'daily_cap_zero';\nelse if (effectiveCount >= dailyCap) skipReason = 'daily_cap_reached';\nelse if (!peakSlot) skipReason = 'outside_gulf_peak_hours';\nelse if (effectiveSlots.includes(peakSlot)) skipReason = `peak_slot_${peakSlot}_already_used`;\nelse if (!minSpacingOk) skipReason = 'min_spacing_guard';\n\nconst igCaption = job.instagram_reel_caption || job.facebook_reel_caption || '';\n\nreturn [{\n  json: {\n    job_id: job.id,\n    slug: job.slug,\n    asra3BaseUrl: job.asra3BaseUrl,\n    webhookSecret: job.webhookSecret,\n    fb_post_id: fbPostId,\n    ig_post_id: null,\n    reel_url: reelUrl,\n    instagramAccountId: job.instagramAccountId,\n    instagramAccessToken: job.instagramAccessToken,\n    instagram_reel_caption: igCaption,\n    should_publish_ig: skipReason === null,\n    ig_skip_reason: skipReason,\n    gst_date: gstDate,\n    gst_hour: gstHour,\n    gst_slot: peakSlot,\n    ig_count_today: effectiveCount,\n    ig_daily_cap: dailyCap,\n  },\n}];"
+      }
+    },
+    {
+      "id": "ig-if-publish",
+      "name": "ifPublishInstagram",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [3300, 300],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-should-publish-ig",
+              "leftValue": "={{ $json.should_publish_ig }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "ig-create-container",
+      "name": "igCreateReelContainer",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3560, 140],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true,
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v21.0/{{ $json.instagramAccountId }}/media",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ media_type: 'REELS', video_url: $json.reel_url, caption: $json.instagram_reel_caption, share_to_feed: true, access_token: $json.instagramAccessToken }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      }
+    },
+    {
+      "id": "ig-prepare-poll",
+      "name": "igPreparePoll",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3820, 140],
+      "parameters": {
+        "jsCode": "const base = $('evaluateInstagramGate').first().json;\nconst creationId = $json.id ? String($json.id) : '';\nreturn [{\n  json: {\n    ...base,\n    creation_id: creationId,\n    has_creation_id: Boolean(creationId),\n    ig_create_error: creationId ? null : ($json.error?.message || 'no_creation_id'),\n  },\n}];"
+      }
+    },
+    {
+      "id": "ig-has-container",
+      "name": "igHasContainer",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [4060, 140],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-has-creation-id",
+              "leftValue": "={{ $json.has_creation_id }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "ig-wait-processing",
+      "name": "waitIgProcessing",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [4320, 40],
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": 20,
+        "unit": "seconds"
+      }
+    },
+    {
+      "id": "ig-check-status",
+      "name": "igCheckContainerStatus",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [4560, 40],
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true,
+      "parameters": {
+        "method": "GET",
+        "url": "=https://graph.facebook.com/v21.0/{{ $('igPreparePoll').first().json.creation_id }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "fields",
+              "value": "status_code,status"
+            },
+            {
+              "name": "access_token",
+              "value": "={{ $('igPreparePoll').first().json.instagramAccessToken }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        }
+      }
+    },
+    {
+      "id": "ig-evaluate-poll",
+      "name": "igEvaluatePoll",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [4820, 40],
+      "parameters": {
+        "jsCode": "const base = $('igPreparePoll').first().json;\nconst statusCode = String($json.status_code || '').toUpperCase();\nconst nodeData = $getWorkflowStaticData('node');\nif (!nodeData.pollAttempts || typeof nodeData.pollAttempts !== 'object') {\n  nodeData.pollAttempts = {};\n}\nconst keys = Object.keys(nodeData.pollAttempts);\nif (keys.length > 25) {\n  for (const k of keys.slice(0, keys.length - 15)) delete nodeData.pollAttempts[k];\n}\nconst attempt = Number(nodeData.pollAttempts[base.creation_id] || 0) + 1;\nnodeData.pollAttempts[base.creation_id] = attempt;\n\nlet action = 'retry';\nif (statusCode === 'FINISHED') {\n  action = 'publish';\n  delete nodeData.pollAttempts[base.creation_id];\n} else if (statusCode === 'ERROR' || statusCode === 'EXPIRED' || attempt >= 4) {\n  action = 'abort';\n  delete nodeData.pollAttempts[base.creation_id];\n}\n\nreturn [{\n  json: {\n    ...base,\n    ig_status_code: statusCode || 'UNKNOWN',\n    ig_poll_attempt: attempt,\n    ig_poll_action: action,\n  },\n}];"
+      }
+    },
+    {
+      "id": "ig-if-ready",
+      "name": "igIfReadyToPublish",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [5080, 40],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-ig-publish",
+              "leftValue": "={{ $json.ig_poll_action }}",
+              "rightValue": "publish",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "ig-if-retry",
+      "name": "igIfRetryPoll",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [5340, 200],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-ig-retry",
+              "leftValue": "={{ $json.ig_poll_action }}",
+              "rightValue": "retry",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "ig-publish-reel",
+      "name": "igPublishReel",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [5340, -60],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true,
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v21.0/{{ $json.instagramAccountId }}/media_publish",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ creation_id: $json.creation_id, access_token: $json.instagramAccessToken }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      }
+    },
+    {
+      "id": "ig-record-published",
+      "name": "igRecordPublished",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [5600, -60],
+      "parameters": {
+        "jsCode": "const base = $('igPreparePoll').first().json;\nconst igPostId = $json.id ? String($json.id) : null;\n\nif (igPostId) {\n  const staticData = $getWorkflowStaticData('global');\n  if (!staticData.igDailyTracker || staticData.igDailyTracker.gstDate !== base.gst_date) {\n    staticData.igDailyTracker = { gstDate: base.gst_date, count: 0, slotsUsed: [], lastPostedAt: null };\n  }\n  staticData.igDailyTracker.count = Number(staticData.igDailyTracker.count || 0) + 1;\n  if (base.gst_slot && !staticData.igDailyTracker.slotsUsed.includes(base.gst_slot)) {\n    staticData.igDailyTracker.slotsUsed.push(base.gst_slot);\n  }\n  staticData.igDailyTracker.lastPostedAt = new Date().toISOString();\n}\n\nreturn [{\n  json: {\n    ...base,\n    ig_post_id: igPostId,\n  },\n}];"
+      }
+    },
+    {
       "id": "mark-posted-callback",
       "name": "markJobPosted",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [3040, 300],
+      "position": [5880, 300],
       "parameters": {
         "method": "POST",
-        "url": "={{ $('unpackQueueItems').item.json.asra3BaseUrl }}/api/webhooks/jobs-social",
+        "url": "={{ $json.asra3BaseUrl }}/api/webhooks/jobs-social",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "x-webhook-secret",
-              "value": "={{ $('unpackQueueItems').item.json.webhookSecret }}"
+              "value": "={{ $json.webhookSecret }}"
             },
             {
               "name": "Content-Type",
@@ -328,7 +600,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ id: $('unpackQueueItems').item.json.id, fb_post_id: $('fbReelFinish').item.json.post_id ? (String($('fbReelFinish').item.json.post_id).includes('_') ? $('fbReelFinish').item.json.post_id : $('unpackQueueItems').item.json.facebookPageId + '_' + $('fbReelFinish').item.json.post_id) : ($('fbReelStart').item.json.video_id || 'reel_posted') }) }}",
+        "jsonBody": "={{ JSON.stringify({ id: $json.job_id, fb_post_id: $json.fb_post_id, ...($json.ig_post_id ? { ig_post_id: $json.ig_post_id } : {}) }) }}",
         "options": {}
       }
     }
@@ -455,6 +727,166 @@
       ]
     },
     "postFirstCommentLink": {
+      "main": [
+        [
+          {
+            "node": "evaluateInstagramGate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "evaluateInstagramGate": {
+      "main": [
+        [
+          {
+            "node": "ifPublishInstagram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ifPublishInstagram": {
+      "main": [
+        [
+          {
+            "node": "igCreateReelContainer",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "markJobPosted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "igCreateReelContainer": {
+      "main": [
+        [
+          {
+            "node": "igPreparePoll",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "igPreparePoll": {
+      "main": [
+        [
+          {
+            "node": "igHasContainer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "igHasContainer": {
+      "main": [
+        [
+          {
+            "node": "waitIgProcessing",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "markJobPosted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "waitIgProcessing": {
+      "main": [
+        [
+          {
+            "node": "igCheckContainerStatus",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "igCheckContainerStatus": {
+      "main": [
+        [
+          {
+            "node": "igEvaluatePoll",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "igEvaluatePoll": {
+      "main": [
+        [
+          {
+            "node": "igIfReadyToPublish",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "igIfReadyToPublish": {
+      "main": [
+        [
+          {
+            "node": "igPublishReel",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "igIfRetryPoll",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "igIfRetryPoll": {
+      "main": [
+        [
+          {
+            "node": "waitIgProcessing",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "markJobPosted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "igPublishReel": {
+      "main": [
+        [
+          {
+            "node": "igRecordPublished",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "igRecordPublished": {
       "main": [
         [
           {

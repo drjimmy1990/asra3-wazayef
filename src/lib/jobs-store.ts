@@ -24,6 +24,12 @@ import {
 } from "@/lib/company-verifier";
 import { bulkImportCompanies, isSupabaseConfigured } from "@/lib/store";
 import { notifySearchEnginesForUrls } from "@/lib/seo-indexer";
+import {
+  getGstClock,
+  getGstDateKeyFromIso,
+  getGulfPeakSlot,
+  type GulfPeakSlot,
+} from "@/lib/social-cadence";
 
 const DATA_DIR = path.join(process.cwd(), ".data");
 const JOBS_FILE = path.join(DATA_DIR, "jobs.json");
@@ -181,6 +187,8 @@ export async function getAllJobsRaw(): Promise<JobPostingRecord[]> {
           merged.set(key, {
             ...local,
             ...row,
+            ig_post_id: row.ig_post_id ?? local?.ig_post_id ?? null,
+            ig_posted_at: row.ig_posted_at ?? local?.ig_posted_at ?? null,
             secondary_industries:
               local?.secondary_industries || row.secondary_industries,
           });
@@ -592,6 +600,8 @@ export async function upsertJobPostings(
       status: item.status || "published",
       fb_post_id: null,
       fb_posted_at: null,
+      ig_post_id: null,
+      ig_posted_at: null,
       tg_message_id: null,
       tg_posted_at: null,
       published_at: nowIso,
@@ -619,6 +629,8 @@ export async function upsertJobPostings(
           delete copy.secondary_industries;
           delete copy.masked_apply_email;
           delete copy.rank_score;
+          delete copy.ig_post_id;
+          delete copy.ig_posted_at;
           return copy;
         });
         await sb.from("jobs").upsert(dbRows, {
@@ -849,20 +861,73 @@ export async function getUnpostedSocialJobs(
     .slice(0, Math.min(20, Math.max(1, limit)));
 }
 
+export async function getInstagramDailyStats(now: Date = new Date()): Promise<{
+  publishedTodayGst: number;
+  slotsUsedToday: GulfPeakSlot[];
+  lastIgPostedAt: string | null;
+  gstDateKey: string;
+}> {
+  const all = await getAllJobsRaw();
+  const { gstDateKey } = getGstClock(now);
+  let publishedTodayGst = 0;
+  let lastIgPostedAt: string | null = null;
+  let lastIgMs = 0;
+  const slotsUsed = new Set<GulfPeakSlot>();
+
+  for (const job of all) {
+    if (!job.ig_posted_at) continue;
+    const ms = Date.parse(job.ig_posted_at);
+    if (!Number.isFinite(ms)) continue;
+    if (ms > lastIgMs) {
+      lastIgMs = ms;
+      lastIgPostedAt = job.ig_posted_at;
+    }
+    if (getGstDateKeyFromIso(job.ig_posted_at) === gstDateKey) {
+      publishedTodayGst++;
+      const slot = getGulfPeakSlot(getGstClock(new Date(ms)).gstHour);
+      if (slot) slotsUsed.add(slot);
+    }
+  }
+
+  return {
+    publishedTodayGst,
+    slotsUsedToday: Array.from(slotsUsed),
+    lastIgPostedAt,
+    gstDateKey,
+  };
+}
+
 export async function markJobPostedToSocial(
   idOrSlug: string,
-  meta: { fb_post_id?: string; tg_message_id?: string }
+  meta: { fb_post_id?: string; ig_post_id?: string; tg_message_id?: string }
 ): Promise<boolean> {
   const jobs = readLocalJobs();
-  const idx = jobs.findIndex(
+  let idx = jobs.findIndex(
     (j) => j.id === idOrSlug || j.slug === idOrSlug
   );
   const nowIso = new Date().toISOString();
+
+  // If the job lives only in Supabase (e.g. after a local volume reset) and we
+  // received ig_post_id, adopt it locally so IG daily caps stay accurate even
+  // before migration 003 is applied to Supabase.
+  if (idx === -1 && meta.ig_post_id) {
+    const remote = (await getAllJobsRaw()).find(
+      (j) => j.id === idOrSlug || j.slug === idOrSlug
+    );
+    if (remote) {
+      jobs.unshift(remote);
+      idx = 0;
+    }
+  }
 
   if (idx !== -1) {
     if (meta.fb_post_id) {
       jobs[idx].fb_post_id = meta.fb_post_id;
       jobs[idx].fb_posted_at = nowIso;
+    }
+    if (meta.ig_post_id) {
+      jobs[idx].ig_post_id = meta.ig_post_id;
+      jobs[idx].ig_posted_at = nowIso;
     }
     if (meta.tg_message_id) {
       jobs[idx].tg_message_id = meta.tg_message_id;
@@ -899,6 +964,36 @@ export async function markJobPostedToSocial(
             .eq("slug", idOrSlug)
             .select("id");
           remoteUpdated = Array.isArray(bySlug.data) && bySlug.data.length > 0;
+        }
+      }
+
+      // Separate best-effort update for Instagram columns so Facebook marking
+      // never fails if Supabase migration 003 hasn't been executed yet.
+      if (meta.ig_post_id) {
+        try {
+          const igPatch = {
+            ig_post_id: meta.ig_post_id,
+            ig_posted_at: nowIso,
+          };
+          const igById = await sb
+            .from("jobs")
+            .update(igPatch)
+            .eq("id", idOrSlug)
+            .select("id");
+          if (Array.isArray(igById.data) && igById.data.length > 0) {
+            remoteUpdated = true;
+          } else {
+            const igBySlug = await sb
+              .from("jobs")
+              .update(igPatch)
+              .eq("slug", idOrSlug)
+              .select("id");
+            if (Array.isArray(igBySlug.data) && igBySlug.data.length > 0) {
+              remoteUpdated = true;
+            }
+          }
+        } catch {
+          // Non-blocking if migration 003 is not yet applied
         }
       }
     } catch {
@@ -961,6 +1056,8 @@ export async function performAdminJobAction(
   } else if (action === "reset_social") {
     target.fb_post_id = null;
     target.fb_posted_at = null;
+    target.ig_post_id = null;
+    target.ig_posted_at = null;
   }
 
   jobs[idx] = target;
@@ -979,6 +1076,12 @@ export async function performAdminJobAction(
           fb_posted_at: target.fb_posted_at,
         })
         .eq("id", id);
+      if (action === "reset_social") {
+        await getSupabaseJobsClient()
+          .from("jobs")
+          .update({ ig_post_id: null, ig_posted_at: null })
+          .eq("id", id);
+      }
     } catch {}
   }
 

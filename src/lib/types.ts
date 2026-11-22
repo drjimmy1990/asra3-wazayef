@@ -272,6 +272,8 @@ export interface JobPostingRecord {
   status: JobPostingStatus;
   fb_post_id?: string | null;
   fb_posted_at?: string | null;
+  ig_post_id?: string | null;
+  ig_posted_at?: string | null;
   tg_message_id?: string | null;
   tg_posted_at?: string | null;
   published_at: string;

@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-mkdir -p /app/.data/uploads /app/.data/reels
+mkdir -p /app/.data/uploads /app/.data/reels /app/.data/social-media
 
 if [ ! -f /app/.data/store.json ] && [ -f /app/seed/store.seed.json ]; then
   echo "[Asra3] Initializing /app/.data/store.json with pre-seeded GCC companies..."

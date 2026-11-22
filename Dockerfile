@@ -55,7 +55,7 @@ COPY docker-entrypoint.sh /app/docker-entrypoint.sh
 
 RUN sed -i 's/\r$//' /app/docker-entrypoint.sh && \
     chmod +x /app/docker-entrypoint.sh && \
-    mkdir -p /app/.data/uploads /app/.data/reels && \
+    mkdir -p /app/.data/uploads /app/.data/reels /app/.data/social-media && \
     chown -R nextjs:nodejs /app/.data
 
 EXPOSE 3000

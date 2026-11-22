@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isWebhookAuthorized } from "@/lib/admin-auth";
 import {
+  getInstagramDailyStats,
   getUnpostedSocialJobs,
   markJobPostedToSocial,
 } from "@/lib/jobs-store";
 import { getCanonicalSiteUrl } from "@/lib/seo-indexer";
 import { getActiveOgJobTemplate } from "@/lib/og-settings";
 import { INITIAL_COUNTRIES, INITIAL_INDUSTRIES } from "@/lib/seed-data";
+import {
+  buildInstagramReelCaption,
+  DEFAULT_INSTAGRAM_DAILY_CAP,
+  evaluateInstagramEligibility,
+} from "@/lib/social-cadence";
 
 const COUNTRY_HASHTAGS: Record<string, string> = {
   AE: "#وظائف_الإمارات #وظائف_دبي #UAEJobs #DubaiJobs #AbuDhabiJobs",
@@ -43,7 +49,25 @@ export async function GET(req: NextRequest) {
 
   const siteUrl = getCanonicalSiteUrl();
   const activeOgTemplate = getActiveOgJobTemplate();
-  const queue = await getUnpostedSocialJobs(limit);
+  const [queue, igDailyStats] = await Promise.all([
+    getUnpostedSocialJobs(limit),
+    getInstagramDailyStats(),
+  ]);
+
+  const rawCapEnv = process.env.INSTAGRAM_DAILY_REEL_CAP;
+  const parsedCap =
+    rawCapEnv !== undefined && rawCapEnv.trim() !== ""
+      ? Number(rawCapEnv)
+      : DEFAULT_INSTAGRAM_DAILY_CAP;
+  const igDailyCap = Number.isFinite(parsedCap)
+    ? Math.max(0, Math.min(6, Math.floor(parsedCap)))
+    : DEFAULT_INSTAGRAM_DAILY_CAP;
+  const instagramBudget = evaluateInstagramEligibility({
+    dailyCap: igDailyCap,
+    publishedTodayGst: igDailyStats.publishedTodayGst,
+    slotsUsedToday: igDailyStats.slotsUsedToday,
+    lastIgPostedAt: igDailyStats.lastIgPostedAt,
+  });
 
   const items = queue.map((job) => {
     const country =
@@ -111,6 +135,19 @@ export async function GET(req: NextRequest) {
 
     const facebookFirstComment = `✅ قدّم مباشرة الآن أو افحص توافق سيرتك الذاتية مع هذه الوظيفة عبر منصة أسرع:\nApply directly & check your ATS match score here:\n${fbCommentApplyUrl}`;
 
+    const instagramReelCaption = buildInstagramReelCaption({
+      countryCode: job.country_code,
+      countryNameAr: country.name_ar,
+      cityNameAr: job.city_name_ar,
+      titleAr: job.title_ar,
+      titleEn: job.title_en,
+      companyName: job.company_name,
+      salaryMin: job.salary_min,
+      salaryMax: job.salary_max,
+      salaryCurrency: job.salary_currency,
+      commentKeyword,
+    });
+
     const telegramMessage = [
       `⚡ <b>${tgEscape(job.title_ar)}</b>`,
       `<b>${tgEscape(job.title_en)}</b>`,
@@ -143,6 +180,8 @@ export async function GET(req: NextRequest) {
       facebook_photo_caption: facebookPhotoCaption,
       facebook_reel_caption: facebookReelCaption,
       facebook_first_comment: facebookFirstComment,
+      instagram_reel_caption: instagramReelCaption,
+      instagram_budget: instagramBudget,
       telegram_html: telegramMessage,
     };
   });
@@ -150,6 +189,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     count: items.length,
+    instagram_budget: instagramBudget,
     items,
   });
 }
@@ -171,6 +211,7 @@ export async function POST(req: NextRequest) {
 
     const updated = await markJobPostedToSocial(idOrSlug, {
       fb_post_id: body.fb_post_id ? String(body.fb_post_id) : undefined,
+      ig_post_id: body.ig_post_id ? String(body.ig_post_id) : undefined,
       tg_message_id: body.tg_message_id
         ? String(body.tg_message_id)
         : undefined,
