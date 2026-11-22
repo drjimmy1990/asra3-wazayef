@@ -414,13 +414,17 @@ function padlockIcon(size = 30, color = "#D4AF37"): ReactElement {
   );
 }
 
-function fullFrameRoot(...children: ReactElement[]): ReactElement {
+function boxRoot(
+  width: number,
+  height: number,
+  ...children: ReactElement[]
+): ReactElement {
   return h(
     "div",
     {
       style: {
-        width: WIDTH,
-        height: HEIGHT,
+        width,
+        height,
         display: "flex",
         position: "relative",
         fontFamily: "IBM Plex Sans Arabic",
@@ -429,6 +433,10 @@ function fullFrameRoot(...children: ReactElement[]): ReactElement {
     },
     ...children
   );
+}
+
+function fullFrameRoot(...children: ReactElement[]): ReactElement {
+  return boxRoot(WIDTH, HEIGHT, ...children);
 }
 
 function buildLayer1Chrome(job: JobReelData): ReactElement {
@@ -585,14 +593,16 @@ function buildLayer1Chrome(job: JobReelData): ReactElement {
 
 function buildLayer2Hook(job: JobReelData): ReactElement {
   const headlineSize = job.salaryHeadlineAr.length > 22 ? 48 : 58;
-  return fullFrameRoot(
+  return boxRoot(
+    960,
+    840,
     h(
       "div",
       {
         style: {
           position: "absolute",
-          top: 340,
-          left: 80,
+          top: 20,
+          left: 20,
           width: 920,
           display: "flex",
           flexDirection: "column",
@@ -710,14 +720,16 @@ function buildLayer3JobCard(job: JobReelData): ReactElement {
     job.titleAr.length > 32 ? 42 : job.titleAr.length > 22 ? 48 : 56;
   const titleEnSize = job.titleEn.length > 38 ? 24 : 28;
 
-  return fullFrameRoot(
+  return boxRoot(
+    960,
+    580,
     h(
       "div",
       {
         style: {
           position: "absolute",
-          top: 300,
-          left: 80,
+          top: 20,
+          left: 20,
           width: 920,
           height: 540,
           display: "flex",
@@ -940,14 +952,16 @@ function buildLayer3JobCard(job: JobReelData): ReactElement {
 }
 
 function buildLayer3bSalary(job: JobReelData): ReactElement {
-  return fullFrameRoot(
+  return boxRoot(
+    960,
+    236,
     h(
       "div",
       {
         style: {
           position: "absolute",
-          top: 868,
-          left: 80,
+          top: 20,
+          left: 20,
           width: 920,
           height: 196,
           display: "flex",
@@ -1017,14 +1031,16 @@ function buildLayer3bSalary(job: JobReelData): ReactElement {
 }
 
 function buildLayer4Mx(job: JobReelData): ReactElement {
-  return fullFrameRoot(
+  return boxRoot(
+    960,
+    204,
     h(
       "div",
       {
         style: {
           position: "absolute",
-          top: 1092,
-          left: 80,
+          top: 20,
+          left: 20,
           width: 920,
           height: 164,
           display: "flex",
@@ -1116,14 +1132,16 @@ function buildLayer4Mx(job: JobReelData): ReactElement {
 }
 
 function buildLayer5Cta(job: JobReelData): ReactElement {
-  return fullFrameRoot(
+  return boxRoot(
+    960,
+    660,
     h(
       "div",
       {
         style: {
           position: "absolute",
-          top: 350,
-          left: 80,
+          top: 20,
+          left: 20,
           width: 920,
           height: 215,
           display: "flex",
@@ -1205,8 +1223,8 @@ function buildLayer5Cta(job: JobReelData): ReactElement {
       {
         style: {
           position: "absolute",
-          top: 593,
-          left: 80,
+          top: 263,
+          left: 20,
           width: 920,
           height: 360,
           display: "flex",
@@ -1296,14 +1314,16 @@ function buildLayer5Cta(job: JobReelData): ReactElement {
 
 function buildLayer6CommentCta(job: JobReelData): ReactElement {
   const isSingleWord = !job.commentKeyword.includes(" ");
-  return fullFrameRoot(
+  return boxRoot(
+    960,
+    310,
     h(
       "div",
       {
         style: {
           position: "absolute",
-          top: 985,
-          left: 80,
+          top: 20,
+          left: 20,
           width: 920,
           height: 270,
           display: "flex",
@@ -1403,24 +1423,24 @@ function buildLayer6CommentCta(job: JobReelData): ReactElement {
 
 function buildFilterGraph(): string {
   return [
-    `[2:v]format=rgba,fade=t=in:st=0:d=0.25:alpha=1[c1];`,
-    `[3:v]format=rgba,fade=t=in:st=0.12:d=0.18:alpha=1,fade=t=out:st=2.44:d=0.22:alpha=1[c2];`,
-    `[4:v]format=rgba,fade=t=in:st=2.60:d=0.22:alpha=1,fade=t=out:st=6.30:d=0.22:alpha=1[c3];`,
-    `[5:v]format=rgba,fade=t=in:st=3.28:d=0.16:alpha=1,fade=t=out:st=6.30:d=0.22:alpha=1[c3b];`,
-    `[6:v]format=rgba,fade=t=in:st=4.15:d=0.16:alpha=1,fade=t=out:st=6.30:d=0.22:alpha=1[c4];`,
-    `[7:v]format=rgba,fade=t=in:st=6.45:d=0.20:alpha=1[c5];`,
-    `[8:v]format=rgba,fade=t=in:st=7.08:d=0.16:alpha=1[c6];`,
-    `[0:v][c1]overlay=x=0:y=0[v1];`,
-    `[v1][c2]overlay=x=0:y='if(lt(t,0.12),90,if(lt(t,0.48),90*pow(1-(t-0.12)/0.36,3),if(gt(t,2.44),-45*(t-2.44)/0.22,0)))':enable='between(t,0.12,2.66)'[v2];`,
-    `[v2][c3]overlay=x='if(lt(t,2.60),140,if(lt(t,3.02),140*pow(1-(t-2.60)/0.42,3),0))':y=0:enable='between(t,2.60,6.52)'[v3];`,
-    `[v3][c3b]overlay=x=0:y='if(lt(t,3.28),70,if(lt(t,3.62),70*pow(1-(t-3.28)/0.34,3),0))':enable='between(t,3.28,6.52)'[v4];`,
-    `[v4][c4]overlay=x=0:y='if(lt(t,4.15),65,if(lt(t,4.47),65*pow(1-(t-4.15)/0.32,3),0))':enable='between(t,4.15,6.52)'[v5];`,
-    `[v5][c5]overlay=x=0:y='if(lt(t,6.45),100,if(lt(t,6.85),100*pow(1-(t-6.45)/0.40,3),0))':enable='between(t,6.45,10.00)'[v6];`,
-    `[v6][c6]overlay=x=0:y='if(lt(t,7.08),80,if(lt(t,7.38),80*pow(1-(t-7.08)/0.30,3),0))':enable='between(t,7.08,10.00)'[v7];`,
+    `[2:v]format=rgba,loop=loop=299:size=1:start=0,setpts=N/(30*TB),fade=t=in:st=0:d=0.25:alpha=1[c1];`,
+    `[3:v]format=rgba,loop=loop=299:size=1:start=0,setpts=N/(30*TB),fade=t=in:st=0.12:d=0.18:alpha=1,fade=t=out:st=2.44:d=0.22:alpha=1[c2];`,
+    `[4:v]format=rgba,loop=loop=299:size=1:start=0,setpts=N/(30*TB),fade=t=in:st=2.60:d=0.22:alpha=1,fade=t=out:st=6.30:d=0.22:alpha=1[c3];`,
+    `[5:v]format=rgba,loop=loop=299:size=1:start=0,setpts=N/(30*TB),fade=t=in:st=3.28:d=0.16:alpha=1,fade=t=out:st=6.30:d=0.22:alpha=1[c3b];`,
+    `[6:v]format=rgba,loop=loop=299:size=1:start=0,setpts=N/(30*TB),fade=t=in:st=4.15:d=0.16:alpha=1,fade=t=out:st=6.30:d=0.22:alpha=1[c4];`,
+    `[7:v]format=rgba,loop=loop=299:size=1:start=0,setpts=N/(30*TB),fade=t=in:st=6.45:d=0.20:alpha=1[c5];`,
+    `[8:v]format=rgba,loop=loop=299:size=1:start=0,setpts=N/(30*TB),fade=t=in:st=7.08:d=0.16:alpha=1[c6];`,
+    `[0:v][c1]overlay=x=0:y=0:eof_action=pass[v1];`,
+    `[v1][c2]overlay=x=60:y='320+if(lt(t,0.12),90,if(lt(t,0.48),90*pow(1-(t-0.12)/0.36,3),if(gt(t,2.44),-45*(t-2.44)/0.22,0)))':enable='between(t,0.12,2.66)':eof_action=pass[v2];`,
+    `[v2][c3]overlay=x='60+if(lt(t,2.60),140,if(lt(t,3.02),140*pow(1-(t-2.60)/0.42,3),0))':y=280:enable='between(t,2.60,6.52)':eof_action=pass[v3];`,
+    `[v3][c3b]overlay=x=60:y='848+if(lt(t,3.28),70,if(lt(t,3.62),70*pow(1-(t-3.28)/0.34,3),0))':enable='between(t,3.28,6.52)':eof_action=pass[v4];`,
+    `[v4][c4]overlay=x=60:y='1072+if(lt(t,4.15),65,if(lt(t,4.47),65*pow(1-(t-4.15)/0.32,3),0))':enable='between(t,4.15,6.52)':eof_action=pass[v5];`,
+    `[v5][c5]overlay=x=60:y='330+if(lt(t,6.45),100,if(lt(t,6.85),100*pow(1-(t-6.45)/0.40,3),0))':enable='between(t,6.45,10.00)':eof_action=pass[v6];`,
+    `[v6][c6]overlay=x=60:y='965+if(lt(t,7.08),80,if(lt(t,7.38),80*pow(1-(t-7.08)/0.30,3),0))':enable='between(t,7.08,10.00)':eof_action=pass[v7];`,
     `color=c=0x27272A:s=920x8:r=30:d=10,format=rgba,colorchannelmixer=aa=0.65[pbg];`,
     `color=c=0xD4AF37:s=920x8:r=30:d=10,format=rgba[pfg];`,
     `[pbg][pfg]overlay=x='-920+920*min(1,t/10)':y=0:format=rgb[pbar];`,
-    `[v7][pbar]overlay=x=80:y=1604,format=yuv420p[vout]`,
+    `[v7][pbar]overlay=x=80:y=1604:eof_action=pass,format=yuv420p[vout]`,
   ].join("\n");
 }
 
@@ -1504,13 +1524,14 @@ function buildJobReelData(
   const employmentAr = EMPLOYMENT_AR[empType] || "دوام كامل";
   const employmentEn = empType.replace("_", " ");
 
-  const rawTitleAr = bilingualSafe(job.title_ar, "");
+  const rawTitleAr = bilingualSafe(job.title_ar, "").replace(/^title\s*:\s*/i, "").trim();
   const titleAr =
     rawTitleAr && hasArabicText(rawTitleAr)
       ? truncateChars(rawTitleAr, 44)
       : truncateChars(`فرصة عمل في ${industryAr} — ${cityAr}`, 44);
   const titleEn = truncateChars(
-    latinSafe(job.title_en, "Verified GCC Opportunity"),
+    latinSafe(job.title_en, "Verified GCC Opportunity").replace(/^title\s*:\s*/i, "").trim() ||
+      "Verified GCC Opportunity",
     52
   );
 
@@ -1695,29 +1716,35 @@ export async function renderOrGetJobReel(
       const fonts = loadOgArabicFonts();
       const fontList = fonts.length > 0 ? fonts : undefined;
 
-      const layers: Array<{ file: string; el: ReactElement }> = [
-        { file: "l1_chrome.png", el: buildLayer1Chrome(reelData) },
-        { file: "l2_hook.png", el: buildLayer2Hook(reelData) },
-        { file: "l3_card.png", el: buildLayer3JobCard(reelData) },
-        { file: "l3b_salary.png", el: buildLayer3bSalary(reelData) },
-        { file: "l4_mx.png", el: buildLayer4Mx(reelData) },
-        { file: "l5_cta.png", el: buildLayer5Cta(reelData) },
-        { file: "l6_comment_cta.png", el: buildLayer6CommentCta(reelData) },
+      const layers: Array<{
+        file: string;
+        width: number;
+        height: number;
+        el: ReactElement;
+      }> = [
+        { file: "l1_chrome.png", width: WIDTH, height: HEIGHT, el: buildLayer1Chrome(reelData) },
+        { file: "l2_hook.png", width: 960, height: 840, el: buildLayer2Hook(reelData) },
+        { file: "l3_card.png", width: 960, height: 580, el: buildLayer3JobCard(reelData) },
+        { file: "l3b_salary.png", width: 960, height: 236, el: buildLayer3bSalary(reelData) },
+        { file: "l4_mx.png", width: 960, height: 204, el: buildLayer4Mx(reelData) },
+        { file: "l5_cta.png", width: 960, height: 660, el: buildLayer5Cta(reelData) },
+        { file: "l6_comment_cta.png", width: 960, height: 310, el: buildLayer6CommentCta(reelData) },
       ];
 
       const layerPaths: Record<string, string> = {};
-      // Render Satori PNGs sequentially or in batches of 2 to keep peak Docker RAM low
-      for (const layer of layers) {
-        const res = new ImageResponse(layer.el, {
-          width: WIDTH,
-          height: HEIGHT,
-          fonts: fontList,
-        });
-        const buf = Buffer.from(await res.arrayBuffer());
-        const target = path.join(tmpDir, layer.file);
-        fs.writeFileSync(target, buf);
-        layerPaths[layer.file] = target;
-      }
+      await Promise.all(
+        layers.map(async (layer) => {
+          const res = new ImageResponse(layer.el, {
+            width: layer.width,
+            height: layer.height,
+            fonts: fontList,
+          });
+          const buf = Buffer.from(await res.arrayBuffer());
+          const target = path.join(tmpDir, layer.file);
+          fs.writeFileSync(target, buf);
+          layerPaths[layer.file] = target;
+        })
+      );
 
       const ffmpegBin = resolveFfmpegBin();
       const filterGraph = buildFilterGraph();
@@ -1725,19 +1752,19 @@ export async function renderOrGetJobReel(
         "-y",
         "-i", bgPath,
         "-i", audioPath,
-        "-loop", "1", "-framerate", "30", "-t", "10", "-i", layerPaths["l1_chrome.png"],
-        "-loop", "1", "-framerate", "30", "-t", "10", "-i", layerPaths["l2_hook.png"],
-        "-loop", "1", "-framerate", "30", "-t", "10", "-i", layerPaths["l3_card.png"],
-        "-loop", "1", "-framerate", "30", "-t", "10", "-i", layerPaths["l3b_salary.png"],
-        "-loop", "1", "-framerate", "30", "-t", "10", "-i", layerPaths["l4_mx.png"],
-        "-loop", "1", "-framerate", "30", "-t", "10", "-i", layerPaths["l5_cta.png"],
-        "-loop", "1", "-framerate", "30", "-t", "10", "-i", layerPaths["l6_comment_cta.png"],
+        "-framerate", "30", "-i", layerPaths["l1_chrome.png"],
+        "-framerate", "30", "-i", layerPaths["l2_hook.png"],
+        "-framerate", "30", "-i", layerPaths["l3_card.png"],
+        "-framerate", "30", "-i", layerPaths["l3b_salary.png"],
+        "-framerate", "30", "-i", layerPaths["l4_mx.png"],
+        "-framerate", "30", "-i", layerPaths["l5_cta.png"],
+        "-framerate", "30", "-i", layerPaths["l6_comment_cta.png"],
         "-filter_complex", filterGraph,
         "-map", "[vout]",
         "-map", "1:a",
         "-c:v", "libx264",
-        "-preset", "veryfast",
-        "-crf", "18",
+        "-preset", "superfast",
+        "-crf", "19",
         "-threads", "2",
         "-pix_fmt", "yuv420p",
         "-r", "30",
