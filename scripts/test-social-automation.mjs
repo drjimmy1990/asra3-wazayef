@@ -784,3 +784,25 @@ test("collectUniqueNewJobs prevents 20 channel-1 duplicates from starving new ch
     ["new-hash-1", "new-hash-2", "new-hash-3", "new-hash-4", "new-hash-5"]
   );
 });
+
+test("stripLoneSurrogates, stripLeadingBulletOrEmoji & safeEncodeURIComponent never leave broken UTF-16 surrogates", () => {
+  const cleanedPin = harvesterUtils.stripLeadingBulletOrEmoji(
+    "💼 المسمى الوظيفي: Patient Administration Executive"
+  );
+  assert.equal(cleanedPin, "المسمى الوظيفي: Patient Administration Executive");
+  assert.doesNotThrow(() => encodeURIComponent(cleanedPin));
+
+  const stripped = harvesterUtils.stripLoneSurrogates(
+    "\udcbc المسمى الوظيفي: ⚡ Accountant 🇦🇪 📌 \ud83d"
+  );
+  assert.equal(stripped, " المسمى الوظيفي: ⚡ Accountant 🇦🇪 📌 ");
+  assert.doesNotThrow(() => encodeURIComponent(stripped));
+
+  assert.doesNotThrow(() =>
+    harvesterUtils.safeEncodeURIComponent("\udcbc broken \ud83d Accountant")
+  );
+  assert.equal(
+    harvesterUtils.safeEncodeURIComponent("\udcbc broken \ud83d Accountant"),
+    encodeURIComponent(" broken  Accountant")
+  );
+});

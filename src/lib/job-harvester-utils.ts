@@ -14,14 +14,37 @@ export interface TelegramRawCandidate {
   postedAtMs: number;
 }
 
+/**
+ * Removes unpaired UTF-16 surrogates (e.g. half of a 4-byte emoji left behind
+ * by non-/u regex slicing) while keeping valid astral pairs and RTL text intact.
+ */
+export function stripLoneSurrogates(input: string): string {
+  return String(input || "").replace(
+    /[\uD800-\uDBFF][\uDC00-\uDFFF]|[\uD800-\uDFFF]/g,
+    (m) => (m.length === 2 ? m : "")
+  );
+}
+
+export function safeEncodeURIComponent(input: string): string {
+  return encodeURIComponent(stripLoneSurrogates(input));
+}
+
+export function stripLeadingBulletOrEmoji(input: string): string {
+  return stripLoneSurrogates(input)
+    .replace(/^[\s•\-–—*⚡🔥📌📢✅👉💼🏢📍🔹🔸▪▫0-9.)]+/u, "")
+    .trim();
+}
+
 export function decodeTelegramHtml(input: string): string {
-  return String(input || "")
-    .replace(/&amp;/gi, "&")
-    .replace(/&#0*39;|&apos;/gi, "'")
-    .replace(/&quot;/gi, '"')
-    .replace(/&nbsp;|&#160;/gi, " ")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">");
+  return stripLoneSurrogates(
+    String(input || "")
+      .replace(/&amp;/gi, "&")
+      .replace(/&#0*39;|&apos;/gi, "'")
+      .replace(/&quot;/gi, '"')
+      .replace(/&nbsp;|&#160;/gi, " ")
+      .replace(/&lt;/gi, "<")
+      .replace(/&gt;/gi, ">")
+  );
 }
 
 function extractPlainMessageText(rawHtmlSegment: string): string {

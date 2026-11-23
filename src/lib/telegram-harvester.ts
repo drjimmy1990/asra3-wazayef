@@ -11,6 +11,7 @@ import {
   classifyCompanyIndustry,
   verifyCompanyEmail,
 } from "@/lib/company-verifier";
+import { stripLoneSurrogates } from "@/lib/job-harvester-utils";
 
 export interface TelegramChannelConfig {
   username: string;
@@ -883,8 +884,8 @@ function detectCountryAndCity(
 }
 
 function cleanJobSpecialtyText(raw: string): string {
-  return raw
-    .replace(/^[\s•\-–—*⚡🔥📌📢✅👉0-9.)]+/, "")
+  return stripLoneSurrogates(raw)
+    .replace(/^[\s•\-–—*⚡🔥📌📢✅👉💼🏢📍0-9.)]+/u, "")
     .replace(
       /\b(urgent|urgently|hiring|required|looking\s+for|we\s+are\s+hiring|vacancy|vacancies|job\s+opportunity|current\s+job\s+vacancies|apply\s+now|walk-in|walk\s+in|interview)\b[:\s\-–—]*/gi,
       ""

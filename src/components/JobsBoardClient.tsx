@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { ScrollProgressRail } from "@/components/MotionPrimitives";
 import { useApp } from "@/context/AppContext";
+import { safeEncodeURIComponent } from "@/lib/job-harvester-utils";
 import {
   CountryCode,
   EmploymentType,
@@ -565,7 +566,7 @@ export function JobsBoardClient({
               const title = lang === "ar" ? job.title_ar : job.title_en;
               const summary = lang === "ar" ? job.summary_ar : job.summary_en;
               const city = lang === "ar" ? job.city_name_ar : job.city_name_en;
-              const wizardHref = `/?country=${job.country_code}&city=${job.city_id}&industry=${job.industry_id}&role=${encodeURIComponent(job.title_en)}#wizard-section`;
+              const wizardHref = `/?country=${job.country_code}&city=${job.city_id}&industry=${job.industry_id}&role=${safeEncodeURIComponent(job.title_en)}#wizard-section`;
 
               return (
                 <article

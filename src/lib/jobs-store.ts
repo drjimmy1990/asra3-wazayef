@@ -30,6 +30,7 @@ import {
   getGulfPeakSlot,
   type GulfPeakSlot,
 } from "@/lib/social-cadence";
+import { stripLoneSurrogates } from "@/lib/job-harvester-utils";
 
 const DATA_DIR = path.join(process.cwd(), ".data");
 const JOBS_FILE = path.join(DATA_DIR, "jobs.json");
@@ -148,13 +149,24 @@ function normalizeJobRow(row: JobPostingRecord): JobPostingRecord {
 
   return {
     ...row,
+    title_ar: stripLoneSurrogates(row.title_ar),
+    title_en: stripLoneSurrogates(row.title_en),
+    company_name: stripLoneSurrogates(row.company_name),
+    summary_ar: stripLoneSurrogates(row.summary_ar),
+    summary_en: stripLoneSurrogates(row.summary_en),
     status: autoStatus,
     source_channel: cleanSourceChannel,
     secondary_industries: parsedSecondary,
     masked_apply_email: row.apply_email ? maskEmail(row.apply_email) : null,
-    requirements_ar: Array.isArray(row.requirements_ar) ? row.requirements_ar : [],
-    requirements_en: Array.isArray(row.requirements_en) ? row.requirements_en : [],
-    skills: Array.isArray(row.skills) ? row.skills : [],
+    requirements_ar: Array.isArray(row.requirements_ar)
+      ? row.requirements_ar.map((item) => stripLoneSurrogates(item))
+      : [],
+    requirements_en: Array.isArray(row.requirements_en)
+      ? row.requirements_en.map((item) => stripLoneSurrogates(item))
+      : [],
+    skills: Array.isArray(row.skills)
+      ? row.skills.map((item) => stripLoneSurrogates(item))
+      : [],
   };
 }
 

@@ -21,6 +21,8 @@ import {
   collectUniqueNewJobs,
   extractTelegramMessageCandidates,
   prioritizeHarvestCandidates,
+  stripLeadingBulletOrEmoji,
+  stripLoneSurrogates,
   TelegramRawCandidate,
 } from "@/lib/job-harvester-utils";
 import { bulkImportCompanies } from "@/lib/store";
@@ -161,19 +163,27 @@ function extractStructuredRolesFromPost(
   let companyName = "";
   const rawRoleTitles: string[] = [];
 
+  const stripRoleLabelPrefix = (val: string) =>
+    stripLeadingBulletOrEmoji(val)
+      .replace(
+        /^(?:position|role|job\s*title|designation|vacancy|المسمى(?:\s+الوظيفي)?|الوظيفة)\s*[:\-–—]\s*/i,
+        ""
+      )
+      .trim();
+
   for (const line of lines) {
     if (!companyName) {
       const m = line.match(
         /(?:company\s*name|company|employer|organization|الجهة|الشركة|اسم\s+الشركة)\s*[:\-–—]\s*([A-Za-z0-9\u0600-\u06FF\s&.,'()–—-]{3,65})/i
       );
       if (m?.[1] && !/confidential|leading|reputed/i.test(m[1])) {
-        companyName = m[1].trim();
-      } else if (/🏢/.test(line) && !/employer|company|الجهة|الشركة/i.test(line)) {
+        companyName = stripLoneSurrogates(m[1].trim());
+      } else if (/🏢/u.test(line) && !/employer|company|الجهة|الشركة/i.test(line)) {
         const pinOrg = line.match(
           /🏢\s*([A-Za-z0-9\u0600-\u06FF\s&.,'()–—-]{3,65})/u
         );
         if (pinOrg?.[1] && !/confidential|leading|reputed/i.test(pinOrg[1])) {
-          companyName = pinOrg[1].trim();
+          companyName = stripLoneSurrogates(pinOrg[1].trim());
         }
       }
     }
@@ -182,8 +192,7 @@ function extractStructuredRolesFromPost(
       /(?:position|role|job\s*title|designation|vacancy)\s*[:\-–—]\s*([A-Za-z0-9\s/&+.,()–—-]{4,68})/i
     );
     if (explicitRole?.[1]) {
-      const cleaned = explicitRole[1]
-        .replace(/^[\s•\-*⚡🔥📌📢✅👉0-9.)]+/, "")
+      const cleaned = stripRoleLabelPrefix(explicitRole[1])
         .replace(/\b(urgent|urgently|hiring|required|apply\s+now)\b[:\s\-]*/gi, "")
         .trim();
       if (cleaned.length >= 4) rawRoleTitles.push(cleaned);
@@ -192,10 +201,10 @@ function extractStructuredRolesFromPost(
 
     // Detect multi-vacancy numbered or bulleted role lines (e.g. "1. Civil Engineer", "• Senior Accountant")
     const bulletMatch = line.match(
-      /^(?:[0-9]{1,2}[.)\-]|[•\-–—*⚡🔥📌✅👉])\s*([A-Za-z0-9\s/&+.,()–—-]{4,58})$/
+      /^(?:[0-9]{1,2}[.)\-]|[•\-–—*⚡🔥📌📢✅👉💼])\s*([A-Za-z0-9\s/&+.,()–—-]{4,58})$/u
     );
     if (bulletMatch?.[1] && ROLE_NOUN.test(bulletMatch[1])) {
-      const cleaned = bulletMatch[1]
+      const cleaned = stripRoleLabelPrefix(bulletMatch[1])
         .replace(/\s*\([0-9]+\s*(?:nos?|positions?|vacancies|yrs?|years?).*\)$/i, "")
         .replace(/\b(urgent|urgently|hiring|required|apply\s+now)\b[:\s\-]*/gi, "")
         .trim();
@@ -206,35 +215,13 @@ function extractStructuredRolesFromPost(
   }
 
   if (rawRoleTitles.length === 0) {
-    const nat = plainText.match(
-      /(?:hiring|looking\s+for|seeking|required)\s+(?:a\s+|an\s+|experienced\s+)*([A-Za-z0-9\s/&+.-]{5,52}?)(?:\s+(?:in\s+|for\s+|with\s+|to\s+join|immediately)|[.,!\n\r|]|$)/i
-    );
-    if (nat?.[1] && ROLE_NOUN.test(nat[1])) {
-      rawRoleTitles.push(nat[1].trim());
-    }
-  }
-
-  if (rawRoleTitles.length === 0) {
-    for (const l of lines) {
-      if (l.length >= 6 && l.length <= 62 && ROLE_NOUN.test(l) && !/@/.test(l)) {
-        const cleaned = l.replace(/^[\s•\-*⚡🔥📌📢✅👉0-9.)]+/, "").trim();
-        if (cleaned.length >= 4) {
-          rawRoleTitles.push(cleaned);
-          if (rawRoleTitles.length >= 4) break;
-        }
-      }
-    }
-  }
-
-  if (rawRoleTitles.length === 0) {
     for (const line of lines) {
       for (const arPat of ARABIC_JOB_LABEL_PATTERNS) {
         const m = line.match(arPat);
         if (m?.[1]) {
-          const cleaned = m[1]
-            .replace(/\s*[•·|].*$/, "")
-            .replace(/^[\s•\-*⚡🔥📌📢✅👉0-9.)]+/, "")
-            .trim();
+          const cleaned = stripRoleLabelPrefix(
+            m[1].replace(/\s*[•·|].*$/, "")
+          );
           if (cleaned.length >= 4 && !/@/.test(cleaned)) {
             rawRoleTitles.push(cleaned);
             break;
@@ -242,6 +229,27 @@ function extractStructuredRolesFromPost(
         }
       }
       if (rawRoleTitles.length >= 3) break;
+    }
+  }
+
+  if (rawRoleTitles.length === 0) {
+    const nat = plainText.match(
+      /(?:hiring|looking\s+for|seeking|required)\s+(?:a\s+|an\s+|experienced\s+)*([A-Za-z0-9\s/&+.-]{5,52}?)(?:\s+(?:in\s+|for\s+|with\s+|to\s+join|immediately)|[.,!\n\r|]|$)/i
+    );
+    if (nat?.[1] && ROLE_NOUN.test(nat[1])) {
+      rawRoleTitles.push(stripRoleLabelPrefix(nat[1]));
+    }
+  }
+
+  if (rawRoleTitles.length === 0) {
+    for (const l of lines) {
+      if (l.length >= 6 && l.length <= 68 && ROLE_NOUN.test(l) && !/@/.test(l)) {
+        const cleaned = stripRoleLabelPrefix(l);
+        if (cleaned.length >= 4) {
+          rawRoleTitles.push(cleaned);
+          if (rawRoleTitles.length >= 4) break;
+        }
+      }
     }
   }
 
@@ -391,10 +399,10 @@ function extractStructuredRolesFromPost(
     ];
 
     return {
-      titleEn,
-      titleAr,
+      titleEn: stripLoneSurrogates(titleEn),
+      titleAr: stripLoneSurrogates(titleAr),
       isPureArabicRole,
-      companyName,
+      companyName: stripLoneSurrogates(companyName),
       industryId,
       experienceLevel,
       employmentType,
@@ -402,10 +410,10 @@ function extractStructuredRolesFromPost(
       salaryMax,
       salaryCurrency: countryObj.currency_code,
       skills: roleSkills.slice(0, 6),
-      summaryEn,
-      summaryAr,
-      requirementsEn,
-      requirementsAr,
+      summaryEn: stripLoneSurrogates(summaryEn),
+      summaryAr: stripLoneSurrogates(summaryAr),
+      requirementsEn: requirementsEn.map((r) => stripLoneSurrogates(r)),
+      requirementsAr: requirementsAr.map((r) => stripLoneSurrogates(r)),
     };
   });
 }

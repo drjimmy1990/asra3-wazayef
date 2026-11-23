@@ -6,6 +6,7 @@ import { Navbar } from "@/components/Navbar";
 import { ScrollProgressRail } from "@/components/MotionPrimitives";
 import { useApp } from "@/context/AppContext";
 import { trackGaEvent } from "@/components/GoogleAnalytics";
+import { safeEncodeURIComponent } from "@/lib/job-harvester-utils";
 import { JobPostingRecord } from "@/lib/types";
 import {
   AlertCircle,
@@ -101,9 +102,9 @@ export function JobDetailClient({
   const industryName =
     lang === "ar" ? industryObj.name_ar : industryObj.name_en;
 
-  const wizardUrl = `/?country=${job.country_code}&city=${job.city_id}&industry=${job.industry_id}&role=${encodeURIComponent(job.title_en)}#wizard-section`;
+  const wizardUrl = `/?country=${job.country_code}&city=${job.city_id}&industry=${job.industry_id}&role=${safeEncodeURIComponent(job.title_en)}#wizard-section`;
 
-  const mailtoSubject = encodeURIComponent(
+  const mailtoSubject = safeEncodeURIComponent(
     `Application for ${job.title_en} — ${job.city_name_en}`
   );
 
@@ -546,7 +547,7 @@ export function JobDetailClient({
                   <a
                     href={
                       ogTemplate
-                        ? `/api/og/job/${job.slug}?t=${encodeURIComponent(ogTemplate)}`
+                        ? `/api/og/job/${job.slug}?t=${safeEncodeURIComponent(ogTemplate)}`
                         : `/api/og/job/${job.slug}`
                     }
                     download={`asra3-${job.slug}.png`}
